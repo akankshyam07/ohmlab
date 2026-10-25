@@ -1,6 +1,6 @@
 import type { Lesson } from '../types'
 import { between, mA } from './checks'
-import { BREADBOARD, LED_WAY, METER_OPTIONAL, METER_VOLTS } from './primer'
+import { BREADBOARD, LED_WAY, METER_OPTIONAL, METER_VOLTS, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const colours = [
   { label: 'Red', value: 'red' },
@@ -187,33 +187,35 @@ const lesson: Lesson = {
       ],
     },
     layout: {
-      width: 14,
-      height: 9,
+      // Spread out (review N2): labels above the top row, D2's to the left and S1's to the right of their
+      // columns, S2's above its bypass and D3's below the bottom wire, so no two labels share space.
+      width: 20,
+      height: 10,
       parts: [
-        { id: 'V1', from: { x: 1, y: 3 }, to: { x: 1, y: 6 }, label: 'V1', labelSide: 'left' },
-        { id: 'R1', from: { x: 2, y: 1 }, to: { x: 5, y: 1 }, label: 'R1', labelSide: 'above' },
-        { id: 'D1', from: { x: 7, y: 1 }, to: { x: 10, y: 1 }, label: 'D1', labelSide: 'above' },
-        { id: 'D2', from: { x: 11, y: 3 }, to: { x: 11, y: 6 }, label: 'D2', labelSide: 'left' },
-        { id: 'S1', from: { x: 13, y: 3 }, to: { x: 13, y: 6 }, label: 'Jumper S1', labelSide: 'right' },
-        { id: 'D3', from: { x: 8, y: 8 }, to: { x: 5, y: 8 }, label: 'D3 (1N4007)', labelSide: 'below' },
-        { id: 'S2', from: { x: 8, y: 6 }, to: { x: 5, y: 6 }, label: 'S2', labelSide: 'above' },
+        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
+        { id: 'R1', from: { x: 4, y: 1 }, to: { x: 7, y: 1 }, label: 'R1', labelSide: 'above' },
+        { id: 'D1', from: { x: 9, y: 1 }, to: { x: 12, y: 1 }, label: 'D1', labelSide: 'above' },
+        { id: 'D2', from: { x: 14, y: 3 }, to: { x: 14, y: 6 }, label: 'D2', labelSide: 'left' },
+        { id: 'S1', from: { x: 17, y: 3 }, to: { x: 17, y: 6 }, label: 'Jumper S1', labelSide: 'right' },
+        { id: 'D3', from: { x: 10, y: 9 }, to: { x: 7, y: 9 }, label: 'D3 (1N4007)', labelSide: 'below' },
+        { id: 'S2', from: { x: 10, y: 7 }, to: { x: 7, y: 7 }, label: 'S2', labelSide: 'above' },
       ],
       wires: [
-        { id: 'w-v1-r1', points: [{ x: 1, y: 3 }, { x: 1, y: 1 }, { x: 2, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-r1-d1', points: [{ x: 5, y: 1 }, { x: 7, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-d1-b', points: [{ x: 10, y: 1 }, { x: 11, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-b-d2', points: [{ x: 11, y: 1 }, { x: 11, y: 3 }], carries: { componentId: 'D2', sign: 1 } },
-        { id: 'w-b-s1', points: [{ x: 11, y: 1 }, { x: 13, y: 1 }, { x: 13, y: 3 }], carries: { componentId: 'S1', sign: 1 } },
-        { id: 'w-s1-ret', points: [{ x: 13, y: 6 }, { x: 13, y: 8 }, { x: 11, y: 8 }], carries: { componentId: 'S1', sign: 1 } },
-        { id: 'w-d2-ret', points: [{ x: 11, y: 6 }, { x: 11, y: 8 }], carries: { componentId: 'D2', sign: 1 } },
-        { id: 'w-ret-d3', points: [{ x: 11, y: 8 }, { x: 8, y: 8 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-ret-s2', points: [{ x: 8, y: 8 }, { x: 8, y: 6 }], carries: { componentId: 'S2', sign: 1 } },
-        { id: 'w-s2-gnd', points: [{ x: 5, y: 6 }, { x: 5, y: 8 }], carries: { componentId: 'S2', sign: 1 } },
-        { id: 'w-gnd-v1', points: [{ x: 5, y: 8 }, { x: 1, y: 8 }, { x: 1, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 4, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-r1-d1', points: [{ x: 7, y: 1 }, { x: 9, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-d1-b', points: [{ x: 12, y: 1 }, { x: 14, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-b-d2', points: [{ x: 14, y: 1 }, { x: 14, y: 3 }], carries: { componentId: 'D2', sign: 1 } },
+        { id: 'w-b-s1', points: [{ x: 14, y: 1 }, { x: 17, y: 1 }, { x: 17, y: 3 }], carries: { componentId: 'S1', sign: 1 } },
+        { id: 'w-s1-ret', points: [{ x: 17, y: 6 }, { x: 17, y: 9 }, { x: 14, y: 9 }], carries: { componentId: 'S1', sign: 1 } },
+        { id: 'w-d2-ret', points: [{ x: 14, y: 6 }, { x: 14, y: 9 }], carries: { componentId: 'D2', sign: 1 } },
+        { id: 'w-ret-d3', points: [{ x: 14, y: 9 }, { x: 10, y: 9 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-ret-s2', points: [{ x: 10, y: 9 }, { x: 10, y: 7 }], carries: { componentId: 'S2', sign: 1 } },
+        { id: 'w-s2-gnd', points: [{ x: 7, y: 7 }, { x: 7, y: 9 }], carries: { componentId: 'S2', sign: 1 } },
+        { id: 'w-gnd-v1', points: [{ x: 7, y: 9 }, { x: 2, y: 9 }, { x: 2, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
       ],
       probes: [
-        { node: 'a', at: { x: 6, y: 1 }, label: 'D1 +' },
-        { node: 'b', at: { x: 11, y: 2 }, label: 'D2 +' },
+        { node: 'a', at: { x: 8, y: 1 }, label: 'D1 +' },
+        { node: 'b', at: { x: 14, y: 2 }, label: 'D2 +' },
       ],
     },
     controls: [
@@ -291,7 +293,7 @@ const lesson: Lesson = {
         id: 'reverse-block',
         prompt: 'Flip D1 **backwards** and confirm that it blocks the current completely, **without** going past its 5 V reverse rating.',
         hint: 'Click D1 to flip it, and watch the current and the voltage across D1. If D1 shows **REVERSE V**, the supply is too big for a backwards LED: use the Uno’s 5 V.',
-        success: 'Zero current, and D1 has nearly the whole supply across it the wrong way round (a negative reading). A diode backwards is an open switch. On 5 V that is within the LED’s rating; on the 9 V battery it would not be.',
+        success: 'Zero current, and D1 has nearly the whole supply across it the wrong way round (a negative reading). A diode backwards is an open switch. On 5 V that is within the LED’s rating; on the 9 V battery it would not be. (If jumper S1 is open, **Voltage across D2** may show a leftover reading even at 0 A: with D1 blocking, the point between D1 and D2 is joined to nothing firm, so its voltage means nothing. A real meter there would wander too. Ignore it.)',
         check: (r) =>
           between(r.components.V1?.voltage, 4.99, 5.01) &&
           r.components.D1?.status === 'off' &&
@@ -392,17 +394,38 @@ const lesson: Lesson = {
       '**Which way the diode goes.** Current flows *towards* the silver band (the cathode), just as it flows towards an LED’s short leg.',
       METER_OPTIONAL,
       METER_VOLTS,
-      'Colours: build the Day 1 circuit (5V → 220 Ω → LED → GND) with a red LED, then a blue one. Blue is dimmer for the same resistor; if you have a multimeter, measure the voltage across each LED.',
-      'Two in series on 5 V: unplug, then wire 5V → 220 Ω → red LED → second red LED → GND (long leg of the second LED to the short leg of the first). Plug in: both glow, a little dimmer than one alone.',
-      'Two blue LEDs in series on 5 V: they stay dark. Unplug the Uno.',
-      'Now power the same two blue LEDs from the **9 V battery** (red wire to the resistor, black to the last LED’s short leg). Both light at about 13 mA.',
-      'Diode: back on the Uno, wire 5V → 1N4007 (band away from 5V) → 220 Ω → red LED → GND. The LED lights. Turn the diode around: the LED goes dark. The diode is blocking.',
+      'You’ll build the lab’s circuit exactly as drawn, with both jumpers in (the lab’s starting state). Unplugged: ' + UNO_POWER_STEP,
+      'R1 (220 Ω) from **b3** to **b7**, and a red jumper from the top **+** rail to **a3**.',
+      'D1 (red): long leg in **c7**, short leg in **c9**. D2 (red): long leg in **d9**, short leg in **d11**. Each LED’s short leg shares a column with the next part.',
+      'D3 (1N4007) from **b11** to **b15**, with its **band at b15**. A black jumper from **a15** to the top **−** rail.',
+      'The two bypass jumpers, just like the lab’s switches: yellow **S1** from **a9** to **a11** (around D2) and green **S2** from **c11** to **c15** (around D3).',
+      'Plug in USB. D1 lights brightly (about 14 mA). D2 stays dark: S1 carries the current around it.',
+      'Pull out **S1**. Now both red LEDs are in series and both glow, dimmer (about 5.6 mA). Put S1 back.',
+      'Pull out **S2**. D3 is now in the loop and takes about 0.7 V, so D1 dims a little (about 10.7 mA). Unplug, turn D3 around (band at **b11**) and plug in: dark. The diode is blocking. Turn it back and put S2 back in.',
+      'Colours: unplug and swap D1 for a blue LED, in the same holes (long leg in **c7**). It is dimmer with the same resistor. With a multimeter, measure across it: red probe on **c7**’s leg, black on **c9**’s.',
+      'Two blue LEDs on 9 V: unplug the Uno and pull its two jumpers out of the rails. Put blue LEDs in D1’s and D2’s holes and **pull out S1**, so both are in the loop. Then push the battery snap’s **red** lead into the top **+** rail and its **black** lead into the top **−** rail. Both light at about 13 mA. (On 5 V the same pair stays dark.)',
     ],
     safety: [
+      'Pull out jumper **S1** before you connect the 9 V battery. With S1 in, a single blue LED gets 9 V through 220 Ω: about 27 mA, over its rating.',
       'Use the 9 V battery only with **two blue (or white) LEDs in series** and at least 220 Ω. Two red LEDs on 9 V need 330 Ω (220 Ω gives about 23 mA, over the 20 mA rating), and one LED on 9 V needs 1 kΩ (Day 2).',
       'Don’t connect the Uno and the 9 V battery to the same circuit.',
       'Never put an LED backwards across more than about 5 V.',
     ],
+    // The drawing is the lab's starting state on 5 V: both jumpers in (S1 skips D2, S2 skips D3).
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+3', to: 'a3', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'b3', to: 'b7', ohms: 220 },
+        { kind: 'led', id: 'D1', anode: 'c7', cathode: 'c9', color: 'red' },
+        { kind: 'led', id: 'D2', anode: 'd9', cathode: 'd11', color: 'red' },
+        { kind: 'wire', id: 'S1', from: 'a9', to: 'a11', color: 'yellow' },
+        { kind: 'diode', id: 'D3', anode: 'b11', cathode: 'b15' },
+        { kind: 'wire', id: 'S2', from: 'c11', to: 'c15', color: 'green' },
+        { kind: 'wire', id: 'w-minus', from: 'a15', to: 'T-15', color: 'black' },
+      ],
+    },
   },
 }
 

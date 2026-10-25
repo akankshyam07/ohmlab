@@ -31,7 +31,7 @@ Personas and step-by-step journeys for Ohmlab v1. Each journey ends with **succe
 7. Only now does **"Break it!"** unlock. She deliberately picks **No resistor (0 Ω, sim only)** from the list. The LED is shown as burnt, with an explanatory alert, and the challenge completes. She resets with **Reset circuit**.
 8. She chooses a blue LED and 220 Ω (about 9 mA). **"Blue LED"** completes. All four challenges are done.
 9. Quiz: she answers 6 questions. Each choice shows its explanation immediately. On the numeric question she types "3 mA" and it's accepted. She sees **"You scored 5 / 6"** or better.
-10. Build: the steps open with a short "Before you build" primer (how breadboard rows and rails connect, which way the LED goes, and "Multimeter: not needed today"), then the kit steps and the safety notes (never an LED without a resistor; never 5V to GND).
+10. Build: the steps open with a short "Before you build" primer (how breadboard rows and rails connect, which way the LED goes, and "Multimeter: not needed today"), then an illustrated breadboard to copy hole for hole, kit steps that name the holes ("R1 from **c8** to **c12**"), and the safety notes (never an LED without a resistor; never 5V to GND).
 11. Back on home, Day 1 shows as complete and the continue card points to Day 2.
 
 **Success criteria**

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { solveDC } from '../sim/solver'
 import type { Circuit, Component, SolveResult } from '../sim/types'
 import type { CircuitLayout, Point } from '../viz/types'
+import { breadboardNets, legsOf, parseHole } from './breadboard'
 import { getLesson, lessons, phases } from './index'
 import { BREADBOARD, LED_WAY, METER_NEEDED, METER_OPTIONAL, METER_VOLTS, NO_METER } from './lessons/primer'
 import type { Block, ControlValue, Lab, LabControl } from './types'
@@ -298,6 +299,124 @@ describe('lesson schema', () => {
         }
         expect(new Set(groupNode.values()).size).toBe(groupNode.size)
         for (const w of layout.wires) expect(groupNode.has(find(key(w.points[0]))), `${w.id} touches a terminal`).toBe(true)
+      })
+    })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Breadboards: the drawn build must be wired like the lab circuit in the configuration it builds.
+
+/** Lab control settings the breadboard drawing builds (see the comment next to each lesson's breadboard). */
+const BUILD_CONFIG: Record<string, Record<string, ControlValue>> = {
+  'first-led': {},
+  'ohms-law': {},
+  'series-parallel': { s1: true },
+  'voltage-divider': { load: true },
+  power: {},
+  'diodes-leds': {},
+}
+const SUPPLY_PINS = { uno: ['uno:5V', 'uno:GND'], battery9v: ['bat:+', 'bat:-'] } as const
+
+describe('breadboards', () => {
+  it('parseHole accepts the grammar and nothing else', () => {
+    for (const ok of ['a1', 'e30', 'f1', 'j30', 'T+1', 'T-30', 'B+15', 'B-2', 'uno:5V', 'uno:3V3', 'uno:GND', 'uno:VIN', 'uno:D2', 'uno:D13', 'uno:A0', 'uno:A5', 'bat:+', 'bat:-'])
+      expect(parseHole(ok), ok).not.toBeNull()
+    for (const bad of ['a0', 'a31', 'k5', 'A5', 'T+0', 'T+31', 'T5', 'uno:D1', 'uno:D14', 'uno:A6', 'uno:5v', 'bat:x', '', 'c 5'])
+      expect(parseHole(bad), bad).toBeNull()
+    expect(parseHole('a5')).toBe(parseHole('e5'))
+    expect(parseHole('e5')).not.toBe(parseHole('f5'))
+    expect(parseHole('a5')).not.toBe(parseHole('a6'))
+    expect(parseHole('T+1')).toBe(parseHole('T+30'))
+    expect(parseHole('T+1')).not.toBe(parseHole('B+1'))
+  })
+
+  it('breadboardNets joins strips and wires, never components', () => {
+    const nets = breadboardNets({
+      supply: 'uno',
+      parts: [
+        { kind: 'wire', id: 'w1', from: 'uno:5V', to: 'T+1', color: 'red' },
+        { kind: 'wire', id: 'w2', from: 'T+9', to: 'a3', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'b3', to: 'b7', ohms: 220 },
+        { kind: 'led', id: 'D1', anode: 'c7', cathode: 'g7', color: 'red' },
+      ],
+    })
+    const sorted = nets.map((n) => [...n].sort()).sort((x, y) => x.length - y.length || x[0].localeCompare(y[0]))
+    expect(sorted).toEqual([['g7'], ['b7', 'c7'], ['T+1', 'T+9', 'a3', 'b3', 'uno:5V']])
+    expect(() => breadboardNets({ supply: 'uno', parts: [{ kind: 'wire', id: 'w', from: 'z1', to: 'a1', color: 'red' }] })).toThrow()
+  })
+
+  for (const lesson of lessons) {
+    const board = lesson.realBuild?.breadboard
+    describe(lesson.id, () => {
+      it('has a breadboard drawing with real holes, one leg per hole, and no part shorted by its own strip', () => {
+        expect(board, 'realBuild.breadboard').toBeDefined()
+        const holes = board!.parts.flatMap(legsOf)
+        for (const h of holes) expect(parseHole(h), h).not.toBeNull()
+        const repeated = holes.filter((h, i) => holes.indexOf(h) !== i)
+        expect(repeated, 'holes used twice').toEqual([])
+        const otherSupply = board!.supply === 'uno' ? /^bat:/ : /^uno:/
+        expect(holes.filter((h) => otherSupply.test(h)), 'pins of the supply that is not drawn').toEqual([])
+        for (const part of board!.parts) {
+          const [x, y] = legsOf(part)
+          expect(parseHole(x), `${part.id} has both legs in one strip`).not.toBe(parseHole(y))
+        }
+        expect(new Set(board!.parts.map((p) => p.id)).size, 'unique part ids').toBe(board!.parts.length)
+      })
+
+      it(`connects like the lab circuit with ${JSON.stringify(BUILD_CONFIG[lesson.id])}`, () => {
+        const lab = lesson.lab!
+        const { circuit } = withControls(lab, BUILD_CONFIG[lesson.id])
+        // Lab nodes, with each closed switch joining its two nodes.
+        const parent = new Map<string, string>()
+        const find = (n: string): string => (parent.has(n) ? find(parent.get(n)!) : n)
+        for (const c of circuit.components) if (c.kind === 'switch' && c.closed && find(c.a) !== find(c.b)) parent.set(find(c.a), find(c.b))
+
+        const netOf = new Map<string, number>()
+        breadboardNets(board!).forEach((net, i) => net.forEach((h) => netOf.set(h, i)))
+
+        const terms: { name: string; node: string; net: number | undefined }[] = []
+        const sources = circuit.components.filter((c) => c.kind === 'vsource')
+        expect(sources.length).toBe(1)
+        const source = sources[0] as Extract<Component, { kind: 'vsource' }>
+        const [plusPin, minusPin] = SUPPLY_PINS[board!.supply]
+        terms.push({ name: `${source.id}.pos (${plusPin})`, node: find(source.pos), net: netOf.get(plusPin) })
+        terms.push({ name: `${source.id}.neg (${minusPin})`, node: find(source.neg), net: netOf.get(minusPin) })
+
+        for (const c of circuit.components) {
+          if (c.kind === 'vsource') continue
+          const part = board!.parts.find((p) => p.id === c.id)
+          if (c.kind === 'switch') {
+            // A closed switch may be drawn as a wire with its id; an open one is simply left out.
+            if (part) expect([part.kind, c.closed], c.id).toEqual(['wire', true])
+            continue
+          }
+          expect(part?.kind, `${c.id} on the breadboard`).toBe(c.kind)
+          legsOf(part!).forEach((hole, i) => terms.push({ name: `${c.id}.${i ? 'second' : 'first'} (${hole})`, node: find(terminals(c)[i]), net: netOf.get(hole) }))
+        }
+        for (const p of board!.parts) if (p.kind !== 'wire') expect(circuit.components.map((c) => c.id), p.id).toContain(p.id)
+        for (const t of terms) expect(t.net, `${t.name} is wired`).toBeDefined()
+
+        const wrong: string[] = []
+        for (let i = 0; i < terms.length; i++)
+          for (let j = i + 1; j < terms.length; j++) {
+            const [a, b] = [terms[i], terms[j]]
+            if ((a.node === b.node) !== (a.net === b.net)) wrong.push(`${a.name} ${a.node === b.node ? 'should' : 'should not'} connect to ${b.name}`)
+          }
+        expect(wrong).toEqual([])
+
+        // Red wires sit on the + side of the supply, black wires on the − side.
+        for (const p of board!.parts) {
+          if (p.kind !== 'wire' || (p.color !== 'red' && p.color !== 'black')) continue
+          expect(netOf.get(p.from), `${p.id} (${p.color})`).toBe(netOf.get(p.color === 'red' ? plusPin : minusPin))
+        }
+      })
+
+      it('build steps point at holes on the drawing', () => {
+        const text = lesson.realBuild!.steps.join(' ')
+        const named = [...text.matchAll(/\*\*([a-j]\d{1,2})\*\*/g)].map((m) => m[1])
+        expect(named.length, 'steps name holes like **c12**').toBeGreaterThan(0)
+        for (const h of named) expect(parseHole(h), h).not.toBeNull()
       })
     })
   }

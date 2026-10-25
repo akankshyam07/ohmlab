@@ -1,6 +1,6 @@
 import type { Lesson } from '../types'
 import { between } from './checks'
-import { BREADBOARD, NO_METER } from './primer'
+import { BREADBOARD, NO_METER, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const lesson: Lesson = {
   id: 'power',
@@ -38,7 +38,7 @@ const lesson: Lesson = {
         {
           type: 'predict',
           id: 'd7-smaller-r',
-          prompt: 'The lab starts with a 1 kΩ resistor on the 9 V battery: 9 mA, so 9 V × 9 mA = 81 mW of heat. You swap it for **220 Ω**. Roughly how much heat now?',
+          prompt: 'Start with a 1 kΩ resistor on the 9 V battery (where the lab starts): 9 mA, so 9 V × 9 mA = 81 mW of heat. You swap it for **220 Ω**. Roughly how much heat now?',
           options: [
             { text: 'Less, about 18 mW: less resistance means less friction.', why: 'Less resistance on the same voltage lets *more* current through, and power is V × I. More current, more heat.' },
             { text: 'The same 81 mW, because the voltage hasn’t changed.', why: 'The voltage is the same, but the current isn’t: 9 V ÷ 220 Ω ≈ 41 mA instead of 9 mA.' },
@@ -286,9 +286,10 @@ const lesson: Lesson = {
     steps: [
       BREADBOARD,
       NO_METER,
-      'Unplugged: put the 1 kΩ resistor across the breadboard, with jumpers from one end to Uno **5V** and the other end to **GND**.',
+      'Unplugged. ' + UNO_POWER_STEP,
+      'Put the 1 kΩ resistor R1 from **c5** to **c9**. A red jumper from the top **+** rail to **a5**, and a black jumper from **a9** to the top **−** rail. R1 now sits straight across 5 V.',
       'Plug in for one minute (25 mW). Unplug, then touch the resistor lightly: it is barely warm, if at all.',
-      'Swap in the 220 Ω resistor (about 0.114 W). Plug in for one minute, unplug, and touch it briefly and carefully: noticeably warm.',
+      'Swap in the 220 Ω resistor, in the same holes (about 0.114 W). Plug in for one minute, unplug, and touch it briefly and carefully: noticeably warm.',
       'Calculate what a 220 Ω would make on 9 V (0.37 W). Don’t build it: the lab already showed you.',
     ],
     safety: [
@@ -296,6 +297,16 @@ const lesson: Lesson = {
       '**Do not** connect resistors under 1 kΩ directly across the 9 V battery. They overheat.',
       'Never short the Uno’s 5V to GND or the 9 V battery’s terminals together.',
     ],
+    // The drawing is the first step: 1 kΩ on the Uno's 5 V.
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+5', to: 'a5', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'c5', to: 'c9', ohms: 1000 },
+        { kind: 'wire', id: 'w-minus', from: 'a9', to: 'T-9', color: 'black' },
+      ],
+    },
   },
 }
 

@@ -1,7 +1,7 @@
 import type { SolveResult } from '../../sim/types'
 import type { Lesson } from '../types'
 import { between, mA } from './checks'
-import { BREADBOARD, METER_NEEDED, METER_OHMS, METER_VOLTS } from './primer'
+import { BREADBOARD, METER_NEEDED, METER_OHMS, METER_VOLTS, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const closed = (r: SolveResult) => r.components.S1?.status === 'ok'
 
@@ -160,26 +160,27 @@ const lesson: Lesson = {
       ],
     },
     layout: {
-      width: 14,
-      height: 9,
+      // Spread out (review N2): each vertical part's label sits on the side away from its neighbours.
+      width: 20,
+      height: 10,
       parts: [
-        { id: 'V1', from: { x: 1, y: 3 }, to: { x: 1, y: 6 }, label: 'V1', labelSide: 'left' },
-        { id: 'R1', from: { x: 3, y: 1 }, to: { x: 6, y: 1 }, label: 'R1', labelSide: 'above' },
-        { id: 'R2', from: { x: 8, y: 3 }, to: { x: 8, y: 6 }, label: 'R2', labelSide: 'left' },
-        { id: 'S1', from: { x: 10, y: 1 }, to: { x: 13, y: 1 }, label: 'S1', labelSide: 'above' },
-        { id: 'R3', from: { x: 13, y: 3 }, to: { x: 13, y: 6 }, label: 'R3', labelSide: 'left' },
+        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
+        { id: 'R1', from: { x: 4, y: 1 }, to: { x: 7, y: 1 }, label: 'R1', labelSide: 'above' },
+        { id: 'R2', from: { x: 9, y: 4 }, to: { x: 9, y: 7 }, label: 'R2', labelSide: 'right' },
+        { id: 'S1', from: { x: 12, y: 1 }, to: { x: 15, y: 1 }, label: 'S1', labelSide: 'above' },
+        { id: 'R3', from: { x: 17, y: 4 }, to: { x: 17, y: 7 }, label: 'R3', labelSide: 'right' },
       ],
       wires: [
-        { id: 'w-v1-r1', points: [{ x: 1, y: 3 }, { x: 1, y: 1 }, { x: 3, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-r1-m', points: [{ x: 6, y: 1 }, { x: 8, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-m-r2', points: [{ x: 8, y: 1 }, { x: 8, y: 3 }], carries: { componentId: 'R2', sign: 1 } },
-        { id: 'w-m-s1', points: [{ x: 8, y: 1 }, { x: 10, y: 1 }], carries: { componentId: 'S1', sign: 1 } },
-        { id: 'w-s1-r3', points: [{ x: 13, y: 1 }, { x: 13, y: 3 }], carries: { componentId: 'R3', sign: 1 } },
-        { id: 'w-r3-gnd', points: [{ x: 13, y: 6 }, { x: 13, y: 8 }, { x: 8, y: 8 }], carries: { componentId: 'R3', sign: 1 } },
-        { id: 'w-r2-gnd', points: [{ x: 8, y: 6 }, { x: 8, y: 8 }], carries: { componentId: 'R2', sign: 1 } },
-        { id: 'w-gnd-v1', points: [{ x: 8, y: 8 }, { x: 1, y: 8 }, { x: 1, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 4, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-r1-m', points: [{ x: 7, y: 1 }, { x: 9, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-m-r2', points: [{ x: 9, y: 1 }, { x: 9, y: 4 }], carries: { componentId: 'R2', sign: 1 } },
+        { id: 'w-m-s1', points: [{ x: 9, y: 1 }, { x: 12, y: 1 }], carries: { componentId: 'S1', sign: 1 } },
+        { id: 'w-s1-r3', points: [{ x: 15, y: 1 }, { x: 17, y: 1 }, { x: 17, y: 4 }], carries: { componentId: 'R3', sign: 1 } },
+        { id: 'w-r3-gnd', points: [{ x: 17, y: 7 }, { x: 17, y: 9 }, { x: 9, y: 9 }], carries: { componentId: 'R3', sign: 1 } },
+        { id: 'w-r2-gnd', points: [{ x: 9, y: 7 }, { x: 9, y: 9 }], carries: { componentId: 'R2', sign: 1 } },
+        { id: 'w-gnd-v1', points: [{ x: 9, y: 9 }, { x: 2, y: 9 }, { x: 2, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
       ],
-      probes: [{ node: 'm', at: { x: 8, y: 2 }, label: 'M' }],
+      probes: [{ node: 'm', at: { x: 9, y: 2 }, label: 'M' }],
     },
     controls: [
       ...(['R1', 'R2', 'R3'] as const).map((id) => ({
@@ -306,7 +307,7 @@ const lesson: Lesson = {
     parts: [
       'Elegoo Uno and USB cable',
       'Breadboard and jumper wires',
-      'Resistors: two 1 kΩ and one 2 kΩ',
+      'Resistors: three 1 kΩ and one 2 kΩ',
       'Digital multimeter (needed today)',
     ],
     steps: [
@@ -314,17 +315,32 @@ const lesson: Lesson = {
       METER_NEEDED,
       METER_OHMS,
       METER_VOLTS,
-      'With nothing powered, put a 1 kΩ and a 2 kΩ resistor in series on the breadboard (end to end, sharing one row).',
-      'Set the multimeter to resistance (Ω) and measure across both: expect about 3 kΩ.',
-      'Now put the two 1 kΩ resistors in parallel (both ends sharing the same two rows). Measure across them: expect about 500 Ω.',
-      'Build the lab circuit: Uno 5V → 1 kΩ (R1) → a row we’ll call M → 1 kΩ (R2) → GND. Plug in USB.',
-      'Set the meter to DC volts. Black probe on GND, red probe on M: expect about 2.5 V.',
-      'Add the second 1 kΩ (R3) from M to GND. Measure M again: it drops to about 1.67 V, just like the lab.',
+      'With nothing powered, put a 1 kΩ and a 2 kΩ in series: 1 kΩ from **c4** to **c8**, 2 kΩ from **d8** to **d12**. They share column 8.',
+      'Meter on resistance (Ω): one lead on a leg in column 4, the other on a leg in column 12. Expect about 3 kΩ.',
+      'Now take out the 2 kΩ and make two 1 kΩ in parallel: keep the first (**c4** to **c8**) and add the second from **d4** to **d8**. Both ends share the same two columns. Measure from column 4 to column 8: expect about 500 Ω. Clear the board.',
+      'Build the lab circuit as drawn, with all three resistors 1 kΩ. ' + UNO_POWER_STEP,
+      'R1 from **b4** to **b8** and R2 from **c8** to **c12**. Column 8 is the point **M**. A red jumper from the top **+** rail to **a4**, and a black jumper from **a12** to the top **−** rail. Plug in USB.',
+      'Meter on DC volts: black probe on the **−** rail, red probe on a leg in column 8 (M). Expect about 2.5 V. This is the lab with S1 open.',
+      'Unplug. Add R3 from **c15** to **c19**, a black jumper from **a19** to the **−** rail, and the yellow jumper **S1** from **d8** to **d15**: it plays the lab’s switch. Plug in and measure M again: about 1.67 V, just like the lab with S1 closed. Pull S1 out and M goes back to 2.5 V.',
     ],
     safety: [
       'Measure resistance only with the power off; the meter’s ohms mode can give nonsense or be damaged on a live circuit.',
       'Don’t connect 5V straight to GND with a jumper while rearranging parts.',
     ],
+    // The drawing is the lab with S1 closed (R3 in parallel with R2), all three resistors 1 kΩ. The yellow jumper is S1.
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+4', to: 'a4', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'b4', to: 'b8', ohms: 1000 },
+        { kind: 'resistor', id: 'R2', from: 'c8', to: 'c12', ohms: 1000 },
+        { kind: 'wire', id: 'w-r2-gnd', from: 'a12', to: 'T-12', color: 'black' },
+        { kind: 'wire', id: 'S1', from: 'd8', to: 'd15', color: 'yellow' },
+        { kind: 'resistor', id: 'R3', from: 'c15', to: 'c19', ohms: 1000 },
+        { kind: 'wire', id: 'w-r3-gnd', from: 'a19', to: 'T-19', color: 'black' },
+      ],
+    },
   },
 }
 

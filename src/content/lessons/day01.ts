@@ -1,6 +1,6 @@
 import type { Lesson } from '../types'
 import { between, mA, part } from './checks'
-import { BREADBOARD, LED_WAY, NO_METER } from './primer'
+import { BREADBOARD, LED_WAY, NO_METER, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const lesson: Lesson = {
   id: 'first-led',
@@ -26,11 +26,11 @@ const lesson: Lesson = {
         },
         {
           type: 'table',
-          head: ['Quantity', 'Symbol', 'Unit', 'Water-pipe picture', 'What it really is'],
+          head: ['Quantity', 'Water-pipe picture', 'What it really is'],
           rows: [
-            ['**Voltage**', 'V', 'volt (V)', 'The pressure difference between two points', 'How hard charge is pushed. Always measured *between two points*.'],
-            ['**Current**', 'I', 'amp (A)', 'How much water flows past per second', 'How much charge passes a point each second. 1 mA (milliamp) = 0.001 A.'],
-            ['**Resistance**', 'R', 'ohm (Ω)', 'How narrow the pipe is', 'How strongly a part opposes current. 1 kΩ (kilohm) = 1000 Ω.'],
+            ['**Voltage** (symbol V), in volts (V)', 'The pressure difference between two points', 'How hard charge is pushed. Always measured *between two points*.'],
+            ['**Current** (symbol I), in amps (A)', 'How much water flows past per second', 'How much charge passes a point each second. 1 mA (milliamp) = 0.001 A.'],
+            ['**Resistance** (symbol R), in ohms (Ω)', 'How narrow the pipe is', 'How strongly a part opposes current. 1 kΩ (kilohm) = 1000 Ω.'],
           ],
         },
         {
@@ -91,7 +91,7 @@ const lesson: Lesson = {
         {
           type: 'predict',
           id: 'd1-ten-k',
-          prompt: 'The lab starts with R1 = 1 kΩ, and about 3 mA flows. What happens to the LED if you swap 1 kΩ for **10 kΩ**?',
+          prompt: 'With **R1 = 1 kΩ** (where the lab starts), about 3 mA flows. What happens to the LED if you swap 1 kΩ for **10 kΩ**?',
           options: [
             { text: 'It gets brighter, because a bigger resistor is stronger.', why: 'A bigger resistance opposes current *more*, so less flows. Less current means less light.' },
             { text: 'It glows much more faintly: about a tenth of the current, roughly 0.3 mA.', correct: true, why: 'The resistor still gets about 3 V, and 3 V ÷ 10 kΩ = 0.3 mA. Ten times the resistance, a tenth of the current. The simulator shows about 0.33 mA: a faint glow.' },
@@ -331,19 +331,29 @@ const lesson: Lesson = {
       LED_WAY,
       NO_METER,
       'Unplug the Uno from USB while you wire. Make it a habit.',
-      'Push the LED into the breadboard so its two legs are in **different numbered rows**. Note which row has the **long leg** (the anode).',
-      'Put the **220 Ω** resistor from the long-leg row to an empty row.',
-      'Run a jumper from the Uno’s **5V** pin to the resistor’s free end.',
-      'Run a jumper from a **GND** pin on the Uno to the LED’s **short-leg** row.',
-      'Plug in USB. The LED lights. No code is needed: the Uno is just acting as a 5 V supply.',
-      'Experiments: flip the LED; swap 220 Ω for 1 kΩ, then 10 kΩ (work out the current first); move the resistor to the cathode side. Compare with what the lab showed you.',
-      'Not lighting? Check the LED isn’t backwards, that its legs aren’t in the same row (that shorts it out), and that the jumpers are in 5V and GND.',
+      UNO_POWER_STEP,
+      'Push the LED’s **long leg** (anode) into **e12** and its **short leg** into **e13**: two different columns.',
+      'Put the **220 Ω** resistor R1 from **c8** to **c12**. Its right leg shares column 12 with the LED’s long leg.',
+      'A **red** jumper from the top **+** rail to **a8**, and a **black** jumper from **a13** to the top **−** rail.',
+      'Trace the loop with your finger: + rail → a8 → R1 → column 12 → LED → column 13 → − rail. Plug in USB. The LED lights. No code is needed: the Uno is just acting as a 5 V supply.',
+      'Experiments (unplug before each change): flip the LED (long leg in **e13**, short leg in **e12**); swap 220 Ω for 1 kΩ, then 10 kΩ, in the same holes (work out the current first). Compare with what the lab showed you.',
+      'Not lighting? Check the LED isn’t backwards, that its legs aren’t in the same column (that shorts it out), and that the Uno’s jumpers are in 5V and GND.',
     ],
     safety: [
       'Never connect an LED to 5V and GND **without a resistor**. The burn-out in the lab is real.',
       'Never connect 5V straight to GND with a wire. That is a short circuit; the Uno’s USB fuse will cut out, and you can damage the board or your computer’s port.',
       'Wire with the power unplugged, and check before you plug in.',
     ],
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+8', to: 'a8', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'c8', to: 'c12', ohms: 220 },
+        { kind: 'led', id: 'D1', anode: 'e12', cathode: 'e13', color: 'red' },
+        { kind: 'wire', id: 'w-minus', from: 'a13', to: 'T-13', color: 'black' },
+      ],
+    },
   },
 }
 

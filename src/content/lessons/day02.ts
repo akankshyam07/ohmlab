@@ -1,6 +1,6 @@
 import type { Lesson } from '../types'
 import { between, mA } from './checks'
-import { BREADBOARD, LED_WAY, NO_METER } from './primer'
+import { BREADBOARD, LED_WAY, NO_METER, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const lesson: Lesson = {
   id: 'ohms-law',
@@ -46,7 +46,7 @@ const lesson: Lesson = {
         {
           type: 'predict',
           id: 'd2-low-supply',
-          prompt: 'The lab starts at 5 V with 1 kΩ. You slide the supply down to **1.5 V**. Ohm’s law on the resistor alone would say 1.5 V ÷ 1 kΩ = 1.5 mA. What does the meter show?',
+          prompt: 'Set the supply to 5 V and R1 to 1 kΩ (where the lab starts). You slide the supply down to **1.5 V**. Ohm’s law on the resistor alone would say 1.5 V ÷ 1 kΩ = 1.5 mA. What does the meter show?',
           options: [
             { text: 'About 1.5 mA, exactly as Ohm’s law says.', why: 'That treats the LED as if it weren’t there. The LED needs about its forward voltage before it conducts, and 1.5 V is not enough.' },
             { text: 'About 0.45 mA, because the current scales with the supply: 1.5 ÷ 5 of 1.5 mA.', why: 'That would be true for resistors alone. The LED isn’t a resistor: below its forward voltage it is essentially off.' },
@@ -328,9 +328,10 @@ const lesson: Lesson = {
       LED_WAY,
       NO_METER,
       'Tip the resistors out of their bags and read each colour code before checking the label. Write down what you read.',
-      'Build yesterday’s circuit (5V → resistor → LED long leg; LED short leg → GND) with the **330 Ω** resistor. Compare brightness with 220 Ω.',
-      'Unplug the Uno. Swap the resistor for **1 kΩ**.',
-      'Connect the 9 V battery snap: **red** wire to the resistor’s free end, **black** wire to the LED’s short-leg row. Don’t connect the Uno at the same time.',
+      'Build yesterday’s circuit as drawn, with the **330 Ω** resistor. ' + UNO_POWER_STEP,
+      'R1 (330 Ω) from **c8** to **c12**; the LED’s long leg in **e12** and short leg in **e13**; a red jumper from the top **+** rail to **a8** and a black one from **a13** to the top **−** rail. Plug in and compare the brightness with Day 1’s 220 Ω.',
+      'Unplug the Uno. Swap R1 for **1 kΩ**, in the same holes (c8 to c12).',
+      'Pull the Uno’s two jumpers out of the rails. Push the 9 V battery snap’s **red** lead into the top **+** rail and its **black** lead into the top **−** rail. Everything else stays where it is. Never connect the Uno at the same time.',
       'The LED lights at about 7 mA. Disconnect the battery when you’re done, because the snap clips can short against other metal.',
     ],
     safety: [
@@ -338,6 +339,17 @@ const lesson: Lesson = {
       'Don’t let the two 9 V snap terminals touch each other or any loose wire; a shorted 9 V battery gets hot fast.',
       'Use either the Uno or the battery as the supply, not both at once.',
     ],
+    // The drawing is the 5 V build with 330 Ω (the lab's "close to 10 mA" challenge). The 9 V step swaps the supply wires only.
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+8', to: 'a8', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'c8', to: 'c12', ohms: 330 },
+        { kind: 'led', id: 'D1', anode: 'e12', cathode: 'e13', color: 'red' },
+        { kind: 'wire', id: 'w-minus', from: 'a13', to: 'T-13', color: 'black' },
+      ],
+    },
   },
 }
 

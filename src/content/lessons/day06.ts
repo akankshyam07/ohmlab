@@ -1,6 +1,6 @@
 import type { Lesson } from '../types'
 import { between, part } from './checks'
-import { BREADBOARD, METER_NEEDED, METER_VOLTS } from './primer'
+import { BREADBOARD, METER_NEEDED, METER_VOLTS, UNO_POWER, UNO_POWER_STEP } from './primer'
 
 const kitValues = [
   { label: '220 Ω', value: 220 },
@@ -41,7 +41,7 @@ const lesson: Lesson = {
         {
           type: 'predict',
           id: 'd6-start',
-          prompt: 'The lab starts with **R1 = 10 kΩ** on top and **R2 = 1 kΩ** on the bottom, on 5 V. What does Vout read?',
+          prompt: 'Set **R1 = 10 kΩ** on top and **R2 = 1 kΩ** on the bottom (where the lab starts), on 5 V. What does Vout read?',
           options: [
             { text: 'About 4.5 V, because the bigger resistor wins.', why: 'The bigger resistor takes the bigger share, and it is on *top*. Vout is the share across the *bottom* resistor, which is the small one.' },
             { text: 'About 0.45 V: R2 is only 1 kΩ of the 11 kΩ total, so it gets 1/11 of 5 V.', correct: true, why: 'Vout = 5 V × 1 kΩ ÷ 11 kΩ ≈ 0.45 V. The output is the bottom resistor’s fraction of the total.' },
@@ -124,11 +124,11 @@ const lesson: Lesson = {
         },
         {
           type: 'table',
-          head: ['Divider (R1 / R2)', 'Load ÷ R2', 'Vout with 10 kΩ load', 'Sag from 2.50 V', 'Current through the divider'],
+          head: ['R1 / R2', 'Load ÷ R2', 'Vout with 10 kΩ load', 'Divider current'],
           rows: [
-            ['10 kΩ / 10 kΩ', '1×', '1.67 V', '33 %', '0.25 mA'],
-            ['1 kΩ / 1 kΩ', '10×', '2.38 V', 'about 5 %', '2.5 mA'],
-            ['220 Ω / 220 Ω', '45×', '2.47 V', 'about 1 %', '11.4 mA'],
+            ['10 kΩ / 10 kΩ', '1×', '1.67 V (33 % low)', '0.25 mA'],
+            ['1 kΩ / 1 kΩ', '10×', '2.38 V (about 5 % low)', '2.5 mA'],
+            ['220 Ω / 220 Ω', '45×', '2.47 V (about 1 % low)', '11.4 mA'],
           ],
         },
         {
@@ -158,25 +158,27 @@ const lesson: Lesson = {
       ],
     },
     layout: {
-      width: 14,
-      height: 9,
+      // Spread out (review N2): R1/R2 labels on the left, the switch label below its own wire, RL's on the far right.
+      width: 20,
+      height: 10,
       parts: [
         { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
-        { id: 'R1', from: { x: 6, y: 1 }, to: { x: 6, y: 4 }, label: 'R1', labelSide: 'left' },
-        { id: 'R2', from: { x: 6, y: 5 }, to: { x: 6, y: 8 }, label: 'R2', labelSide: 'left' },
-        { id: 'S1', from: { x: 8, y: 4 }, to: { x: 11, y: 4 }, label: 'S1 (load switch)', labelSide: 'above' },
-        { id: 'RL', from: { x: 12, y: 5 }, to: { x: 12, y: 8 }, label: 'RL (load)', labelSide: 'right' },
+        { id: 'R1', from: { x: 7, y: 1 }, to: { x: 7, y: 4 }, label: 'R1', labelSide: 'left' },
+        { id: 'R2', from: { x: 7, y: 5 }, to: { x: 7, y: 8 }, label: 'R2', labelSide: 'left' },
+        { id: 'S1', from: { x: 10, y: 4 }, to: { x: 13, y: 4 }, label: 'S1 (load switch)', labelSide: 'below' },
+        { id: 'RL', from: { x: 16, y: 5 }, to: { x: 16, y: 8 }, label: 'RL (load)', labelSide: 'right' },
       ],
       wires: [
-        { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 6, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
-        { id: 'w-mid-r2', points: [{ x: 6, y: 4 }, { x: 6, y: 5 }], carries: { componentId: 'R2', sign: 1 } },
-        { id: 'w-mid-s1', points: [{ x: 6, y: 4 }, { x: 8, y: 4 }], carries: { componentId: 'S1', sign: 1 } },
-        { id: 'w-s1-rl', points: [{ x: 11, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 5 }], carries: { componentId: 'RL', sign: 1 } },
-        { id: 'w-rl-gnd', points: [{ x: 12, y: 8 }, { x: 6, y: 8 }], carries: { componentId: 'RL', sign: 1 } },
-        { id: 'w-gnd-v1', points: [{ x: 6, y: 8 }, { x: 2, y: 8 }, { x: 2, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 7, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
+        { id: 'w-mid-r2', points: [{ x: 7, y: 4 }, { x: 7, y: 5 }], carries: { componentId: 'R2', sign: 1 } },
+        { id: 'w-mid-s1', points: [{ x: 7, y: 4 }, { x: 10, y: 4 }], carries: { componentId: 'S1', sign: 1 } },
+        { id: 'w-s1-rl', points: [{ x: 13, y: 4 }, { x: 16, y: 4 }, { x: 16, y: 5 }], carries: { componentId: 'RL', sign: 1 } },
+        { id: 'w-rl-gnd', points: [{ x: 16, y: 8 }, { x: 16, y: 9 }, { x: 7, y: 9 }], carries: { componentId: 'RL', sign: 1 } },
+        { id: 'w-r2-gnd', points: [{ x: 7, y: 8 }, { x: 7, y: 9 }], carries: { componentId: 'R2', sign: 1 } },
+        { id: 'w-gnd-v1', points: [{ x: 7, y: 9 }, { x: 2, y: 9 }, { x: 2, y: 6 }], carries: { componentId: 'R1', sign: 1 } },
       ],
       probes: [
-        { node: 'mid', at: { x: 7, y: 4 }, label: 'Vout' },
+        { node: 'mid', at: { x: 8, y: 4 }, label: 'Vout' },
         { node: 'top', at: { x: 4, y: 1 }, label: 'Vin' },
       ],
     },
@@ -302,17 +304,31 @@ const lesson: Lesson = {
       BREADBOARD,
       METER_NEEDED,
       METER_VOLTS,
-      'Unplugged: place R1 = 1 kΩ from a row we’ll call **TOP** to a row called **MID**, and R2 = 2 kΩ from MID to the GND rail.',
-      'Jumper Uno **5V** to TOP and Uno **GND** to the GND rail. Plug in USB.',
-      'Meter on DC volts: black probe on GND, red on MID. Expect about 3.33 V.',
-      'Swap to R1 = 5.1 kΩ, R2 = 10 kΩ (unplug first). Expect about 3.31 V.',
-      'Build a 10 kΩ / 10 kΩ divider: expect 2.5 V. Now add a third 10 kΩ from MID to GND as the load: expect about 1.67 V.',
+      'Unplugged. ' + UNO_POWER_STEP,
+      'R1 = 1 kΩ from **b4** to **b8**, and R2 = 2 kΩ from **c8** to **c12**. Column 4 is **TOP** and column 8 is **MID**. A red jumper from the top **+** rail to **a4**, and a black jumper from **a12** to the top **−** rail. Plug in USB.',
+      'Meter on DC volts: black probe on the **−** rail, red on a leg in column 8 (MID). Expect about 3.33 V.',
+      'Unplug, then swap to R1 = 5.1 kΩ and R2 = 10 kΩ in the same holes. Expect about 3.31 V.',
+      'Unplug, and make it 10 kΩ / 10 kΩ: expect 2.5 V. Now add the load as drawn: RL = 10 kΩ from **c15** to **c19**, a black jumper from **a19** to the **−** rail, and the yellow jumper **S1** (the lab’s load switch) from **d8** to **d15**. Expect about 1.67 V. Pull S1 out and MID goes back to 2.5 V.',
       'Your meter is a load too, but a very large one (about 10 MΩ), so it barely changes the reading.',
     ],
     safety: [
       'Unplug the Uno before moving resistors.',
       'Keep the red meter lead in the **V** socket, not the **A** socket. In the A socket the meter is nearly a short circuit.',
     ],
+    // The drawing is the last step: 10 kΩ / 10 kΩ with the 10 kΩ load connected (S1 closed). The yellow jumper is S1.
+    breadboard: {
+      supply: 'uno',
+      parts: [
+        ...UNO_POWER,
+        { kind: 'wire', id: 'w-plus', from: 'T+4', to: 'a4', color: 'red' },
+        { kind: 'resistor', id: 'R1', from: 'b4', to: 'b8', ohms: 10000 },
+        { kind: 'resistor', id: 'R2', from: 'c8', to: 'c12', ohms: 10000 },
+        { kind: 'wire', id: 'w-r2-gnd', from: 'a12', to: 'T-12', color: 'black' },
+        { kind: 'wire', id: 'S1', from: 'd8', to: 'd15', color: 'yellow' },
+        { kind: 'resistor', id: 'RL', from: 'c15', to: 'c19', ohms: 10000 },
+        { kind: 'wire', id: 'w-rl-gnd', from: 'a19', to: 'T-19', color: 'black' },
+      ],
+    },
   },
 }
 
