@@ -97,6 +97,19 @@
   filter: blur(5px);
 }
 
+.cv-res.is-warm { stroke: color-mix(in srgb, var(--sig-power) 60%, var(--text)); }
+
+/* Reverse-voltage stress (overvoltage): outline and a soft glow in --warn. */
+.cv-sym.is-warn,
+.cv-emit.is-warn { stroke: var(--warn); }
+.cv-emit.is-warn { opacity: 0.5; }
+.cv-warn-glow {
+  fill: var(--warn);
+  opacity: 0.22;
+  filter: blur(6px);
+  pointer-events: none;
+}
+
 .cv-sym.is-burnt,
 .cv-emit.is-burnt { stroke: var(--sig-ground); }
 .cv-led.is-burnt,
@@ -165,6 +178,14 @@
 .cv-label {
   font: 600 15px var(--font-display);
   fill: var(--text);
+}
+/* A halo in the panel colour keeps labels readable where they cross a wire. */
+.cv-label,
+.cv-probe-name {
+  paint-order: stroke;
+  stroke: var(--surface-1);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 .cv-label-sep { fill: var(--text-faint); }
 .cv-label-value {

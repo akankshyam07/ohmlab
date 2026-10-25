@@ -40,6 +40,7 @@ export function partLabel(c: Component, r?: ComponentResult): string {
       if (!r) return base
       if (r.status === 'burnt') return `${base}, burnt out`
       if (r.status === 'overcurrent') return `${base}, too much current, ${amps}`
+      if (r.status === 'overvoltage') return `${base}, reverse voltage too high`
       if ((r.brightness ?? 0) > 0.01 && r.status !== 'off') return `${base}, lit, ${amps}`
       return `${base}, off`
     }
@@ -48,6 +49,7 @@ export function partLabel(c: Component, r?: ComponentResult): string {
       if (!r) return base
       if (r.status === 'burnt') return `${base}, burnt out`
       if (r.status === 'overcurrent') return `${base}, too much current, ${amps}`
+      if (r.status === 'overvoltage') return `${base}, reverse voltage too high`
       return Math.abs(r.current) >= FLOW_THRESHOLD && r.status !== 'off' ? `${base}, conducting, ${amps}` : `${base}, blocking`
     }
     case 'switch':

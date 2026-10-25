@@ -32,6 +32,13 @@ interface JunctionModel {
 
 const LED_RS = 4
 const LED_REF_AMPS = 0.02
+/** LED status thresholds, matching the lessons: 20 mA is the safe continuous limit. */
+const LED_ON_AMPS = 50e-6
+const LED_MAX_AMPS = 0.02
+const LED_BURNT_AMPS = 0.06
+/** Rated reverse voltages: typical 5 mm LED, and a 1N4148-class small-signal diode. */
+const LED_RATED_REVERSE_VOLTS = 5
+const DIODE_RATED_REVERSE_VOLTS = 75
 
 /** Solve the Shockley equation for Is so that Vf(20 mA) = vf20, including the Rs drop. */
 function ledModel(vf20: number, n: number): JunctionModel {
@@ -392,9 +399,10 @@ function solveLinear(A: Float64Array, b: Float64Array, n: number): Float64Array 
 // Results
 
 function buildResult(circuit: Circuit, sys: System, x: Float64Array): SolveResult {
+  const v = (id: NodeId) => at(x, sys.nodeIndex.get(id)!)
+  const grounded = nodesConnectedToGround(circuit)
   const nodeVoltages: Record<NodeId, number> = {}
-  for (const [id, i] of sys.nodeIndex) nodeVoltages[id] = at(x, i)
-  const v = (id: NodeId) => nodeVoltages[id]
+  for (const id of sys.nodeIndex.keys()) if (grounded.has(id)) nodeVoltages[id] = v(id)
 
   const components: Record<string, ComponentResult> = {}
   let error: string | undefined
@@ -422,14 +430,24 @@ function buildResult(circuit: Circuit, sys: System, x: Float64Array): SolveResul
         const voltage = v(c.anode) - v(c.cathode)
         const current = (v(c.anode) - x[sys.extra[i]]) / model.rs
         const power = voltage * current
+        // Reverse breakdown isn't modelled: past its rating the part still blocks, it is only flagged.
+        // A burnt part reports the current at the moment of connection; real ones usually then fail open.
         if (c.kind === 'led') {
           const status: ComponentStatus =
-            current < 50e-6 ? 'off' : current <= 0.025 ? 'ok' : current <= 0.06 ? 'overcurrent' : 'burnt'
-          const brightness = status === 'off' ? 0 : Math.sqrt(Math.min(current / LED_REF_AMPS, 1))
+            voltage < -LED_RATED_REVERSE_VOLTS ? 'overvoltage'
+            : current < LED_ON_AMPS ? 'off'
+            : current <= LED_MAX_AMPS ? 'ok'
+            : current <= LED_BURNT_AMPS ? 'overcurrent'
+            : 'burnt'
+          const brightness = current < LED_ON_AMPS ? 0 : Math.sqrt(Math.min(current / LED_REF_AMPS, 1))
           components[c.id] = { current, voltage, power, status, brightness }
         } else {
           const status: ComponentStatus =
-            current < 1e-6 ? 'off' : current > 1 ? 'burnt' : current > 0.2 ? 'overcurrent' : 'ok'
+            voltage < -DIODE_RATED_REVERSE_VOLTS ? 'overvoltage'
+            : current < 1e-6 ? 'off'
+            : current > 1 ? 'burnt'
+            : current > 0.2 ? 'overcurrent'
+            : 'ok'
           components[c.id] = { current, voltage, power, status }
         }
         break
@@ -449,6 +467,34 @@ function buildResult(circuit: Circuit, sys: System, x: Float64Array): SolveResul
     }
   }
   return error ? { ok: false, error, nodeVoltages, components } : { ok: true, nodeVoltages, components }
+}
+
+/**
+ * Nodes with a conductive path to ground. Junctions count as connections (their real leakage
+ * defines the node); open switches don't. Anything else only has a voltage because of gmin.
+ */
+function nodesConnectedToGround(circuit: Circuit): Set<NodeId> {
+  const neighbours = new Map<NodeId, NodeId[]>()
+  const link = (a: NodeId, b: NodeId) => {
+    neighbours.set(a, [...(neighbours.get(a) ?? []), b])
+    neighbours.set(b, [...(neighbours.get(b) ?? []), a])
+  }
+  for (const c of circuit.components) {
+    if (c.kind === 'switch' && !c.closed) continue
+    const [a, b] = NODE_FIELDS[c.kind].map((f) => (c as unknown as Record<string, NodeId>)[f])
+    link(a, b)
+  }
+  const reached = new Set<NodeId>([circuit.ground])
+  const queue = [circuit.ground]
+  for (let n = queue.pop(); n !== undefined; n = queue.pop()) {
+    for (const m of neighbours.get(n) ?? []) {
+      if (!reached.has(m)) {
+        reached.add(m)
+        queue.push(m)
+      }
+    }
+  }
+  return reached
 }
 
 /** Failed solve: no voltages, and every readable part zeroed so callers can still index by id. */

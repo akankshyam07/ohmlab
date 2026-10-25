@@ -174,6 +174,36 @@ describe('LEDs and diodes', () => {
     expect(hot.components.D1.status).toBe('overcurrent')
   })
 
+  it('LED current thresholds: ok up to 20 mA, overcurrent up to 60 mA, burnt above', () => {
+    const check = (amps: number, vfGuess: number, status: string) => {
+      const led = ledAt('red', amps, vfGuess)
+      expectNear(led.current, amps, 1e-3) // within 0.06 mA, so on the intended side of the threshold
+      expect(led.status).toBe(status)
+      return led
+    }
+    check(0.0199, 2, 'ok')
+    check(0.0201, 2, 'overcurrent')
+    check(0.0599, 2.21, 'overcurrent')
+    // A burnt LED still reports the current at the moment of connection.
+    expect(check(0.0601, 2.21, 'burnt').current).toBeGreaterThan(0.06)
+  })
+
+  it('reversed LED: off within its 5 V rating, overvoltage beyond it (still blocking)', () => {
+    const rev = (volts: number) => solveOk(circuit(V('B1', 'vcc', 'gnd', volts), R('R1', 'vcc', 'a', 220), LED('D1', 'gnd', 'a'))).components.D1
+    expect(rev(4.9).status).toBe('off')
+    const over = rev(5.1)
+    expect(over.status).toBe('overvoltage')
+    expect(over.brightness).toBe(0)
+    expect(Math.abs(over.current)).toBeLessThan(1e-6)
+    expect(rev(9).status).toBe('overvoltage')
+  })
+
+  it('reversed silicon diode: off within its 75 V rating, overvoltage beyond it', () => {
+    const rev = (volts: number) => solveOk(circuit(V('B1', 'vcc', 'gnd', volts), R('R1', 'vcc', 'a', 1000), D('D1', 'gnd', 'a'))).components.D1
+    expect(rev(74).status).toBe('off')
+    expect(rev(76).status).toBe('overvoltage')
+  })
+
   it('LED below 50 µA counts as off', () => {
     const r = solveOk(circuit(V('B1', 'vcc', 'gnd', 5), R('R1', 'vcc', 'a', 1e6), LED('D1', 'a', 'gnd')))
     expect(r.components.D1.current).toBeLessThan(50e-6)
@@ -233,6 +263,17 @@ describe('switches and shorts', () => {
     expect(r.components.S1.current).toBeGreaterThan(5)
     expect(Object.keys(r.components).sort()).toEqual(['B1', 'R1', 'S1'])
     expect(r.nodeVoltages.gnd).toBe(0)
+  })
+
+  it('a node cut off by an open switch has no voltage; connected nodes keep theirs', () => {
+    const r = solveOk(circuit(V('B1', 'vcc', 'gnd', 5), R('R1', 'vcc', 'gnd', 1000), S('S1', 'vcc', 'probe', false), R('R2', 'probe', 'p2', 1000)))
+    expect(r.nodeVoltages).not.toHaveProperty('probe')
+    expect(r.nodeVoltages).not.toHaveProperty('p2')
+    expect(r.nodeVoltages.vcc).toBeCloseTo(5, 9)
+    expect(r.components.R2.current).toBeCloseTo(0, 12)
+    const closed = solveOk(circuit(V('B1', 'vcc', 'gnd', 5), R('R1', 'vcc', 'gnd', 1000), S('S1', 'vcc', 'probe', true), R('R2', 'probe', 'p2', 1000)))
+    expect(closed.nodeVoltages.probe).toBeCloseTo(5, 6)
+    expect(closed.nodeVoltages.p2).toBeCloseTo(5, 6)
   })
 
   it('two batteries directly in parallel are rejected, not solved', () => {

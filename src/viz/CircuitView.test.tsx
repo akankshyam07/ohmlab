@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Circuit, ComponentResult, SolveResult } from '../sim/types'
-import { CircuitView, flowSpeed, partLabel } from './CircuitView'
+import { CircuitView, flowSpeed, MIN_HIT_PX, MIN_TEXT_PX, partLabel, textScale } from './CircuitView'
 import type { CircuitLayout } from './types'
 
 const circuit: Circuit = {
@@ -123,6 +123,57 @@ describe('CircuitView', () => {
     expect(screen.getByText('HOT')).toBeInTheDocument()
   })
 
+  it('warns about a reverse-overstressed LED with a REVERSE V tag', () => {
+    const { container } = view({ result: result(0, { status: 'overvoltage', brightness: 0, voltage: -8.06 }), onPartClick: () => {} })
+    expect(screen.getByText('REVERSE V').closest('.cv-tag--warn')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'LED D1 (red), reverse voltage too high' })).toBeInTheDocument()
+    expect(container.querySelector('[data-part="D1"] .cv-led.is-warn')).not.toBeNull()
+    expect(container.querySelector('[data-part="D1"] .cv-warn-glow')).not.toBeNull()
+  })
+
+  it('does not print a value the label already says', () => {
+    const named = { ...layout, parts: layout.parts.map((p) => (p.id === 'D1' ? { ...p, label: 'Red LED' } : p)) }
+    const { container } = view({ layout: named })
+    expect(container.querySelector('[data-part="D1"] .cv-label')?.textContent).toBe('Red LED')
+  })
+
+  it('counter-scales labels and hit areas on a narrow screen', () => {
+    let fire: (w: number) => void = () => {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          fire = (w) => cb([{ contentRect: { width: w } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    try {
+      const { container } = view({ onPartClick: () => {} })
+      const svg = container.querySelector('svg')!
+      const measure = (w: number) => {
+        act(() => fire(w))
+        const vbW = Number(svg.getAttribute('viewBox')!.split(' ')[2])
+        const scale = w / vbW
+        const value = container.querySelector('[data-part="R1"] .cv-label-value') as SVGElement
+        const hit = container.querySelector('[data-part="R1"] .cv-hit')!
+        return {
+          valuePx: parseFloat(value.style.fontSize) * scale,
+          hitPx: Math.min(Number(hit.getAttribute('width')), Number(hit.getAttribute('height'))) * scale,
+        }
+      }
+      const phone = measure(330)
+      expect(phone.valuePx).toBeGreaterThanOrEqual(MIN_TEXT_PX - 0.05)
+      expect(phone.hitPx).toBeGreaterThanOrEqual(MIN_HIT_PX - 0.05)
+      // Wide desktop: base sizes, no enlargement.
+      measure(1600)
+      expect((container.querySelector('[data-part="R1"] .cv-label-value') as SVGElement).style.fontSize).toBe('14px')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('shows the probe voltage on focus', () => {
     view()
     expect(screen.queryByText('A: 3.33 V')).toBeNull()
@@ -145,11 +196,26 @@ describe('CircuitView', () => {
   })
 })
 
+describe('textScale', () => {
+  it('enlarges text only when it would render below the minimum', () => {
+    expect(textScale(14, 1)).toBe(1)
+    expect(textScale(11, 1)).toBe(1)
+    expect(textScale(11, 0.5)).toBe(2)
+    expect(textScale(14, 0.5) * 14 * 0.5).toBeCloseTo(MIN_TEXT_PX)
+    expect(textScale(11, 0.1)).toBe(3) // capped
+    expect(textScale(14, 2)).toBe(1) // never shrinks
+    expect(textScale(14, 0)).toBe(1) // unmeasured
+    expect(textScale(14, NaN)).toBe(1)
+  })
+})
+
 describe('partLabel', () => {
   it('describes LED states', () => {
     const led = circuit.components[3]
     expect(partLabel(led, comp(0, { status: 'off', brightness: 0 }))).toBe('LED D1 (red), off')
     expect(partLabel(led, comp(0.05, { status: 'overcurrent', brightness: 1 }))).toBe('LED D1 (red), too much current, 50 mA')
+    expect(partLabel(led, comp(0, { status: 'overvoltage', brightness: 0 }))).toBe('LED D1 (red), reverse voltage too high')
+    expect(partLabel(circuit.components[4], comp(0, { status: 'overvoltage' }))).toBe('Diode D2, reverse voltage too high')
     expect(partLabel(circuit.components[0], comp(10, { status: 'burnt' }))).toBe('Battery B1, 5 V, shorted')
   })
 })

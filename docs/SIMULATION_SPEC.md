@@ -16,7 +16,7 @@ SI throughout (V, A, Ω, W). Per component, as in `src/sim/types.ts`:
 
 A source being pushed backwards by a stronger one has negative `current` and positive `power`.
 
-`nodeVoltages` holds the ground node (exactly 0) and every node named in the circuit. The solver's internal diode nodes are never exposed.
+`nodeVoltages` holds the ground node (exactly 0) and every named node with a conductive path to ground. That path can run through resistors, closed switches, sources and diode/LED junctions, but not open switches. A floating node (for example a probe behind an open switch) is left out, because its only "voltage" would be a gmin artefact; views show "—" for missing keys. Parts touching a floating node are still reported, with ~0 current. The solver's internal diode nodes are never exposed.
 
 ## Part models
 
@@ -51,7 +51,7 @@ For LEDs, Is is not hand-tuned: it is solved from the target forward voltage at 
 
 Why Rs = 4 Ω and not the ~10 Ω of a real 5 mm LED: the product target is that Vf at 5 mA is 0.05–0.15 V below Vf at 20 mA. Rs alone contributes 15 mA·Rs to that gap and the junction adds n·Vt·ln 4 ≈ 0.06–0.07 V, so 10 Ω would give ≈ 0.22 V. 4 Ω lands the gap at 0.12 V (red/yellow/green) and 0.13 V (blue/white). Real LEDs vary by more than either choice.
 
-Reverse breakdown is not modelled (see Limitations).
+Reverse breakdown is not modelled (see Limitations): a reversed part blocks any voltage. Exceeding the rated reverse voltage (LED 5 V; diode 75 V, as a 1N4148) is flagged as `overvoltage` but the part keeps blocking.
 
 ## Statuses
 
@@ -61,11 +61,13 @@ Checked in the order listed; the first match wins.
 |---|---|
 | resistor | P > 2 × rated → `burnt`; P > rated → `overpower`; \|I\| < 1 µA → `off`; else `ok` |
 | switch | open → `off`; closed → `ok` |
-| LED | I < 50 µA → `off`; I ≤ 25 mA → `ok`; I ≤ 60 mA → `overcurrent`; else `burnt` |
-| diode | I < 1 µA → `off`; I > 1 A → `burnt`; I > 200 mA → `overcurrent`; else `ok` |
+| LED | V < −5 V → `overvoltage`; I < 50 µA → `off`; I ≤ 20 mA → `ok`; I ≤ 60 mA → `overcurrent`; else `burnt` |
+| diode | V < −75 V → `overvoltage`; I < 1 µA → `off`; I > 1 A → `burnt`; I > 200 mA → `overcurrent`; else `ok` |
 | vsource | \|I\| > 5 A → `burnt` and the whole result is `ok: false` (short circuit); else `ok` |
 
-LED `brightness` = √(clamp(I / 20 mA, 0, 1)) unless the LED is `off`, in which case 0. A `burnt` LED still reports the brightness its current implies (the solver does not model the part failing open); the view decides how to draw a burnt LED.
+The LED thresholds match what the lessons teach: 20 mA is the safe continuous limit (exactly 20.0 mA is `ok`), and typical 5 mm LED datasheets give ~30 mA absolute maximum, so 20–60 mA is "too hot, shortening its life" and above 60 mA is "destroyed". They are rules of thumb, not a failure model. Reverse-biased parts within their rating stay `off`.
+
+LED `brightness` = √(clamp(I / 20 mA, 0, 1)) when I ≥ 50 µA, else 0 (so `off` and `overvoltage` LEDs are dark). A `burnt` part still reports the current, power and brightness the circuit would push through it **at the moment of connection**; that number is the teaching point ("730 mA, far beyond 20 mA"). A real LED or diode then usually fails open and the current stops; the solver does not model that, and the view decides how to draw a burnt part.
 
 Short circuit: when a source exceeds 5 A the result is `ok: false` with `error` like *"Short circuit: B1's + and − are joined with almost no resistance, so a huge current would flow."*, but `nodeVoltages` and every component are still filled in so the view can show what happened.
 
@@ -111,17 +113,21 @@ All asserted in `src/sim/solver.test.ts`:
 - Red LED + 220 Ω on 5 V: 13.82 mA, Vf 1.959 V.
 - LED Vf within 10 mV of target at 20 mA for every colour, and 0.05–0.15 V lower at 5 mA. Red stays within 1.8–2.2 V across 5–20 mA.
 - 1N4148: 0.698 V at 10 mA.
-- Reversed LED: off, |I| < 1 µA. Open switch: exactly 0 A.
+- LED status thresholds at 19.9 / 20.1 / 59.9 / 60.1 mA. Reversed LED: `off` at 4.9 V, `overvoltage` at 5.1 V and 9 V, |I| < 1 µA either way; reversed diode `off` at 74 V, `overvoltage` at 76 V. Open switch: exactly 0 A.
 - Source stepping recovers a two-LED circuit when plain Newton is capped below the iterations it needs.
 - 14 kinds of malformed input return `ok: false` and never throw.
 
 ## Limitations
 
+The beginner-facing version of this list is `SIM_LIMITATIONS` in `src/sim/limitations.ts`, shown in the Lab's "About this simulator" disclosure. Keep the two in step.
+
+
 - **DC operating point only.** No capacitors, inductors, time, or transients; no AC analysis.
 - **Ideal sources.** Batteries have no internal resistance and never sag or run down; only the 5 A short-circuit rule stands in for "real batteries can't do that".
 - **No temperature effects.** Vt is fixed at 300 K; parts don't heat up, and Vf doesn't drift with temperature.
-- **No reverse breakdown.** A reversed LED or diode blocks any voltage. Real LEDs are typically only rated for ~5 V reverse.
-- **Damage isn't modelled.** `burnt` is a label; the part keeps conducting in the maths.
+- **No reverse breakdown.** A reversed LED or diode blocks any voltage. Beyond the rated reverse voltage (LED 5 V, diode 75 V) the status is `overvoltage` as a warning, but no breakdown current flows.
+- **Damage isn't modelled.** `burnt` is a label; the reported current is what would flow at the moment of connection. A real LED usually fails open, after which no current flows.
+- **Floating nodes.** Nodes with no path to ground are left out of `nodeVoltages`. A node reached only *through a reverse-biased junction* still counts as connected (real leakage defines it), so it is reported, but its value is set by the tiny gmin leak and can look arbitrary (e.g. a dangling LED after a reversed one reading ~0.9 V with 0 A).
 - **Switches are 1 mΩ when closed**, and 0 Ω resistors are 1 mΩ. That is negligible next to any real resistor but matters in deliberate shorts, where it sets the (huge) reported current.
 - **LED brightness is a perceptual approximation** (square root of current, saturating at 20 mA), not a photometric model; colours don't differ in efficiency.
 - **Typical-part parameters.** Real LEDs of the same colour vary by ±0.1–0.2 V; the numbers here are representative, not a specific datasheet.

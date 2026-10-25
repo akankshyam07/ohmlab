@@ -71,6 +71,32 @@ const c1 = ledCircuit(220, 5)
 const c2 = ledCircuit(0, 9)
 const c3 = divider(false, 10_000)
 const c4 = divider(true, 10)
+const c5: Circuit = {
+  ground: 'gnd',
+  components: [
+    { kind: 'vsource', id: 'V1', pos: 'vcc', neg: 'gnd', volts: 9 },
+    { kind: 'resistor', id: 'R1', a: 'vcc', b: 'mid', ohms: 220 },
+    { kind: 'led', id: 'D1', anode: 'gnd', cathode: 'mid', color: 'red' },
+  ],
+}
+const c6 = ledCircuit(330, 9)
+
+// Same shape as the Day 1 lesson layout: empty grid columns on the left, value repeated in the label.
+const lessonLayout: CircuitLayout = {
+  width: 13,
+  height: 8,
+  parts: [
+    { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: '9 V supply', labelSide: 'left' },
+    { id: 'R1', from: { x: 5, y: 1 }, to: { x: 8, y: 1 }, label: 'R1', labelSide: 'above' },
+    { id: 'D1', from: { x: 11, y: 6 }, to: { x: 11, y: 3 }, label: 'D1', labelSide: 'right' },
+  ],
+  wires: [
+    { id: 'w1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 5, y: 1 }], carries: { componentId: 'V1', sign: 1 } },
+    { id: 'w2', points: [{ x: 8, y: 1 }, { x: 11, y: 1 }, { x: 11, y: 3 }], carries: { componentId: 'R1', sign: 1 } },
+    { id: 'w3', points: [{ x: 11, y: 6 }, { x: 11, y: 7 }, { x: 2, y: 7 }, { x: 2, y: 6 }] },
+  ],
+  probes: [{ node: 'mid', at: { x: 11, y: 2 }, label: 'LED +' }],
+}
 
 const click = (id: string) => console.log('clicked', id)
 
@@ -106,6 +132,12 @@ function Demo() {
       </Card>
       <Card title="4 · Divider, switch closed, R1 overheating (no flow animation)">
         <CircuitView circuit={c4} layout={dividerLayout} result={solveDC(c4)} ariaLabel="Voltage divider, R1 overheating" showFlow={false} />
+      </Card>
+      <Card title="5 · D1 flipped on 9 V: reverse voltage too high">
+        <CircuitView circuit={c5} layout={lessonLayout} result={solveDC(c5)} ariaLabel="Reversed LED on 9 V" onPartClick={click} />
+      </Card>
+      <Card title="6 · 9 V, 330 Ω: R1 warm">
+        <CircuitView circuit={c6} layout={ledLayout} result={solveDC(c6)} ariaLabel="LED on 9 V through 330 ohms" onPartClick={click} />
       </Card>
     </main>
   )
