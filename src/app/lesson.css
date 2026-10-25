@@ -1,14 +1,16 @@
 /* Lesson page: header, sticky lab stage, step panel, content blocks. */
 
 .lesson {
-  --stage-top: calc(64px + var(--sp-4));
+  --bar-h: 64px;
+  --gutter: var(--sp-5);
+  --stage-top: calc(var(--bar-h) + var(--sp-4));
 }
 
 .lesson-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-5);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--sp-4) var(--sp-5);
   padding-bottom: var(--sp-5);
   margin-bottom: var(--sp-5);
   border-bottom: 1px solid var(--border);
@@ -41,22 +43,146 @@
   font-size: var(--fs-sm);
 }
 
+/* ---------- Completion checklist (header and Build step) ---------- */
+
+.lesson-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-5);
+}
+
+.checklist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+}
+
+.checklist-title {
+  color: var(--text-muted);
+}
+
+.checklist[data-complete] .checklist-title {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.checklist ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 0 var(--sp-1) 0 var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+}
+
+.checklist li:not(:has(.checklist-jump)) {
+  padding-right: var(--sp-3);
+}
+
+.checklist-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+  color: var(--text-muted);
+}
+
+.checklist li[data-done] .checklist-mark {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.checklist-detail,
+.checklist-jump {
+  white-space: nowrap;
+}
+
+.checklist-detail {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.checklist-jump {
+  min-height: 44px;
+  margin-block: -5px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--brand-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.checklist-jump:hover {
+  background: var(--surface-3);
+}
+
+.build .checklist {
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+/* ---------- Body: step panel first in reading order, stage beside it (desktop) or pinned above it ---------- */
+
 .lesson-body {
   display: grid;
   grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+  grid-template-areas: 'stage panel';
   gap: var(--sp-6);
   align-items: start;
 }
 
+/* Desktop: the stage is exactly one viewport tall (minus bar and gaps); the Lab fits itself inside it. */
 .lesson-stage {
+  grid-area: stage;
   position: sticky;
   top: var(--stage-top);
-  max-height: calc(100vh - var(--stage-top) - var(--sp-4));
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--stage-top) - var(--sp-4));
+  border-radius: var(--radius-lg);
+}
+
+.lesson-stage-lab {
+  flex: 1;
+  min-height: 0;
+  container: stage / size;
+  /* Fallback only: the Lab is built to fit, so this should never scroll. */
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: var(--radius-lg);
   scrollbar-width: thin;
   scrollbar-color: var(--surface-3) transparent;
+}
+
+.lesson-stage-lab > * {
+  height: 100%;
+}
+
+.stage-bar {
+  display: none;
 }
 
 .lesson[data-lab='no'] .lesson-head,
@@ -70,6 +196,7 @@
 }
 
 .lesson-panel {
+  grid-area: panel;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
@@ -399,65 +526,440 @@
   gap: var(--sp-1);
 }
 
+.blk-walk-text {
+  line-height: 1.6;
+}
+
 .blk-walk-math {
   color: var(--sig-voltage);
   font-size: var(--fs-sm);
   overflow-wrap: anywhere;
 }
 
-.build-parts {
+.build-safety ul {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-1);
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-5);
+}
+
+.build-parts {
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.build-parts legend {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+}
+
+.build-parts-count {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--fs-xs);
+}
+
+.build-parts ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
   gap: var(--sp-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.build-parts li {
+.build-parts label {
   display: flex;
-  gap: var(--sp-2);
+  align-items: flex-start;
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 44px;
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-med) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out);
 }
 
-.build-parts .icon {
-  margin-top: 4px;
+.build-parts label:hover {
+  border-color: var(--border-strong);
+}
+
+.build-parts input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.build-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  color: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.build-parts input:checked + .build-check {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 20%, transparent);
   color: var(--ok);
+}
+
+.build-parts label:has(input:checked) {
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+.build-parts label:has(input:checked) > span:last-child {
+  color: var(--text-muted);
+}
+
+.build-parts input:focus-visible + .build-check {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+  box-shadow: var(--glow-brand);
 }
 
 .build-steps {
   display: grid;
   gap: var(--sp-3);
   margin: 0;
-  padding-left: var(--sp-5);
+  padding: 0;
+  list-style: none;
 }
 
-.build-steps li::marker {
-  font-family: var(--font-mono);
+.build-steps li {
+  display: flex;
+  gap: var(--sp-3);
+  line-height: 1.65;
+}
+
+.build-step-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--sig-current) 60%, transparent);
+  color: var(--sig-current);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* ---------- Predict first ---------- */
+
+.blk-predict {
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 6%, var(--surface-1));
+}
+
+.blk-predict-kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--brand-strong);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.blk-predict fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.blk-predict-prompt {
+  padding: 0;
+  margin: var(--sp-2) 0 var(--sp-3);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.blk-predict-options {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.blk-predict-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-med) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out);
+}
+
+.blk-predict-option:hover {
+  border-color: var(--border-strong);
+}
+
+.blk-predict-option input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  accent-color: var(--brand);
+}
+
+.blk-predict-option:has(input:checked) {
+  border-color: var(--brand);
+  background: var(--surface-2);
+}
+
+.blk-predict-option:has(input:focus-visible) {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 2px;
+}
+
+.blk-predict fieldset:disabled .blk-predict-option {
+  cursor: default;
+}
+
+.blk-predict .blk-predict-option[data-result='correct'] {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 9%, var(--surface-1));
+}
+
+.blk-predict .blk-predict-option[data-result='wrong'] {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface-1));
+}
+
+.blk-predict-submit {
+  margin-top: var(--sp-3);
+}
+
+.blk-predict-reveal {
+  display: grid;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--warn);
+  background: var(--surface-1);
+  animation: step-in var(--dur-slow) var(--ease-out);
+}
+
+.blk-predict-reveal[data-correct] {
+  border-left-color: var(--ok);
+}
+
+.blk-predict-reveal:focus {
+  outline: none;
+}
+
+.blk-predict-verdict {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.blk-predict-try {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
   color: var(--sig-current);
 }
 
-/* ---------- Responsive: stage first, full width, never overlaid ---------- */
+.blk-predict-try > span:last-child {
+  color: var(--text);
+}
+
+.blk-predict-try-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sig-current) 14%, transparent);
+}
+
+/* Tables: a soft edge shadow appears while there is more to scroll. */
+.blk-table {
+  background:
+    linear-gradient(90deg, var(--surface-2) 30%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(270deg, var(--surface-2) 30%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--bg) 90%, transparent), transparent) left / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--bg) 90%, transparent), transparent) right / 14px 100% no-repeat scroll;
+}
+
+/* ---------- Phones and tablets: text first, the stage pinned under the top bar ---------- */
 
 @media (max-width: 1023px) {
   .lesson-body {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-4);
   }
 
+  /* Pinned mini-stage. Visually first (order), but after the step text in reading and tab order. */
   .lesson-stage {
-    position: static;
-    max-height: none;
-    overflow: visible;
+    order: -1;
+    top: var(--bar-h);
+    z-index: 40;
+    height: 45vh;
+    height: 45svh;
+    min-height: 220px;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 0 var(--gutter) var(--sp-2);
+    border-radius: 0;
+    border-bottom: 1px solid var(--border-strong);
+    background: var(--bg);
+    box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--bg) 90%, transparent);
+  }
+
+  .lesson-stage[data-collapsed] {
+    height: auto;
+    min-height: 0;
+  }
+
+  .lesson-stage[data-collapsed] .lesson-stage-lab {
+    display: none;
+  }
+
+  .stage-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex: none;
+    min-height: 44px;
+  }
+
+  .stage-bar-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .stage-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex: none;
+    min-height: 44px;
+    margin-right: calc(-1 * var(--sp-2));
+    padding: 0 var(--sp-2);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--brand-strong);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+  }
+
+  .stage-toggle:hover {
+    background: var(--surface-2);
+  }
+
+  /* Keep focused/scrolled-to content out from under the pinned stage. */
+  :root:has(.lesson-stage:not([data-collapsed])) {
+    scroll-padding-top: calc(var(--bar-h) + 45svh + var(--sp-3));
+  }
+
+  .blk-predict-try-icon .icon {
+    transform: rotate(90deg);
   }
 }
 
 @media (max-width: 639px) {
+  .lesson {
+    --bar-h: 60px;
+    --gutter: var(--sp-4);
+  }
+
+  /* Compact header and a one-row step strip, so the step text starts on the first screen. */
   .lesson-head {
-    align-items: flex-start;
+    gap: var(--sp-3);
+    padding-bottom: var(--sp-4);
+    margin-bottom: var(--sp-4);
+  }
+
+  .lesson-head {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lesson-head .ring {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .lesson-head h1 {
+    padding-right: 56px;
+    font-size: var(--fs-xl);
+    line-height: 1.2;
+  }
+
+
+  .lesson-tagline {
+    font-size: var(--fs-sm);
+  }
+
+  .lesson-meta {
+    display: none;
+  }
+
+  .checklist-title {
+    display: none;
+  }
+
+  .checklist[data-complete] .checklist-title {
+    display: block;
+  }
+
+  .steps-nav ol {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 2px var(--gutter) 6px;
+    scroll-padding-inline: var(--gutter);
+  }
+
+  .steps-nav li {
+    flex: none;
   }
 
   .step {

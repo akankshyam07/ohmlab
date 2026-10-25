@@ -256,9 +256,73 @@
   background: var(--surface-3);
 }
 
+.toast-more {
+  display: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.toast-desc a {
+  color: var(--brand-strong);
+}
+
+/* Phones: one compact banner over the top bar, so it never covers the lesson's pinned stage. */
 @media (max-width: 639px) {
   .toasts {
-    right: var(--sp-4);
-    bottom: var(--sp-4);
+    top: 0;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    gap: 0;
+  }
+
+  .toast {
+    align-items: center;
+    height: 60px;
+    padding: 0 0 0 var(--sp-3);
+    border-radius: 0;
+    border-width: 0 0 1px;
+    animation-name: toast-drop;
+  }
+
+  .toast ~ .toast,
+  .toast-kicker,
+  .toast-desc {
+    display: none;
+  }
+
+  .toast-more {
+    display: inline;
+  }
+
+  .toast-icon {
+    width: 36px;
+    height: 36px;
+    font-size: var(--fs-lg);
+  }
+
+  .toast-title {
+    font-size: var(--fs-md);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .toast-title::before {
+    content: 'Unlocked: ';
+    color: var(--brand-strong);
+    font-weight: 500;
+  }
+
+  .toast-close {
+    margin: 0 var(--sp-1) 0 0;
+  }
+}
+
+@keyframes toast-drop {
+  from {
+    transform: translateY(-100%);
   }
 }

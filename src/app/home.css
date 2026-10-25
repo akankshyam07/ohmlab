@@ -191,6 +191,10 @@
   stroke: var(--sig-resistance) !important;
 }
 
+.bench-jumper {
+  stroke: var(--sig-ground) !important;
+}
+
 .bench-battery {
   stroke: var(--sig-voltage) !important;
   stroke-width: 3 !important;

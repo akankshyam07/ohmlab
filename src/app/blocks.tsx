@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useId, useRef, useState, type FormEvent } from 'react'
 import type { Block } from '../content/types'
+import { Icon } from '../ui/primitives'
 import { RichText } from '../ui/RichText'
 
 type Walkthrough = Extract<Block, { type: 'walkthrough' }>
+type Predict = Extract<Block, { type: 'predict' }>
 
 const CALLOUT_TITLES = { tip: 'Tip', warn: 'Careful', info: 'Good to know' } as const
 
@@ -63,6 +65,8 @@ export function BlockView({ block, onHighlight }: { block: Block; onHighlight: (
       )
     case 'walkthrough':
       return <WalkthroughView block={block} onHighlight={onHighlight} />
+    case 'predict':
+      return <PredictView block={block} />
   }
 }
 
@@ -88,13 +92,97 @@ function WalkthroughView({ block, onHighlight }: { block: Walkthrough; onHighlig
                 {i + 1}
               </span>
               <span className="blk-walk-body">
-                <RichText text={step.text} />
+                <span className="blk-walk-text">
+                  <RichText text={step.text} />
+                </span>
                 {step.math && <span className="blk-walk-math mono">{step.math}</span>}
               </span>
             </button>
           </li>
         ))}
       </ol>
+    </section>
+  )
+}
+
+/** Strip trailing sentence punctuation so an option can be quoted inside a sentence. */
+const unpunctuated = (text: string) => text.trim().replace(/[.!?…]+$/, '')
+
+/** Commit to a guess, then reveal why. Nothing is stored: predicting is practice, not a test. */
+function PredictView({ block }: { block: Predict }) {
+  const id = useId()
+  const [choice, setChoice] = useState<number | null>(null)
+  const [locked, setLocked] = useState<number | null>(null)
+  const reveal = useRef<HTMLDivElement>(null)
+  const picked = locked === null ? undefined : block.options[locked]
+  const correct = block.options.find((o) => o.correct)
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (choice === null) return
+    setLocked(choice)
+    requestAnimationFrame(() => reveal.current?.focus())
+  }
+
+  return (
+    <section className="blk-predict" aria-labelledby={`${id}-title`}>
+      <p className="blk-predict-kicker" id={`${id}-title`}>
+        <Icon name="bolt" size={16} /> Predict first
+      </p>
+      <form onSubmit={onSubmit}>
+        <fieldset disabled={picked !== undefined}>
+          <legend className="blk-predict-prompt">
+            <RichText text={block.prompt} />
+          </legend>
+          <div className="blk-predict-options">
+            {block.options.map((option, i) => (
+              <label
+                key={i}
+                className="blk-predict-option"
+                data-result={picked && (option.correct ? 'correct' : locked === i ? 'wrong' : undefined)}
+              >
+                <input
+                  type="radio"
+                  name={`${id}-option`}
+                  checked={choice === i}
+                  onChange={() => setChoice(i)}
+                />
+                <span>
+                  <RichText text={option.text} />
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {!picked && (
+          <button type="submit" className="btn btn-primary blk-predict-submit" disabled={choice === null}>
+            Lock in my guess
+          </button>
+        )}
+      </form>
+      {picked && (
+        <div className="blk-predict-reveal" ref={reveal} tabIndex={-1} data-correct={picked.correct || undefined}>
+          <p className="blk-predict-verdict">
+            {picked.correct ? 'Good call.' : 'Not this time, and that’s fine: a wrong guess is how the idea sticks.'}
+          </p>
+          <p>
+            <RichText text={picked.why} />
+          </p>
+          {!picked.correct && correct && (
+            <p>
+              <strong>The answer:</strong> <RichText text={unpunctuated(correct.text)} />.
+            </p>
+          )}
+          <p className="blk-predict-try">
+            <span className="blk-predict-try-icon" aria-hidden="true">
+              <Icon name="left" size={18} />
+            </span>
+            <span>
+              <strong>Try it in the lab:</strong> <RichText text={block.tryIt} />
+            </span>
+          </p>
+        </div>
+      )}
     </section>
   )
 }

@@ -65,7 +65,11 @@ export function HeroBench() {
         )}
         <g className="bench-part">
           <path d="M42 100h36M50 114h20" className="bench-battery" />
-          <path d="M130 40l5-10 10 20 10-20 10 20 10-20 10 20 10-20 10 20 5-10" className="bench-resistor" />
+          {ohms < 1 ? (
+            <path d="M130 40h80" className="bench-jumper" />
+          ) : (
+            <path d="M130 40l5-10 10 20 10-20 10 20 10-20 10 20 10-20 10 20 5-10" className="bench-resistor" />
+          )}
           <circle cx="300" cy="109" r={18 + brightness * 34} fill="url(#bench-glow)" opacity={brightness} />
           <path d="M300 85v13M300 120v15M286 120h28" />
           <path d="M286 98h28l-14 22z" className="bench-led" style={{ fillOpacity: 0.15 + brightness * 0.85 }} />
@@ -90,7 +94,7 @@ export function HeroBench() {
         </div>
         <div data-sig="power">
           <dt>Resistor power</dt>
-          <dd>{formatSI(resistor?.power ?? 0, 'W')}</dd>
+          <dd>{ohms < 1 ? '—' : formatSI(resistor?.power ?? 0, 'W')}</dd>
         </div>
       </dl>
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProgressProvider, useProgress } from './progress/store'
 import { Home } from './app/Home'
 import { LessonPage } from './app/LessonPage'
@@ -91,39 +91,90 @@ function Shell() {
   )
 }
 
-const TOAST_MS = 6000
+const TOAST_MS = 5000
+const MAX_TOASTS = 2
 
+/**
+ * Achievement toasts: at most two at once (a third and later fold into a "+N more" summary), auto-dismissed
+ * after 5 s unless hovered or focused. Phones get one compact banner over the top bar, never over the stage.
+ */
 function Toasts() {
-  const { recentlyUnlocked: toasts, dismissUnlocked } = useProgress()
+  const { recentlyUnlocked, dismissUnlocked } = useProgress()
+  const [dismissed, setDismissed] = useState<string[]>([])
+  const [paused, setPaused] = useState(false)
+  const queue = recentlyUnlocked.filter((a) => !dismissed.includes(a.id))
+  const shown = queue.length > MAX_TOASTS ? queue.slice(0, MAX_TOASTS - 1) : queue
+  const folded = queue.slice(shown.length)
+
+  const dismissAll = useCallback(() => {
+    dismissUnlocked()
+    setDismissed([])
+    setPaused(false)
+  }, [dismissUnlocked])
+
+  // A removed toast never fires blur/mouseleave, so dismissing also resumes the timer.
+  const dismiss = (ids: string[]) => {
+    setPaused(false)
+    if (ids.length >= queue.length) dismissAll()
+    else setDismissed((d) => [...d, ...ids])
+  }
 
   useEffect(() => {
-    if (toasts.length === 0) return
-    const timer = window.setTimeout(dismissUnlocked, TOAST_MS)
+    if (queue.length === 0 || paused) return
+    const timer = window.setTimeout(dismissAll, TOAST_MS)
     return () => window.clearTimeout(timer)
-  }, [toasts, dismissUnlocked])
+  }, [queue.length, paused, dismissAll])
 
   return (
-    <div className="toasts" role="status" aria-live="polite">
-      {toasts.map((a) => (
+    <div
+      className="toasts"
+      role="status"
+      aria-live="polite"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      {shown.map((a) => (
         <div key={a.id} className="toast panel">
           <span className="toast-icon" aria-hidden="true">
             {a.icon}
           </span>
           <div className="toast-text">
             <p className="toast-kicker">Achievement unlocked</p>
-            <p className="toast-title">{a.title}</p>
+            <p className="toast-title">
+              {a.title}
+              {queue.length > 1 && <span className="toast-more mono"> +{queue.length - 1} more</span>}
+            </p>
             <p className="toast-desc">{a.description}</p>
+          </div>
+          <button type="button" className="toast-close" aria-label="Dismiss" onClick={() => dismiss([a.id])}>
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+      ))}
+      {folded.length > 0 && (
+        <div className="toast toast-summary panel">
+          <span className="toast-icon" aria-hidden="true">
+            <Icon name="trophy" size={22} />
+          </span>
+          <div className="toast-text">
+            <p className="toast-kicker">Achievements unlocked</p>
+            <p className="toast-title">{folded.length} more</p>
+            <p className="toast-desc">
+              {folded.map((a) => a.title).join(', ')}. <a href={href('achievements')}>See all</a>
+            </p>
           </div>
           <button
             type="button"
             className="toast-close"
             aria-label="Dismiss"
-            onClick={dismissUnlocked}
+            onClick={() => dismiss(folded.map((a) => a.id))}
           >
             <Icon name="close" size={18} />
           </button>
         </div>
-      ))}
+      )}
     </div>
   )
 }

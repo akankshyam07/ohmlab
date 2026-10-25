@@ -59,20 +59,26 @@ Electrical values are always produced by `formatSI` and always set in mono. No l
 | Day tile `.day-live` | phase map link | not-started / in-progress (% + bar) / complete (green, check); hover lifts 2 px |
 | Day tile `.day-soon` | not a link | dashed border, faint text, "Coming soon" |
 | Step chip `.step-btn` | lesson step nav | unseen (outline number) / seen (violet number) / done (green check) / current (`aria-current="step"`, raised + glow) |
-| Walkthrough step | `aria-pressed` button | active: cyan border + glow, highlights parts in the lab |
+| Walkthrough step | `aria-pressed` button | active: cyan border + glow, highlights parts in the lab (and expands a collapsed mini-stage). The step text is one inline `<span>` so bold words never break the line |
 | Callout | `role="note"` | tone tip (`--ok`), warn (`--warn`), info (`--info`) as a 3 px left rule |
-| Toast | bottom right, `role="status"` | slides in, auto-dismisses after 6 s, close button |
+| Predict card `.blk-predict` | `predict` block, violet-tinted card "Predict first" | radio group (fieldset/legend = prompt) + "Lock in my guess" (disabled until a choice, so arrow keys never commit by accident). Locked: options disable, the picked one turns `--warn` (wrong) and the correct one `--ok`; a reveal panel takes focus with the picked option's `why`, "The answer: …" when missed, and "Try it in the lab" with an arrow pointing at the stage (left on desktop, up on phones). Kind wording, nothing stored |
+| Completion checklist `.checklist` | lesson header and the Build step, `role="group"` "To complete this lesson" | pills "Quiz ≥ 80 %" (best score or "not taken yet") and "Lab challenges n / m", ✓ (`--ok`) or ✗ (muted); "Go to challenges" expands the stage, opens the Lab's challenge tray and focuses its summary |
+| Build guide | Build step | warn callout "Before you plug anything in" listing every safety line first; parts as a checkbox grid with "n / m ready" (component state only); steps as a list with cyan mono number discs |
+| Stage toggle `.stage-toggle` | mini-stage bar, < 1024 px only | "Hide circuit" / "Show circuit", `aria-expanded` + `aria-controls` |
+| Toast | `role="status"` + `aria-live="polite"` | at most 2 visible; from a third on, the second slot becomes a "N more" summary with a link to Achievements. Desktop: bottom right, stacked. Phones: one compact 60 px banner over the top bar ("Unlocked: Title +N more"), never over the stage. Auto-dismiss after 5 s, paused while hovered or focused; each has a Dismiss button |
 | Confirm dialog | native `<dialog>` with `showModal()` | focus is trapped by the browser; Cancel has initial focus; Esc cancels |
 
 ## 5. Layout and breakpoints
 
 | Width | Shell | Home | Lesson |
 |---|---|---|---|
-| ≥ 1024 px | 64 px top bar, wordmark + text nav; content max 1440 px, 24 px gutters | Hero two columns (copy / live bench) | Two columns: sticky stage 58 % (top = bar + 16 px, scrolls internally if taller than the viewport) and step panel 42 % |
-| 640–1023 px | same bar | Hero stacked: copy, then bench | Stage first, full width, static; step panel below |
-| < 640 px | 60 px compact bar: mark only, nav as icon-over-label tabs (≥ 56 × 44 px) | Stats as rows; day tiles one column | as tablet; panel padding 16 px |
+| ≥ 1024 px | 64 px top bar, wordmark + text nav; content max 1440 px, 24 px gutters | Hero two columns (copy / live bench) | Two columns: sticky stage 58 % and step panel 42 %. The stage is exactly `100vh − (bar + 16 px) − 16 px` tall and gives the Lab that height (`.lesson-stage-lab`, `container: stage / size`); the Lab fits schematic, meters and controls inside, so there is no tall inner scroll |
+| 640–1023 px | same bar | Hero stacked: copy, then bench | Mini-stage: sticky under the bar, full bleed, 45 % of the viewport (min 220 px), opaque `--bg` with a bottom rule; a 44 px bar holds the lab title and the Hide/Show toggle. Collapsed it is just that one-line bar. The step panel scrolls beneath it; `scroll-padding-top` keeps focused content clear of it |
+| < 640 px | 60 px compact bar: mark only, nav as icon-over-label tabs (≥ 56 × 44 px) | Stats as rows; day tiles one column | as tablet, plus a compact header (smaller `h1`, ring top-right, no meta line) and the step chips as one horizontally scrolling row that keeps the current chip in view; panel padding 16 px |
 
-Lessons without a lab use a single centred 760 px column. Nothing ever overlays the stage: toasts sit bottom right and are dismissible; there are no drawers or modals on lesson pages. Must work from 320 px with no horizontal page scroll; wide tables scroll inside their own focusable container.
+**Reading order:** the step panel (nav, step text, Back/Next) comes before the stage in the DOM, so screen readers and Tab reach the lesson first. Visually the stage is on the left (desktop, grid area) or pinned above the text (phones, `order: -1`).
+
+Lessons without a lab use a single centred 760 px column. Nothing ever overlays the stage: desktop toasts sit bottom right over the step panel, phone toasts replace the top bar for 5 s; there are no drawers or modals on lesson pages. Must work from 320 px with no horizontal page scroll; wide tables scroll inside their own focusable container, with an edge shadow while more is hidden.
 
 ## 6. Motion
 
@@ -88,7 +94,7 @@ Lessons without a lab use a single centred 760 px column. Nothing ever overlays 
 - Route changes scroll to top and move focus to the step heading (`[data-autofocus]`) or `main`. Skip link "Skip to content" is the first tab stop.
 - Hit targets ≥ 44 × 44 px for every button, link tile, step chip, radio pill and toast close.
 - Names: follow the accessible-name contract in `docs/AGENT_TASKS.md`. Step buttons are named by the step title; their state (Done / Seen / Not seen yet) is the accessible description. Day links are "Day N: Title" with the mastery state as description. Icons are `aria-hidden`.
-- Live regions: toasts and the hero bench verdict are `role="status"`.
+- Live regions: toasts (`aria-live="polite"`) and the hero bench verdict are `role="status"`. The predict reveal is not a live region; it receives focus instead.
 
 ## 8. How Ohmlab differs from the reference
 

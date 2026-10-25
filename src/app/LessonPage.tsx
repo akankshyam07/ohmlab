@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getLesson, lessons } from '../content'
-import type { Lesson } from '../content/types'
+import type { Lesson, RealBuild } from '../content/types'
 import { Lab } from '../features/lab/Lab'
 import { Quiz } from '../features/quiz/Quiz'
 import { useProgress } from '../progress/store'
@@ -34,6 +34,29 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   const lp = progress.lessons[lesson.id]
   const following = nextLesson(lessons, lesson)
   const isLast = index === steps.length - 1
+  const [stageCollapsed, setStageCollapsed] = useState(false)
+  // The quiz keeps its own "Next question"; until it's finished on this visit, the lesson Next steps back visually.
+  const attemptsOnArrival = useRef(lp?.quizAttempts ?? 0)
+  const quizInProgress = step.id === 'quiz' && (lp?.quizAttempts ?? 0) === attemptsOnArrival.current
+
+  // On phones the step chips are one scrolling row: keep the current one in view (without moving the page).
+  const stepList = useRef<HTMLOListElement>(null)
+  useEffect(() => {
+    const list = stepList.current
+    const current = list?.querySelector<HTMLElement>('[aria-current="step"]')
+    if (list && current && list.scrollWidth > list.clientWidth)
+      list.scrollLeft = current.offsetLeft - list.offsetLeft - (list.clientWidth - current.offsetWidth) / 2
+  }, [index])
+
+  const highlightParts = (ids: string[]) => {
+    setWalkHighlight({ stepId: step.id, ids })
+    if (ids.length > 0) setStageCollapsed(false)
+  }
+
+  const jumpToChallenges = () => {
+    setStageCollapsed(false)
+    requestAnimationFrame(() => revealChallenges())
+  }
 
   useEffect(() => {
     markStep(lesson.id, step.id)
@@ -48,6 +71,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   }
 
   const goTo = (i: number) => {
+    attemptsOnArrival.current = lp?.quizAttempts ?? 0
     window.location.assign(href('lesson', lesson.id, steps[i].id))
   }
   const onNext = () => {
@@ -64,25 +88,22 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
           </p>
           <h1>{lesson.title}</h1>
           <p className="lesson-tagline">{lesson.tagline}</p>
-          <p className="lesson-meta">
-            <Icon name="clock" size={16} /> {lesson.minutes} min
-            <span aria-hidden="true">·</span>
-            {steps.length} steps
-          </p>
+          <div className="lesson-head-row">
+            <p className="lesson-meta">
+              <Icon name="clock" size={16} /> {lesson.minutes} min
+              <span aria-hidden="true">·</span>
+              {steps.length} steps
+            </p>
+            <CompletionChecklist lesson={lesson} onJumpToChallenges={jumpToChallenges} />
+          </div>
         </div>
         <ProgressRing value={mastery(lesson)} size={68} />
       </header>
 
       <div className="lesson-body">
-        {lesson.lab && (
-          <div className="lesson-stage">
-            <Lab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
-          </div>
-        )}
-
         <div className="lesson-panel">
           <nav className="steps-nav" aria-label="Lesson steps">
-            <ol>
+            <ol ref={stepList}>
               {steps.map((s, i) => {
                 const state = stateOf(s.id)
                 return (
@@ -142,7 +163,8 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
             <StepContent
               lesson={lesson}
               stepId={step.id}
-              onHighlight={(ids) => setWalkHighlight({ stepId: step.id, ids })}
+              onHighlight={highlightParts}
+              onJumpToChallenges={jumpToChallenges}
             />
           </article>
 
@@ -159,7 +181,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
               )}
               <button
                 type="button"
-                className="btn btn-primary"
+                className={quizInProgress ? 'btn btn-ghost' : 'btn btn-primary'}
                 onClick={onNext}
                 aria-describedby={isLast ? 'next-caption' : undefined}
               >
@@ -169,7 +191,103 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
             </div>
           </div>
         </div>
+
+        {lesson.lab && (
+          <div className="lesson-stage" data-collapsed={stageCollapsed || undefined}>
+            <div className="stage-bar">
+              <span className="stage-bar-title">
+                <span className="live-dot" aria-hidden="true" />
+                {lesson.lab.title}
+              </span>
+              <button
+                type="button"
+                className="stage-toggle"
+                aria-expanded={!stageCollapsed}
+                aria-controls="lesson-stage-lab"
+                onClick={() => setStageCollapsed((c) => !c)}
+              >
+                {stageCollapsed ? 'Show circuit' : 'Hide circuit'}
+                <Icon name={stageCollapsed ? 'down' : 'up'} size={16} />
+              </button>
+            </div>
+            <div className="lesson-stage-lab" id="lesson-stage-lab">
+              <Lab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Open the lab's challenge tray and bring it into view: the Lab's `.lab-tray-details` (or `#lab-challenges` /
+ * `.lab-challenges`), opened if it is or sits in a <details>, then its summary gets focus.
+ */
+function revealChallenges() {
+  const target = document.querySelector<HTMLElement>('#lab-challenges, .lab-tray-details, .lab-challenges')
+  if (!target) return
+  const details = target instanceof HTMLDetailsElement ? target : target.closest('details')
+  if (details) details.open = true
+  const focusable = target.matches('summary, button, [tabindex]') ? target : target.querySelector<HTMLElement>('summary, button')
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  target.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' })
+  focusable?.focus({ preventScroll: true })
+}
+
+/** What "complete" needs: quiz ≥ 80 % and every lab challenge. Shown in the header and on the Build step. */
+function CompletionChecklist({
+  lesson,
+  onJumpToChallenges,
+}: {
+  lesson: Lesson
+  onJumpToChallenges: () => void
+}) {
+  const { progress, isComplete } = useProgress()
+  const lp = progress.lessons[lesson.id]
+  const best = Math.round((lp?.quizBest ?? 0) * 100)
+  const quizDone = (lp?.quizBest ?? 0) >= 0.8
+  const challenges = lesson.lab?.challenges ?? []
+  const challengesDone = challenges.filter((c) => lp?.challengesDone.includes(c.id)).length
+  const labDone = challengesDone === challenges.length
+  const complete = isComplete(lesson)
+
+  return (
+    <div className="checklist" role="group" aria-label="To complete this lesson" data-complete={complete || undefined}>
+      <p className="checklist-title">{complete ? 'Lesson complete' : 'To complete this lesson'}</p>
+      <ul>
+        <li data-done={quizDone || undefined}>
+          <span className="checklist-mark" aria-hidden="true">
+            <Icon name={quizDone ? 'check' : 'close'} size={14} />
+          </span>
+          <span>
+            Quiz ≥ 80 %{' '}
+            <span className="checklist-detail mono">
+              {lp?.quizAttempts ? `best ${best} %` : 'not taken yet'}
+            </span>
+            <span className="sr-only">{quizDone ? ', done' : ', not done yet'}</span>
+          </span>
+        </li>
+        {challenges.length > 0 && (
+          <li data-done={labDone || undefined}>
+            <span className="checklist-mark" aria-hidden="true">
+              <Icon name={labDone ? 'check' : 'close'} size={14} />
+            </span>
+            <span>
+              Lab challenges{' '}
+              <span className="checklist-detail mono">
+                {challengesDone} / {challenges.length}
+              </span>
+              <span className="sr-only">{labDone ? ', done' : ', not done yet'}</span>
+            </span>
+            {!labDone && (
+              <button type="button" className="checklist-jump" onClick={onJumpToChallenges}>
+                Go to challenges
+              </button>
+            )}
+          </li>
+        )}
+      </ul>
     </div>
   )
 }
@@ -178,41 +296,22 @@ function StepContent({
   lesson,
   stepId,
   onHighlight,
+  onJumpToChallenges,
 }: {
   lesson: Lesson
   stepId: string
   onHighlight: (ids: string[]) => void
+  onJumpToChallenges: () => void
 }) {
   if (stepId === 'quiz') return <Quiz lessonId={lesson.id} questions={lesson.quiz} />
 
-  if (stepId === 'build' && lesson.realBuild) {
-    const build = lesson.realBuild
+  if (stepId === 'build' && lesson.realBuild)
     return (
       <div className="build">
-        <p className="blk-text">Time to leave the simulator. Here is everything you need from your kit.</p>
-        <h3>Parts</h3>
-        <ul className="build-parts">
-          {build.parts.map((p) => (
-            <li key={p}>
-              <Icon name="check" size={16} />
-              <RichText text={p} />
-            </li>
-          ))}
-        </ul>
-        <h3>Steps</h3>
-        <ol className="build-steps">
-          {build.steps.map((s, i) => (
-            <li key={i}>
-              <RichText text={s} />
-            </li>
-          ))}
-        </ol>
-        {build.safety?.map((s, i) => (
-          <BlockView key={i} block={{ type: 'callout', tone: 'warn', title: 'Safety', text: s }} onHighlight={onHighlight} />
-        ))}
+        <BuildGuide build={lesson.realBuild} />
+        <CompletionChecklist lesson={lesson} onJumpToChallenges={onJumpToChallenges} />
       </div>
     )
-  }
 
   const section = lesson.sections.find((s) => s.id === stepId)
   return (
@@ -221,5 +320,67 @@ function StepContent({
         <BlockView key={i} block={block} onHighlight={onHighlight} />
       ))}
     </div>
+  )
+}
+
+/** The real-kit build: safety first, a tick-off parts list (this visit only), then numbered steps. */
+function BuildGuide({ build }: { build: RealBuild }) {
+  const [have, setHave] = useState<string[]>([])
+  return (
+    <>
+      <p className="blk-text">Time to leave the simulator. Here is everything you need from your kit.</p>
+      {build.safety && build.safety.length > 0 && (
+        <aside className="blk-callout build-safety" data-tone="warn" role="note">
+          <p className="blk-callout-title">Before you plug anything in</p>
+          <ul>
+            {build.safety.map((s, i) => (
+              <li key={i}>
+                <RichText text={s} />
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+      <fieldset className="build-parts">
+        <legend>
+          Parts{' '}
+          <span className="build-parts-count mono">
+            {have.length} / {build.parts.length} ready
+          </span>
+        </legend>
+        <ul>
+          {build.parts.map((p) => (
+            <li key={p}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={have.includes(p)}
+                  onChange={(e) => setHave((h) => (e.target.checked ? [...h, p] : h.filter((x) => x !== p)))}
+                />
+                <span className="build-check" aria-hidden="true">
+                  <Icon name="check" size={14} />
+                </span>
+                <span>
+                  <RichText text={p} />
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+      <h3>Steps</h3>
+      <ol className="build-steps">
+        {build.steps.map((s, i) => (
+          <li key={i}>
+            <span className="build-step-num mono" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span>
+              <RichText text={s} />
+            </span>
+          </li>
+        ))}
+      </ol>
+    </>
   )
 }
