@@ -3,8 +3,11 @@ import {
   type Box3,
   VIEWS,
   compareDepth,
+  clampZoom,
   convexHull,
   depthSort,
+  frameRect,
+  zoomAt,
   faceShade,
   fitCamera,
   groundMatrix,
@@ -167,5 +170,35 @@ describe('outlines and tracks', () => {
     expect(pointAt(t, 5)).toEqual({ x: 5, y: 0 })
     expect(pointAt(t, 15)).toEqual({ x: 10, y: 5 })
     expect(pointAt(t, 99)).toEqual({ x: 10, y: 10 })
+  })
+})
+
+describe('2D camera', () => {
+  const content = { x0: 100, y0: 50, x1: 900, y1: 550 }
+
+  it('frameRect centres a rect and fits its tighter side', () => {
+    const z = frameRect(content, 400, 400)
+    expect(z.s).toBeCloseTo(0.5)
+    expect(content.x0 * z.s + z.tx).toBeCloseTo(0)
+    expect(((content.y0 + content.y1) / 2) * z.s + z.ty).toBeCloseTo(200)
+  })
+
+  it('zoomAt keeps the pinch point still', () => {
+    const z = zoomAt({ s: 1, tx: 10, ty: 20 }, 2, 150, 90)
+    const before = { x: (150 - 10) / 1, y: (90 - 20) / 1 }
+    expect(before.x * z.s + z.tx).toBeCloseTo(150)
+    expect(before.y * z.s + z.ty).toBeCloseTo(90)
+  })
+
+  it('clampZoom limits scale and never lets the bench leave the stage', () => {
+    const fit = frameRect(content, 400, 300)
+    const tooFar = clampZoom({ s: fit.s * 10, tx: 5000, ty: -5000 }, content, 400, 300, fit.s, fit.s * 4)
+    expect(tooFar.s).toBeCloseTo(fit.s * 4)
+    // Zoomed in, the content must still cover the stage.
+    expect(content.x0 * tooFar.s + tooFar.tx).toBeLessThanOrEqual(1e-6)
+    expect(content.x1 * tooFar.s + tooFar.tx).toBeGreaterThanOrEqual(400 - 1e-6)
+    // At fit scale, the content stays wholly in view.
+    const out = clampZoom({ ...fit, tx: fit.tx + 900 }, content, 400, 300, fit.s, fit.s * 4)
+    expect(content.x1 * out.s + out.tx).toBeLessThanOrEqual(400 + 1e-6)
   })
 })

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RealBuild } from '../content/types'
@@ -7,9 +7,24 @@ import { BuildGuide, partIdsInStep, partsForStep } from './BuildGuide'
 
 vi.mock('../viz/BreadboardView', () => ({
   BreadboardView: ({ ariaLabel, highlight }: BreadboardViewProps) => (
-    <svg role="img" aria-label={ariaLabel} data-highlight={(highlight ?? []).join(',')} />
+    <svg role="img" aria-label={ariaLabel} data-view="flat" data-highlight={(highlight ?? []).join(',')} />
   ),
 }))
+vi.mock('../viz/iso/IsoBench', () => ({
+  IsoBench: (p: { ariaLabel?: string; highlight?: string[]; focus?: string[]; result?: unknown; animate?: boolean }) => (
+    <svg
+      role="img"
+      aria-label={p.ariaLabel}
+      data-view="iso"
+      data-highlight={(p.highlight ?? []).join(',')}
+      data-focus={(p.focus ?? []).join(',')}
+      data-live={p.result ? 'yes' : 'no'}
+      data-animate={String(p.animate)}
+    />
+  ),
+}))
+
+beforeEach(() => localStorage.clear())
 
 const layout: BreadboardLayout = {
   supply: 'uno',
@@ -147,6 +162,26 @@ describe('BuildGuide wiring diagram', () => {
     render(<BuildGuide build={build} title="First LED" active={null} onActive={() => {}} staged />)
     expect(screen.queryByRole('img', { name: /Breadboard wiring/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Place R1/ })).toBeInTheDocument()
+  })
+
+  it('shows the 3D bench by default; "Flat" swaps in the flat board and is remembered', () => {
+    const { unmount } = render(<Guide build={build} />)
+    const views = screen.getByRole('group', { name: 'Wiring view' })
+    expect(within(views).getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED' })).toHaveAttribute('data-view', 'iso')
+    fireEvent.click(screen.getByRole('button', { name: /Add D1/ }))
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED' })).toHaveAttribute('data-focus', 'D1,W1')
+
+    fireEvent.click(within(views).getByRole('button', { name: 'Flat' }))
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED' })).toHaveAttribute('data-view', 'flat')
+    unmount()
+    render(<Guide build={build} />)
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED' })).toHaveAttribute('data-view', 'flat')
+    fireEvent.click(screen.getByRole('button', { name: 'Full screen' }))
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED, enlarged' })).toHaveAttribute(
+      'data-view',
+      'flat',
+    )
   })
 
   it('without a layout, steps stay a plain list', () => {

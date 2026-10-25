@@ -1,7 +1,10 @@
 import { useMemo, useState, type CSSProperties } from 'react'
+import { getLesson } from '../content'
 import { solveDC } from '../sim/solver'
 import type { Circuit } from '../sim/types'
 import { formatSI } from '../ui/format'
+import { IsoBench } from '../viz/iso/IsoBench'
+import type { BreadboardLayout } from '../viz/types'
 import { useSettings } from './settings'
 
 // ponytail: 0.1 Ω stands in for "a bare wire" so the solver sees a real (tiny) resistance.
@@ -23,11 +26,28 @@ function benchCircuit(ohms: number): Circuit {
   }
 }
 
-/** A tiny live circuit on the home page. Every number shown comes from solveDC. */
+/** Day 1's breadboard, with R1 swapped for a plain jumper in the same holes when "None" is picked. */
+function benchLayout(ohms: number): BreadboardLayout | undefined {
+  const layout = getLesson('first-led')?.realBuild?.breadboard
+  if (!layout || ohms >= 1) return layout
+  return {
+    ...layout,
+    parts: layout.parts.map((p) =>
+      p.id === 'R1' && p.kind === 'resistor' ? { kind: 'wire', id: 'R1', from: p.from, to: p.to, color: 'yellow' } : p,
+    ),
+  }
+}
+
+/**
+ * A tiny live circuit on the home page: Day 1's bench in 3D (the 2D sketch if that lesson has no breadboard).
+ * Every number shown comes from solveDC.
+ */
 export function HeroBench() {
   const { animateFlow } = useSettings()
   const [ohms, setOhms] = useState(220)
-  const result = useMemo(() => solveDC(benchCircuit(ohms)), [ohms])
+  const circuit = useMemo(() => benchCircuit(ohms), [ohms])
+  const result = useMemo(() => solveDC(circuit), [circuit])
+  const layout = useMemo(() => benchLayout(ohms), [ohms])
   const led = result.components.D1
   const resistor = result.components.R1
   const current = led?.current ?? 0
@@ -46,42 +66,66 @@ export function HeroBench() {
         <span className="chip">5 V · red LED</span>
       </div>
 
-      <svg className="bench-svg" viewBox="0 0 360 220" aria-hidden="true" data-burnt={status === 'burnt' || undefined}>
-        <defs>
-          <radialGradient id="bench-glow">
-            <stop offset="0" style={{ stopColor: 'var(--danger)', stopOpacity: 0.95 }} />
-            <stop offset="1" style={{ stopColor: 'var(--danger)', stopOpacity: 0 }} />
-          </radialGradient>
-        </defs>
-        <g className="bench-wire">
-          <path d="M60 100V40h70M210 40h90v45M300 135v45H60v-66" />
-        </g>
-        {animateFlow && mA > 0.05 && (
-          <g className="bench-flow" style={flowStyle}>
-            <path d="M60 100V40h70" />
-            <path d="M210 40h90v45" />
-            <path d="M300 135v45H60v-66" />
+      {layout ? (
+        <div className="bench-iso">
+          <IsoBench
+            layout={layout}
+            circuit={circuit}
+            result={result}
+            animate={animateFlow}
+            aspect={1.6}
+            ariaLabel="The LED circuit on a breadboard"
+          />
+        </div>
+      ) : (
+        <svg
+          className="bench-svg"
+          viewBox="0 0 360 220"
+          aria-hidden="true"
+          data-burnt={status === 'burnt' || undefined}
+        >
+          <defs>
+            <radialGradient id="bench-glow">
+              <stop offset="0" style={{ stopColor: 'var(--danger)', stopOpacity: 0.95 }} />
+              <stop offset="1" style={{ stopColor: 'var(--danger)', stopOpacity: 0 }} />
+            </radialGradient>
+          </defs>
+          <g className="bench-wire">
+            <path d="M60 100V40h70M210 40h90v45M300 135v45H60v-66" />
           </g>
-        )}
-        <g className="bench-part">
-          <path d="M42 100h36M50 114h20" className="bench-battery" />
-          {ohms < 1 ? (
-            <path d="M130 40h80" className="bench-jumper" />
-          ) : (
-            <path d="M130 40l5-10 10 20 10-20 10 20 10-20 10 20 10-20 10 20 5-10" className="bench-resistor" />
+          {animateFlow && mA > 0.05 && (
+            <g className="bench-flow" style={flowStyle}>
+              <path d="M60 100V40h70" />
+              <path d="M210 40h90v45" />
+              <path d="M300 135v45H60v-66" />
+            </g>
           )}
-          <circle cx="300" cy="109" r={18 + brightness * 34} fill="url(#bench-glow)" opacity={brightness} />
-          <path d="M300 85v13M300 120v15M286 120h28" />
-          <path d="M286 98h28l-14 22z" className="bench-led" style={{ fillOpacity: 0.15 + brightness * 0.85 }} />
-          <path d="M318 96l8-8M322 104l8-8" className="bench-rays" opacity={brightness} />
-        </g>
-        <text x="86" y="96" className="bench-label">+</text>
-        <text x="20" y="150" className="bench-label">5 V</text>
-        <text x="170" y="74" className="bench-label" textAnchor="middle">
-          {ohms < 1 ? 'just wire' : formatSI(ohms, 'Ω')}
-        </text>
-        <text x="236" y="114" className="bench-label">LED</text>
-      </svg>
+          <g className="bench-part">
+            <path d="M42 100h36M50 114h20" className="bench-battery" />
+            {ohms < 1 ? (
+              <path d="M130 40h80" className="bench-jumper" />
+            ) : (
+              <path d="M130 40l5-10 10 20 10-20 10 20 10-20 10 20 10-20 10 20 5-10" className="bench-resistor" />
+            )}
+            <circle cx="300" cy="109" r={18 + brightness * 34} fill="url(#bench-glow)" opacity={brightness} />
+            <path d="M300 85v13M300 120v15M286 120h28" />
+            <path d="M286 98h28l-14 22z" className="bench-led" style={{ fillOpacity: 0.15 + brightness * 0.85 }} />
+            <path d="M318 96l8-8M322 104l8-8" className="bench-rays" opacity={brightness} />
+          </g>
+          <text x="86" y="96" className="bench-label">
+            +
+          </text>
+          <text x="20" y="150" className="bench-label">
+            5 V
+          </text>
+          <text x="170" y="74" className="bench-label" textAnchor="middle">
+            {ohms < 1 ? 'just wire' : formatSI(ohms, 'Ω')}
+          </text>
+          <text x="236" y="114" className="bench-label">
+            LED
+          </text>
+        </svg>
+      )}
 
       <dl className="bench-readouts">
         <div data-sig="current">
@@ -121,8 +165,8 @@ export function HeroBench() {
           : status === 'overcurrent'
             ? 'Too much current: the LED is overloaded and will not last long.'
             : brightness < 0.15
-            ? 'Barely glowing: a big resistor lets only a trickle of current through.'
-            : 'Glowing nicely. Swap the resistor and watch the current change.'}
+              ? 'Barely glowing: a big resistor lets only a trickle of current through.'
+              : 'Glowing nicely. Swap the resistor and watch the current change.'}
       </p>
     </div>
   )

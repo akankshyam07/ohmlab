@@ -209,14 +209,23 @@ function print(cam: Camera, at: Pt, z: number, text: string, size: number, fill:
 
 export function drawBench(cam: Camera, pal: IsoPalette, id: string): ReactNode {
   const m = matrix(groundMatrix(cam, 0))
+  // A pool of grid round the bench that fades into the bench colour. Bounded on purpose: an
+  // unbounded floor makes every camera layer huge to raster and composite.
+  const c = { x: (BOARD.x0 + BOARD.x1) / 2, y: -4 }
+  const r = { x: 150, y: 125 }
   return (
-    <g className="iso-bench-floor">
+    <g className="iso-bench-floor" transform={m}>
       <defs>
         <pattern id={`${id}-grid`} width={10} height={10} patternUnits="userSpaceOnUse">
           <path d="M10 0H0V10" fill="none" stroke={pal.benchGrid} strokeWidth={0.22} />
         </pattern>
+        <radialGradient id={`${id}-fade`}>
+          <stop offset={0.45} stopColor={pal.bench} stopOpacity={0} />
+          <stop offset={1} stopColor={pal.bench} stopOpacity={1} />
+        </radialGradient>
       </defs>
-      <rect transform={m} x={-400} y={-400} width={900} height={900} fill={`url(#${id}-grid)`} />
+      <ellipse cx={c.x} cy={c.y} rx={r.x} ry={r.y} fill={`url(#${id}-grid)`} />
+      <ellipse cx={c.x} cy={c.y} rx={r.x + 0.5} ry={r.y + 0.5} fill={`url(#${id}-fade)`} />
     </g>
   )
 }

@@ -3,6 +3,10 @@
 
 .iso-bench {
   margin: 0;
+  /* Fills a parent that sets a height; otherwise the stage keeps the drawing's aspect ratio. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   /* User units per CSS px; set from the rendered width so ink lines stay 1.25 px at any size. */
   --iso-px: 1px;
 }
@@ -10,12 +14,34 @@
 .iso-stage {
   position: relative;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: var(--iso-aspect, 3 / 2);
   overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
   border-radius: inherit;
   background:
     radial-gradient(ellipse 70% 60% at 50% 46%, rgba(120, 150, 255, 0.09), transparent 70%),
     var(--iso-bench);
   -webkit-tap-highlight-color: transparent;
+}
+
+.iso-stage.is-zoomed {
+  touch-action: none;
+  cursor: grab;
+}
+
+.iso-stage.is-zoomed:active {
+  cursor: grabbing;
+}
+
+/* The camera: one group, one transform (pan and zoom), promoted only while a tween runs. */
+.iso-cam {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
 }
 
 .iso-scene,
@@ -30,10 +56,8 @@
 }
 
 
-/* Pulses and glow repaint only their own layer, never the static drawing beneath. */
 .iso-live {
   pointer-events: none;
-  will-change: transform;
   transition: opacity var(--dur-med) var(--ease-out);
 }
 
@@ -130,12 +154,17 @@
 }
 
 .iso-part.is-hl > .iso-ring {
-  opacity: 0.85;
-  stroke-dasharray: calc(5 * var(--iso-px)) calc(4 * var(--iso-px));
+  opacity: 1;
 }
 
-.has-hl .iso-part:not(.is-hl) > .iso-lift {
-  opacity: 0.55;
+/* The brand halo round focused and highlighted parts: a soft wide band under the crisp ring. */
+.iso-halo {
+  fill: color-mix(in srgb, var(--brand) 10%, transparent);
+  stroke: var(--brand);
+  stroke-opacity: 0.4;
+  stroke-width: calc(7 * var(--iso-px));
+  stroke-linejoin: round;
+  pointer-events: none;
 }
 
 .iso-lit,
@@ -227,7 +256,6 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
   transition: opacity var(--dur-med) var(--ease-out);
 }
 
@@ -237,7 +265,6 @@
   top: 0;
   border-radius: 50%;
   background: radial-gradient(circle, #fff 0 14%, var(--sig-current) 30%, rgba(56, 225, 255, 0.28) 55%, transparent 70%);
-  will-change: transform;
   transform: translate(-99px, -99px);
 }
 
@@ -307,41 +334,44 @@
   }
 }
 
-/* ---------------------------------------------------------------- camera presets */
+/* ---------------------------------------------------------------- camera presets (Web Animations in IsoBench.tsx) */
 
 .iso-leave,
 .iso-enter {
-  transform-origin: 0 0;
-  will-change: transform, opacity;
   pointer-events: none;
 }
 
-.iso-leave {
-  animation: iso-leave 560ms var(--ease-out) forwards;
+/* Painted once, invisibly, while idle: warms text and path caches for every camera preset. */
+.iso-warm {
+  opacity: 0.001;
+  pointer-events: none;
 }
 
-.iso-enter {
-  animation: iso-enter 560ms var(--ease-out) backwards;
+.is-moving .iso-overlay {
+  opacity: 0;
+  transition-duration: 0ms;
 }
 
-@keyframes iso-leave {
-  55% {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-    transform: var(--to);
-  }
+.iso-reset {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  color: var(--text);
+  font: 500 12px/1.3 var(--font-body);
+  cursor: pointer;
 }
 
-@keyframes iso-enter {
-  from {
-    opacity: 0;
-    transform: var(--from);
-  }
-  60% {
-    opacity: 1;
-  }
+.iso-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- callouts */

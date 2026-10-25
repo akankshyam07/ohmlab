@@ -302,6 +302,14 @@
   margin: auto;
 }
 
+/* The 3D bench fills whatever box it is given (its camera frames the bench, or the step's parts, inside it). */
+.lesson-stage .wiring-board[data-view='iso'] > *,
+.wiring-dialog-board[data-view='iso'] > * {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
 .wiring-step {
   display: flex;
   flex-direction: column;
@@ -926,6 +934,13 @@
   min-height: 44px;
 }
 
+.wiring-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
 .wiring-board > * {
   width: 100%;
 }
@@ -981,6 +996,11 @@
   width: 100%;
 }
 
+/* The enlarged 3D bench fills the dialog (it pans and zooms itself on phones). */
+.wiring-dialog-board[data-view='iso'] {
+  place-items: stretch;
+}
+
 @media (max-width: 639px) {
   /* Full bleed: the board uses the whole phone width, edge to edge of the step card. */
   .wiring-board {
@@ -1006,7 +1026,7 @@
     padding: var(--sp-3);
   }
 
-  .wiring-dialog-board > * {
+  .wiring-dialog-board[data-view='flat'] > * {
     width: 940px;
   }
 }
@@ -1332,6 +1352,11 @@
     margin: 0;
   }
 
+  .lesson-stage .wiring-views {
+    background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+    box-shadow: var(--shadow-panel);
+  }
+
   .lesson-stage .wiring-expand {
     border: 1px solid var(--border-strong);
     background: color-mix(in srgb, var(--surface-2) 92%, transparent);
@@ -1405,6 +1430,10 @@
   /* Phones: the full width, never narrower; the mini-stage pans down (and sideways) to the step's parts. */
   .lesson-stage .wiring-board > * {
     width: 100%;
+  }
+
+  .lesson-stage .wiring-board[data-view='iso'] > * {
+    height: 100%;
   }
 
   .lesson-head .ring {

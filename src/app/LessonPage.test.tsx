@@ -46,6 +46,17 @@ vi.mock('../progress/store', () => ({
 }))
 
 vi.mock('../features/lab/Lab', () => ({ Lab: () => <section aria-label="Circuit lab" /> }))
+vi.mock('../viz/iso/IsoBench', () => ({
+  IsoBench: (p: { ariaLabel?: string; highlight?: string[]; result?: unknown }) => (
+    <svg
+      role="img"
+      aria-label={p.ariaLabel}
+      data-highlight={(p.highlight ?? []).join(',')}
+      data-live={p.result ? 'yes' : 'no'}
+    />
+  ),
+}))
+vi.mock('../sim/solver', () => ({ solveDC: () => ({ ok: true }) }))
 vi.mock('../viz/BreadboardView', () => ({
   BreadboardView: ({ ariaLabel, highlight }: { ariaLabel: string; highlight?: string[] }) => (
     <svg role="img" aria-label={ariaLabel} data-highlight={(highlight ?? []).join(',')} />
@@ -109,6 +120,7 @@ describe('LessonPage', () => {
     expect(screen.getAllByRole('img', { name: /Breadboard wiring/ })).toHaveLength(1)
     expect(screen.queryByRole('region', { name: 'Circuit lab' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument()
+    expect(board).toHaveAttribute('data-live', 'yes')
 
     fireEvent.click(screen.getByRole('button', { name: /Add R1 next to D1/ }))
     expect(board).toHaveAttribute('data-highlight', 'R1')

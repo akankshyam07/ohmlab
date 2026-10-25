@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { RealBuild, RichString } from '../content/types'
+import type { Circuit, SolveResult } from '../sim/types'
 import { Icon } from '../ui/primitives'
 import { RichText } from '../ui/RichText'
 import { BreadboardView } from '../viz/BreadboardView'
+import { IsoBench } from '../viz/iso/IsoBench'
 import type { BreadboardLayout } from '../viz/types'
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -150,29 +152,78 @@ export function BuildGuide({
   )
 }
 
-/** The breadboard for this build, with an expand button that opens it large in a modal dialog. `children` go under the board. */
+export type WiringView = 'iso' | 'flat'
+
+const WIRING_VIEW_KEY = 'ohmlab.wiringView'
+
+function loadWiringView(): WiringView {
+  try {
+    return localStorage.getItem(WIRING_VIEW_KEY) === 'flat' ? 'flat' : 'iso'
+  } catch {
+    return 'iso'
+  }
+}
+
+/**
+ * The breadboard for this build: the 3D bench (IsoBench) by default, or the flat BreadboardView for reading exact
+ * holes ("3D | Flat", remembered in localStorage), with an expand button that opens the same view large in a modal
+ * dialog. `live` is the lab's starting circuit and its solution, so LEDs glow and current pulses on the bench;
+ * `children` go under the board.
+ */
 export function WiringFigure({
   layout,
   title,
   highlight,
+  live,
+  animate = true,
   children,
 }: {
   layout: BreadboardLayout
   title: string
   highlight: string[]
+  live?: { circuit: Circuit; result: SolveResult }
+  animate?: boolean
   children?: ReactNode
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const expandButton = useRef<HTMLButtonElement>(null)
   const [expanded, setExpanded] = useState(false)
+  const [view, setView] = useState(loadWiringView)
   const figure = useRef<HTMLElement>(null)
   const ariaLabel = `Breadboard wiring for ${title}`
 
-  // The board's aspect ratio, so CSS can fit it to the height of the lesson stage (see `.lesson-stage .wiring-board`).
+  const pickView = (next: WiringView) => {
+    setView(next)
+    try {
+      localStorage.setItem(WIRING_VIEW_KEY, next)
+    } catch {
+      // Storage blocked: the choice holds for this visit.
+    }
+  }
+
+  const board = (label: string) =>
+    view === 'iso' ? (
+      <IsoBench
+        layout={layout}
+        circuit={live?.circuit}
+        result={live?.result}
+        highlight={highlight}
+        focus={highlight}
+        animate={animate}
+        ariaLabel={label}
+      />
+    ) : (
+      <BreadboardView layout={layout} ariaLabel={label} highlight={highlight} />
+    )
+
+  // The board's aspect ratio, so CSS can fit it to the height of the lesson stage (see `.lesson-stage .wiring-board`):
+  // the rendered box's own ratio (it includes the flat board's frame), else the drawing's viewBox.
   useLayoutEffect(() => {
-    const vb = figure.current?.querySelector<SVGSVGElement>('.wiring-board svg')?.viewBox?.baseVal
-    if (vb?.width && vb.height) figure.current?.style.setProperty('--bb-ratio', String(vb.width / vb.height))
-  }, [layout])
+    const box = figure.current?.querySelector<HTMLElement>('.wiring-board > *')
+    const vb = figure.current?.querySelector<SVGSVGElement>('.wiring-board svg[viewBox]')?.viewBox?.baseVal
+    const ratio = box?.offsetHeight ? box.offsetWidth / box.offsetHeight : vb?.height ? vb.width / vb.height : 0
+    if (ratio) figure.current?.style.setProperty('--bb-ratio', String(ratio))
+  }, [layout, view])
 
   // When the board is wider (or taller) than its window, pan to the highlighted parts, without moving the page.
   const highlightKey = highlight.join(' ')
@@ -207,19 +258,29 @@ export function WiringFigure({
           <span className="wiring-title">Wiring diagram</span>
           <span className="wiring-hint">Select a step to highlight its parts.</span>
         </figcaption>
-        <button
-          ref={expandButton}
-          type="button"
-          className="btn btn-ghost wiring-expand"
-          aria-haspopup="dialog"
-          onClick={() => setExpanded(true)}
-        >
-          <Icon name="expand" size={18} />
-          Full screen
-        </button>
+        <div className="wiring-actions">
+          <div className="stage-views wiring-views" role="group" aria-label="Wiring view">
+            <button type="button" aria-pressed={view === 'iso'} onClick={() => pickView('iso')}>
+              3D
+            </button>
+            <button type="button" aria-pressed={view === 'flat'} onClick={() => pickView('flat')}>
+              Flat
+            </button>
+          </div>
+          <button
+            ref={expandButton}
+            type="button"
+            className="btn btn-ghost wiring-expand"
+            aria-haspopup="dialog"
+            onClick={() => setExpanded(true)}
+          >
+            <Icon name="expand" size={18} />
+            Full screen
+          </button>
+        </div>
       </div>
-      <div className="wiring-board">
-        <BreadboardView layout={layout} ariaLabel={ariaLabel} highlight={highlight} />
+      <div className="wiring-board" data-view={view}>
+        {board(ariaLabel)}
       </div>
       {children}
       <dialog
@@ -245,8 +306,8 @@ export function WiringFigure({
                 Close
               </button>
             </div>
-            <div className="wiring-dialog-board">
-              <BreadboardView layout={layout} ariaLabel={`${ariaLabel}, enlarged`} highlight={highlight} />
+            <div className="wiring-dialog-board" data-view={view}>
+              {board(`${ariaLabel}, enlarged`)}
             </div>
           </>
         )}

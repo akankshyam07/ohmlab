@@ -379,6 +379,53 @@ export function hullBands(hull: Pt[], bands = 8): { x0: number; y0: number; x1: 
   return out
 }
 
+/* ------------------------------------------------------------------ 2D camera (pan and zoom) */
+
+/** A uniform zoom then pan from drawing units to stage pixels: screen = p * s + (tx, ty). */
+export interface Zoom {
+  s: number
+  tx: number
+  ty: number
+}
+
+export interface Rect {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
+/** The zoom that fits `r` (drawing units) centred in a w × h stage, leaving `margin` (fraction) round it. */
+export function frameRect(r: Rect, w: number, h: number, margin = 0): Zoom {
+  const rw = Math.max(1e-6, r.x1 - r.x0)
+  const rh = Math.max(1e-6, r.y1 - r.y0)
+  const s = Math.min((w * (1 - 2 * margin)) / rw, (h * (1 - 2 * margin)) / rh)
+  return { s, tx: w / 2 - ((r.x0 + r.x1) / 2) * s, ty: h / 2 - ((r.y0 + r.y1) / 2) * s }
+}
+
+/** Zoom by `factor` about the stage point (px, py), which stays put. */
+export const zoomAt = (z: Zoom, factor: number, px: number, py: number): Zoom => ({ s: z.s * factor, tx: px - (px - z.tx) * factor, ty: py - (py - z.ty) * factor })
+
+/**
+ * Keep a zoom sensible: scale within [sMin, sMax], and the content either wholly in view (when it
+ * fits) or covering the stage (when it doesn't), so it can never be panned away.
+ */
+export function clampZoom(z: Zoom, content: Rect, w: number, h: number, sMin: number, sMax: number): Zoom {
+  const s = Math.min(sMax, Math.max(sMin, z.s))
+  const k = s / z.s
+  // Rescale about the stage centre first so clamping the scale doesn't jump the view.
+  let tx = w / 2 - (w / 2 - z.tx) * k
+  let ty = h / 2 - (h / 2 - z.ty) * k
+  const fit = (t: number, c0: number, c1: number, size: number) => {
+    const a = -c0 * s
+    const b = size - c1 * s
+    return Math.min(Math.max(a, b), Math.max(Math.min(a, b), t))
+  }
+  tx = fit(tx, content.x0, content.x1, w)
+  ty = fit(ty, content.y0, content.y1, h)
+  return { s, tx, ty }
+}
+
 /* ------------------------------------------------------------------ svg strings */
 
 /** Round to 0.01 for compact path data. */

@@ -194,6 +194,13 @@
   background-position: center;
 }
 
+/* Day 1's bench in 3D (IsoBench), framed like the 2D sketch it replaces. */
+.bench-iso {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
 .bench-wire path,
 .bench-part path {
   fill: none;

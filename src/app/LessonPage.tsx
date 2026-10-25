@@ -1,9 +1,10 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { getLesson, lessons } from '../content'
 import type { Lesson } from '../content/types'
 import { Lab } from '../features/lab/Lab'
 import { Quiz } from '../features/quiz/Quiz'
 import { useProgress } from '../progress/store'
+import { solveDC } from '../sim/solver'
 import { Icon, ProgressRing } from '../ui/primitives'
 import { RichText } from '../ui/RichText'
 import { BlockView } from './blocks'
@@ -49,6 +50,11 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   const [stageView, setStageView] = useState<'wiring' | 'lab'>('wiring')
   const showWiring = wiringStage && stageView === 'wiring'
   const [buildStep, setBuildStep] = useState<number | null>(null)
+  // The bench on the Build step runs the lab's starting circuit: the LEDs glow and current pulses as built.
+  const live = useMemo(
+    () => (lesson.lab ? { circuit: lesson.lab.circuit, result: solveDC(lesson.lab.circuit) } : undefined),
+    [lesson],
+  )
   // The quiz keeps its own "Next question"; until it's finished on this visit, the lesson button becomes a quiet "Skip quiz".
   const attemptsOnArrival = useRef(lp?.quizAttempts ?? 0)
   const quizInProgress = step.id === 'quiz' && (lp?.quizAttempts ?? 0) === attemptsOnArrival.current
@@ -321,7 +327,9 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
                   <WiringFigure
                     layout={build.breadboard}
                     title={lesson.title}
-                    highlight={buildStep === null ? [] : partsForStep(build, buildStep)}
+                    highlight={buildStep === null ? NO_HIGHLIGHT : partsForStep(build, buildStep)}
+                    live={live}
+                    animate={animateFlow}
                   >
                     {/* A visual echo of the current step under the board; the step list carries it for screen readers. */}
                     {buildStep !== null && (
