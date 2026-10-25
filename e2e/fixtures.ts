@@ -112,7 +112,7 @@ export async function completeDay1(page: Page) {
 
   // Click the LED on the diagram to flip it: dark, 0 mA.
   await lab(page).getByRole('button', { name: /^LED D1 \(red\)/ }).click()
-  await expect(lab(page).getByRole('button', { name: 'LED D1 (red), off' })).toBeVisible()
+  await expect(lab(page).getByRole('button', { name: /^LED D1 \(red\), off/ })).toBeVisible()
   // The success text promises "the meter reads 0" (was BUG-1: "0.005 nA").
   await expect(meter(page, 'Current through the loop')).toHaveText('0 A')
   await expectChallengeDone(page, /backwards/, /Dark, and the meter reads 0/)

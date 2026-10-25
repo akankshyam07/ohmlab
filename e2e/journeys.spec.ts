@@ -176,9 +176,12 @@ test('Day 1: a predict card reveals the why and the try-it text', async ({ page 
   await card.getByRole('radio', { name: /about a tenth of the current/ }).check()
   await lock.click()
   await expect(lock).toBeHidden()
+  // Test it in the lab first; the answer is revealed only on request.
+  await expect(card).toContainText('Try it in the lab:')
+  await expect(card).not.toContainText('Good call.')
+  await card.getByRole('button', { name: 'Show the answer' }).click()
   await expect(card).toContainText('Good call.')
   await expect(card).toContainText('Ten times the resistance, a tenth of the current.')
-  await expect(card).toContainText('Try it in the lab:')
   await expect(card.getByRole('radio').first()).toBeDisabled()
 })
 
