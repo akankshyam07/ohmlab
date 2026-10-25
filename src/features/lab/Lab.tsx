@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ControlValue, Lab as LabData, LabControl, Readout } from '../../content/types'
 import { useProgress } from '../../progress/store'
 import { SIM_LIMITATIONS } from '../../sim/limitations'
@@ -311,7 +311,7 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   }
 
   return (
-    <section aria-label="Circuit lab" className="lab">
+    <section aria-label="Circuit lab" className={`lab ${showFlow === false ? 'lab--still' : ''}`}>
       {/* lab-main is what must fit in the stage; lab-more scrolls below it on short (phone) stages. */}
       <div className="lab-main">
         <header className="lab-header">
@@ -396,34 +396,16 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
               // Direction is shown by the diagram; meters show magnitude except for voltage, whose sign beginners probe.
               const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
               const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
-              const short = shortMeterLabel(readout.label)
-              // The solve is the moment of failure; the burnt part has since opened the circuit (see the alert).
-              const atFailure = burnt.length > 0 && readout.quantity !== 'voltage'
-              const noteId = `lab-meter-note-${lessonId}-${readout.componentId}-${readout.quantity}`
               return (
-                <div
+                <Meter
                   key={`${readout.componentId}-${readout.quantity}`}
-                  role="status"
-                  className={`lab-meter lab-meter--${readout.quantity}`}
-                  aria-describedby={atFailure ? noteId : undefined}
-                >
-                  <span className="lab-meter-label">
-                    <span className="lab-meter-long">{readout.label}</span>
-                    {short !== readout.label && (
-                      <span className="lab-meter-short" aria-hidden="true">
-                        {short}
-                      </span>
-                    )}
-                  </span>
-                  <span className="lab-meter-reading">
-                    <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
-                    {atFailure && (
-                      <span className="lab-meter-note" id={noteId}>
-                        peak at failure
-                      </span>
-                    )}
-                  </span>
-                </div>
+                  readout={readout}
+                  value={value}
+                  // The solve is the moment of failure; the burnt part has since opened the circuit (see the alert).
+                  atFailure={burnt.length > 0 && readout.quantity !== 'voltage'}
+                  noteId={`lab-meter-note-${lessonId}-${readout.componentId}-${readout.quantity}`}
+                  animate={showFlow !== false}
+                />
               )
             })}
           </div>
@@ -578,6 +560,107 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   )
 }
 
+/** A CSS time token in ms, e.g. --dur-tween; 0 under prefers-reduced-motion (tokens.css) or when unset. */
+function cssDuration(el: Element | null, name: string): number {
+  if (!el) return 0
+  const v = getComputedStyle(el).getPropertyValue(name).trim()
+  return v.endsWith('ms') ? parseFloat(v) : v.endsWith('s') ? parseFloat(v) * 1000 : 0
+}
+
+/** The value to draw while gliding (ease-out, one rAF per frame) from the last shown value to `target`. */
+function useTween(target: number | undefined, duration: () => number): number | undefined {
+  const [shown, setShown] = useState(target)
+  const from = useRef(target)
+  const [gliding, setGliding] = useState(false)
+  useEffect(() => {
+    const start = from.current
+    const ms = duration()
+    if (target === undefined || start === undefined || start === target || ms <= 0) {
+      from.current = target
+      setGliding(false)
+      return
+    }
+    const t0 = performance.now()
+    let frame = requestAnimationFrame(function step(now) {
+      const k = Math.min(1, (now - t0) / ms)
+      from.current = start + (target - start) * (1 - (1 - k) ** 3)
+      setShown(from.current)
+      setGliding(k < 1)
+      if (k < 1) frame = requestAnimationFrame(step)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [target]) // duration is read fresh on each change; it is not a trigger
+  return gliding ? shown : target
+}
+
+function Meter({
+  readout,
+  value,
+  atFailure,
+  noteId,
+  animate,
+}: {
+  readout: Readout
+  value: number | undefined
+  atFailure: boolean
+  noteId: string
+  animate: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const duration = () => (animate ? cssDuration(ref.current, '--dur-tween') : 0)
+  const shown = useTween(value, duration)
+  const unit = UNIT[readout.quantity]
+  const final = value === undefined ? '—' : formatSI(value, unit)
+  const short = shortMeterLabel(readout.label)
+
+  // A brief glow in the meter's signal colour when its reading changes (not on first render).
+  const last = useRef(final)
+  useEffect(() => {
+    if (last.current === final) return
+    last.current = final
+    const el = ref.current
+    if (!el || duration() <= 0) return
+    const colour = getComputedStyle(el).getPropertyValue('--meter').trim() || 'currentColor'
+    el.animate?.(
+      [
+        { boxShadow: `0 0 0 1px ${colour}, 0 0 18px -2px ${colour}` },
+        { boxShadow: `0 0 0 1px transparent, 0 0 18px -2px transparent` },
+      ],
+      { duration: 600, easing: 'ease-out' },
+    )
+  }, [final]) // only a new reading glows
+
+  return (
+    <div
+      ref={ref}
+      role="status"
+      className={`lab-meter lab-meter--${readout.quantity}`}
+      aria-describedby={atFailure ? noteId : undefined}
+    >
+      <span className="lab-meter-label">
+        <span className="lab-meter-long">{readout.label}</span>
+        {short !== readout.label && (
+          <span className="lab-meter-short" aria-hidden="true">
+            {short}
+          </span>
+        )}
+      </span>
+      <span className="lab-meter-reading">
+        {/* The gliding digits are for the eye; the status announces (and tests read) only the final value. */}
+        <span className="lab-meter-digits" aria-hidden="true">
+          {shown === undefined ? '—' : formatSI(shown, unit)}
+        </span>
+        <span className="lab-meter-value sr-only">{final}</span>
+        {atFailure && (
+          <span className="lab-meter-note" id={noteId}>
+            peak at failure
+          </span>
+        )}
+      </span>
+    </div>
+  )
+}
+
 function isFlipped(initial: Circuit, circuit: Circuit, componentId: string): boolean {
   const before = initial.components.find((c) => c.id === componentId)
   const now = circuit.components.find((c) => c.id === componentId)
@@ -600,7 +683,7 @@ function Control({
       return (
         <fieldset className="lab-control lab-choice" data-control={control.id}>
           <legend className="lab-control-label">{control.label}</legend>
-          <div className="lab-segments">
+          <Segments value={value}>
             {control.options.map((option) => (
               <label key={String(option.value)} className="lab-segment">
                 <input
@@ -612,7 +695,7 @@ function Control({
                 <span>{option.label}</span>
               </label>
             ))}
-          </div>
+          </Segments>
         </fieldset>
       )
     case 'slider': {
@@ -655,4 +738,38 @@ function Control({
         </div>
       )
   }
+}
+
+/** A segmented control whose selected-state pill slides between options (the move is a CSS transition). */
+function Segments({ value, children }: { value: ControlValue | undefined; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [thumb, setThumb] = useState<{ x: number; y: number; w: number; h: number }>()
+  useLayoutEffect(() => {
+    const box = ref.current
+    if (!box) return
+    const measure = () => {
+      const checked = box.querySelector<HTMLElement>('input:checked')?.closest<HTMLElement>('.lab-segment')
+      setThumb(
+        checked
+          ? { x: checked.offsetLeft, y: checked.offsetTop, w: checked.offsetWidth, h: checked.offsetHeight }
+          : undefined,
+      )
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(box)
+    return () => observer?.disconnect()
+  }, [value])
+  return (
+    <div className="lab-segments" ref={ref}>
+      {thumb && (
+        <span
+          className="lab-segments-thumb"
+          aria-hidden="true"
+          style={{ transform: `translate(${thumb.x}px, ${thumb.y}px)`, width: thumb.w, height: thumb.h }}
+        />
+      )}
+      {children}
+    </div>
+  )
 }

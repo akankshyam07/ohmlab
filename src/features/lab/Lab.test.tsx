@@ -99,7 +99,7 @@ function setup(options?: Parameters<typeof userEvent.setup>[0]) {
 const flash = () => document.querySelector('.lab-tray-flash')
 const chip = () => document.querySelector('.lab-chip-region')!
 
-const meter = () => within(screen.getByRole('status')).getByText(/A$/).textContent ?? ''
+const meter = () => screen.getByRole('status').querySelector('.lab-meter-value')?.textContent ?? ''
 const milliamps = () => {
   const [, n, unit] = /^([\d.]+) (mA|µA|A|nA)$/.exec(meter()) ?? []
   return Number(n) * ({ A: 1e3, mA: 1, µA: 1e-3, nA: 1e-6 }[unit] ?? NaN)
@@ -171,6 +171,15 @@ describe('Lab', () => {
 
     await user.click(flip)
     expect(milliamps()).toBeGreaterThan(10)
+  })
+
+  it('announces only the final meter value; the gliding digits are hidden from screen readers', async () => {
+    const user = setup()
+    await user.click(screen.getByRole('radio', { name: '1 kΩ' }))
+    const status = screen.getByRole('status')
+    expect(status.querySelector('.lab-meter-digits')).toHaveAttribute('aria-hidden', 'true')
+    expect(status.querySelector('.lab-meter-value')).toHaveTextContent(/^[\d.]+ mA$/)
+    expect(status.querySelector('.lab-meter-digits')?.textContent).toBe(status.querySelector('.lab-meter-value')?.textContent)
   })
 
   it('warns when a part burns out and unlocks Magic Smoke', async () => {

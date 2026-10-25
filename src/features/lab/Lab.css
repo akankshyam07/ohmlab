@@ -192,7 +192,10 @@
   box-shadow: var(--shadow-panel);
   font-size: var(--fs-sm);
   line-height: 1.35;
-  animation: lab-chip 4s var(--ease-out) both;
+  /* Springs in, then fades just before the 4 s timer removes it. */
+  animation:
+    lab-pop-in var(--dur-tween) var(--ease-spring) both,
+    lab-fade-out var(--dur-med) var(--ease-out) 3.75s forwards;
 }
 
 .lab-chip-line,
@@ -220,19 +223,31 @@
   color: var(--warn);
 }
 
-@keyframes lab-chip {
-  0% {
+@keyframes lab-pop-in {
+  from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px) scale(0.96);
   }
-  6%,
-  90% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
+}
+
+@keyframes lab-fade-out {
+  to {
     opacity: 0;
   }
+}
+
+@keyframes lab-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* "Animate current flow" off: the lab holds still (the schematic handles its own motion). */
+.lab--still :not(.cv, .cv *),
+.lab--still :not(.cv, .cv *)::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 .lab-stage .cv {
@@ -253,6 +268,7 @@
   background: var(--surface-2);
   font-size: var(--fs-sm);
   line-height: 1.5;
+  animation: lab-pop-in var(--dur-tween) var(--ease-spring) both;
 }
 
 .lab-banner--danger {
@@ -352,6 +368,7 @@
 }
 
 .lab-segments {
+  position: relative;
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -362,6 +379,20 @@
 
 .lab-segment {
   position: relative;
+  z-index: 1;
+}
+
+/* The selected pill, slid under the checked option (Segments in Lab.tsx). */
+.lab-segments-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  transition:
+    transform var(--dur-tween) var(--ease-spring),
+    width var(--dur-tween) var(--ease-spring);
 }
 
 .lab-segment input {
@@ -386,9 +417,7 @@
 }
 
 .lab-segment input:checked + span {
-  background: var(--surface-3);
   color: var(--sig-resistance);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .lab-segment input:focus-visible + span {
@@ -444,7 +473,7 @@
   height: 18px;
   border-radius: 50%;
   background: var(--text-muted);
-  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+  transition: transform var(--dur-tween) var(--ease-spring), background var(--dur-fast) var(--ease-out);
 }
 
 .lab-toggle input:checked + .lab-toggle-track {
@@ -564,7 +593,7 @@
   line-height: 1.2;
 }
 
-.lab-meter-value {
+.lab-meter-digits {
   font-family: var(--font-mono);
   font-size: var(--fs-lg);
   line-height: 1.2;
@@ -686,6 +715,10 @@
 
 /* Tall stage: the open list is a sheet rising from the tray over the dock; its height (--sheet-room, set on
    open) stops at the schematic's bottom edge. */
+.lab-tray-details[open] > .lab-challenge-list {
+  animation: lab-sheet-in var(--dur-tween) var(--ease-out) both;
+}
+
 .lab-tray-details[open] > .lab-challenge-list {
   position: absolute;
   left: -1px;
@@ -828,8 +861,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lab-celebrate {
+  .lab-celebrate,
+  .lab-banner,
+  .lab-tray-details[open] > .lab-challenge-list {
     animation: none;
+  }
+
+  .lab-segments-thumb {
+    transition: none;
   }
 
   /* No movement or fade; the timer still removes it. */
@@ -970,7 +1009,7 @@
     display: inline;
   }
 
-  .lab-meter-value {
+  .lab-meter-digits {
     font-size: var(--fs-md);
   }
 

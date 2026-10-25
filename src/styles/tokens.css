@@ -67,6 +67,12 @@
   --dur-fast: 120ms;
   --dur-med: 220ms;
   --dur-slow: 420ms;
+  /* Value changes (meters, glow, part swaps) glide rather than snap. */
+  --dur-tween: 320ms;
+  /* Slight overshoot for things that "settle" into place (part pops, chips). */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* One-off entrances (schematic draw-on). */
+  --dur-intro: 900ms;
 
   color-scheme: dark;
 }
@@ -76,5 +82,7 @@
     --dur-fast: 0ms;
     --dur-med: 0ms;
     --dur-slow: 0ms;
+    --dur-tween: 0ms;
+    --dur-intro: 0ms;
   }
 }
