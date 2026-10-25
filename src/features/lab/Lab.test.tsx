@@ -5,7 +5,7 @@ import type { Lab as LabData } from '../../content/types'
 import { ProgressProvider } from '../../progress/store'
 import { STORAGE_KEY } from '../../progress/types'
 import { SIM_LIMITATIONS } from '../../sim/limitations'
-import { Lab, shortMeterLabel } from './Lab'
+import { controlForPrompt, Lab, shortMeterLabel } from './Lab'
 
 vi.mock('../../content', () => ({ lessons: [], getLesson: () => undefined, phases: [] }))
 
@@ -178,7 +178,10 @@ describe('Lab', () => {
     await user.click(screen.getByRole('radio', { name: '0 Ω' }))
     const alerts = screen.getAllByRole('alert').map((a) => a.textContent).join(' ')
     expect(alerts).toMatch(/would be dead/)
+    expect(alerts).toMatch(/D1 burnt out: the circuit is now open \(0 A\)/)
     expect(alerts).toMatch(/current at the instant it failed/)
+    // The meter keeps the failure reading but says what it is.
+    expect(screen.getByRole('status', { description: 'peak at failure' })).toHaveTextContent(/A\s*peak at failure$/)
     const more = within(screen.getByRole('alert')).getByRole('button', { name: 'More' })
     expect(more).toHaveAttribute('aria-expanded', 'false') // one-line chip in a short stage
     await user.click(more)
@@ -273,5 +276,30 @@ describe('Lab', () => {
     setup()
     const label = within(screen.getByRole('status')).getByText('LED current')
     expect(label).toBeVisible()
+  })
+})
+
+describe('controlForPrompt', () => {
+  const colour = {
+    type: 'choice' as const,
+    id: 'colour',
+    label: 'LED colour',
+    componentId: 'D1',
+    prop: 'color',
+    options: [
+      { label: 'Red', value: 'red' },
+      { label: 'Blue', value: 'blue' },
+    ],
+  }
+  const controls = [...lab.controls, colour]
+
+  it('picks the control whose label or options the prompt names', () => {
+    expect(controlForPrompt(controls, 'Switch to a **blue** LED and get it glowing.')).toBe('colour')
+    expect(controlForPrompt(controls, 'Swap to the **9 V** supply.')).toBe('supply')
+    expect(controlForPrompt(controls, 'Flip the LED so it blocks the current.')).toBe('flip')
+  })
+
+  it('picks nothing when only a shared word like "LED" matches', () => {
+    expect(controlForPrompt(controls, 'Keep the LED glowing.')).toBeUndefined()
   })
 })

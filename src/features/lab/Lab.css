@@ -112,7 +112,7 @@
   flex: 1 1 0;
   min-height: max(48cqh, min(300px, 60cqh));
   display: grid;
-  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  grid-template: minmax(0, 1fr) auto / minmax(0, 1fr);
 }
 
 /* Alerts and controls: gives way first and scrolls on its own (Day 8 has five control groups). */
@@ -131,22 +131,6 @@
   flex: none;
 }
 
-/* A visible cue that more controls sit below (macOS hides idle scrollbars). */
-.lab-dock[data-overflow~='bottom']::after {
-  content: '▾ more controls' / '';
-  position: sticky;
-  bottom: 0;
-  align-self: flex-end;
-  margin-top: calc(-1 * var(--sp-2));
-  padding: 0 var(--sp-2);
-  border-radius: var(--radius-pill);
-  background: var(--surface-3);
-  color: var(--text);
-  font-size: var(--fs-xs);
-  line-height: 1.6;
-  pointer-events: none;
-}
-
 /* Edge fades on scrollers that hide more (data-overflow is set by useOverflowEdges). */
 .lab-dock,
 .lab-meters,
@@ -161,24 +145,41 @@
   --fade-top: 20px;
 }
 
+/* The cue that more controls sit below (macOS hides idle scrollbars); the next challenge's control is
+   scrolled into view for the learner (Lab.tsx, reveal). */
 .lab-dock[data-overflow~='bottom'] {
-  --fade-bottom: 16px;
+  --fade-bottom: 24px;
+}
+
+/* Alerts stay pinned while the controls scroll under them; no top fade then, it would fade the alert. */
+.lab-alerts {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-2);
+  background: var(--surface-1);
+}
+
+.lab-alerts:empty {
+  display: none;
+}
+
+.lab-dock:has(> .lab-alerts:not(:empty)) {
+  --fade-top: 0px;
 }
 
 .lab-dock {
   mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
 }
 
-/* Success chip over the top of the schematic: shown ~4 s after a challenge completes. */
+/* Success chip docked along the schematic's bottom edge (its own grid row, so it never covers a part):
+   shown ~4 s after a challenge completes. */
 .lab-chip-region {
-  position: absolute;
-  top: var(--sp-2);
-  left: 50%;
-  z-index: 2;
-  width: max-content;
-  max-width: calc(100% - 2 * var(--sp-2));
-  transform: translateX(-50%);
-  pointer-events: none;
+  justify-self: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .lab-chip {
@@ -222,7 +223,7 @@
 @keyframes lab-chip {
   0% {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(4px);
   }
   6%,
   90% {
@@ -548,6 +549,19 @@
 
 .lab-meter-short {
   display: none;
+}
+
+.lab-meter-reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--sp-2);
+}
+
+.lab-meter-note {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.2;
 }
 
 .lab-meter-value {

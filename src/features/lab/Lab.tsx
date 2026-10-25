@@ -38,6 +38,47 @@ export function shortMeterLabel(label: string): string {
 
 const CHIP_MS = 4000
 
+const CONTROL_STOP = new Set('the and to of on in it its a an so is are be with at least while get make your'.split(' '))
+const tokens = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/\*/g, '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => (w.length >= 2 || /\d/.test(w)) && !CONTROL_STOP.has(w))
+
+/**
+ * The control a challenge prompt names: prompt words found in a control's label or option labels, each worth
+ * 1 / (number of controls using it), so "blue" picks "LED colour" while "LED" alone (in several labels) picks none.
+ */
+export function controlForPrompt(controls: LabControl[], prompt: string): string | undefined {
+  const words = new Set(tokens(prompt))
+  const vocab = controls.map(
+    (c) => new Set(tokens([c.label, ...(c.type === 'choice' ? c.options.map((o) => o.label) : [])].join(' '))),
+  )
+  const df = (w: string) => vocab.filter((v) => v.has(w)).length
+  let best: string | undefined
+  let bestScore = 0.99 // at least one distinctive word
+  controls.forEach((c, i) => {
+    const score = [...vocab[i]].reduce((sum, w) => sum + (words.has(w) ? 1 / df(w) : 0), 0)
+    if (score > bestScore) [best, bestScore] = [c.id, score]
+  })
+  return best
+}
+
+/**
+ * Scroll `scroller` (not the page) to show `el`: its bottom row of buttons first (a legend may stay under the
+ * pinned alerts, `topInset`), and the start of a control wider than a sideways row.
+ */
+function reveal(scroller: HTMLElement | null, el: Element, topInset = 0) {
+  if (!scroller) return
+  const s = scroller.getBoundingClientRect()
+  const e = el.getBoundingClientRect()
+  if (e.bottom > s.bottom) scroller.scrollTop += e.bottom - s.bottom
+  else if (e.top < s.top + topInset) scroller.scrollTop -= s.top + topInset - e.top
+  // 32 px clears the sideways row's start fade (Lab.css, --fade-start).
+  if (e.left < s.left || e.right > s.right) scroller.scrollLeft += e.left - s.left - 32
+}
+
 /** Marks a scroller with data-overflow="start end top bottom" (the edges hiding more) so CSS can fade them. */
 function useOverflowEdges<T extends HTMLElement>() {
   const ref = useRef<T>(null)
@@ -162,6 +203,15 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   // against the first unfinished challenge alone. So an accidental state can't tick off a challenge the
   // learner hasn't reached, and one that just became active waits for the next move.
   const active = lab.challenges.find((ch) => !done.includes(ch.id))
+  // Bring the control the next challenge needs into view inside the dock (and the phone's sideways row).
+  useEffect(() => {
+    const id = active && controlForPrompt(lab.controls, active.prompt)
+    const el = id && dockRef.current?.querySelector(`[data-control="${id}"]`)
+    if (!el) return
+    reveal(controlsRef.current, el)
+    // Alerts stay pinned at the top of the dock, so the control must show below them.
+    reveal(dockRef.current, el, dockRef.current?.querySelector<HTMLElement>('.lab-alerts')?.offsetHeight)
+  }, [active, lab.controls, controlsRef, dockRef])
   const change = (next: Circuit) => {
     setCircuit(next)
     if (!active) return
@@ -347,11 +397,15 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
               const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
               const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
               const short = shortMeterLabel(readout.label)
+              // The solve is the moment of failure; the burnt part has since opened the circuit (see the alert).
+              const atFailure = burnt.length > 0 && readout.quantity !== 'voltage'
+              const noteId = `lab-meter-note-${lessonId}-${readout.componentId}-${readout.quantity}`
               return (
                 <div
                   key={`${readout.componentId}-${readout.quantity}`}
                   role="status"
                   className={`lab-meter lab-meter--${readout.quantity}`}
+                  aria-describedby={atFailure ? noteId : undefined}
                 >
                   <span className="lab-meter-label">
                     <span className="lab-meter-long">{readout.label}</span>
@@ -361,7 +415,14 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
                       </span>
                     )}
                   </span>
-                  <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
+                  <span className="lab-meter-reading">
+                    <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
+                    {atFailure && (
+                      <span className="lab-meter-note" id={noteId}>
+                        peak at failure
+                      </span>
+                    )}
+                  </span>
                 </div>
               )
             })}
@@ -369,47 +430,49 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
         )}
 
         <div className="lab-dock" ref={dockRef}>
-          {!result.ok &&
-            banner('settle', 'danger', true, 'The circuit can’t settle.', (
-              <>
-                {result.error}
-                {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
-              </>
-            ), false)}
-          {burnt.map(([id]) => {
-            const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
-            return banner(id, 'danger', true, `${id} burnt out.`, (
-              <>
-                In real life this {kind} would be dead (maybe with a puff of smoke). That’s why we simulate first.
-                The meters show the current at the instant it failed; a real {kind} usually breaks open then, so the
-                current stops.
-              </>
-            ))
-          })}
-          {overvolted.map(([id, r]) =>
-            banner(
-              id,
-              'warn',
-              true,
-              `${id} is reverse-biased by ${Math.abs(r.voltage).toFixed(1)} V;`,
-              componentOf(id)?.kind === 'led'
-                ? 'most LEDs are rated for only 5 V in reverse and can be damaged.'
-                : 'that’s more than this diode is rated to block, and it can be damaged.',
-            ),
-          )}
-          {stressed.map(([id, r]) =>
-            banner(
-              id,
-              'warn',
-              false,
-              `${id} is under stress.`,
-              r.status === 'overpower'
-                ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
-                : componentOf(id)?.kind === 'led'
-                  ? 'More than the 20 mA a typical LED is rated for. A real one would run hot and wear out quickly.'
-                  : 'More current than it’s made for. A real part would run hot and wear out quickly.',
-            ),
-          )}
+          <div className="lab-alerts">
+            {!result.ok &&
+              banner('settle', 'danger', true, 'The circuit can’t settle.', (
+                <>
+                  {result.error}
+                  {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
+                </>
+              ), false)}
+            {burnt.map(([id]) => {
+              const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
+              return banner(id, 'danger', true, `${id} burnt out: the circuit is now open (0 A).`, (
+                <>
+                  In real life this {kind} would be dead (maybe with a puff of smoke). That’s why we simulate first.
+                  A burnt {kind} usually breaks open, so no current flows now. The meters show the peak, the current
+                  at the instant it failed.
+                </>
+              ))
+            })}
+            {overvolted.map(([id, r]) =>
+              banner(
+                id,
+                'warn',
+                true,
+                `${id} is reverse-biased by ${Math.abs(r.voltage).toFixed(1)} V;`,
+                componentOf(id)?.kind === 'led'
+                  ? 'most LEDs are rated for only 5 V in reverse and can be damaged.'
+                  : 'that’s more than this diode is rated to block, and it can be damaged.',
+              ),
+            )}
+            {stressed.map(([id, r]) =>
+              banner(
+                id,
+                'warn',
+                false,
+                `${id} is under stress.`,
+                r.status === 'overpower'
+                  ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
+                  : componentOf(id)?.kind === 'led'
+                    ? 'More than the 20 mA a typical LED is rated for. A real one would run hot and wear out quickly.'
+                    : 'More current than it’s made for. A real part would run hot and wear out quickly.',
+              ),
+            )}
+          </div>
 
           {lab.controls.length > 0 && (
             <div className="lab-controls" ref={controlsRef}>
@@ -535,7 +598,7 @@ function Control({
   switch (control.type) {
     case 'choice':
       return (
-        <fieldset className="lab-control lab-choice">
+        <fieldset className="lab-control lab-choice" data-control={control.id}>
           <legend className="lab-control-label">{control.label}</legend>
           <div className="lab-segments">
             {control.options.map((option) => (
@@ -556,7 +619,7 @@ function Control({
       const n = typeof value === 'number' ? value : control.min
       const shown = formatSI(n, control.unit)
       return (
-        <label className="lab-control lab-slider">
+        <label className="lab-control lab-slider" data-control={control.id}>
           <span className="lab-control-label">
             {control.label} <output className="lab-slider-value">{shown}</output>
           </span>
@@ -575,7 +638,7 @@ function Control({
     case 'toggle': {
       const on = value === true
       return (
-        <label className="lab-control lab-toggle">
+        <label className="lab-control lab-toggle" data-control={control.id}>
           <input type="checkbox" role="switch" checked={on} onChange={(e) => onChange(e.target.checked)} />
           <span className="lab-toggle-track" aria-hidden="true" />
           <span className="lab-control-label">{control.label}</span>
@@ -585,7 +648,7 @@ function Control({
     }
     case 'flip':
       return (
-        <div className="lab-control">
+        <div className="lab-control" data-control={control.id}>
           <button type="button" className="lab-flip" aria-pressed={flipped} onClick={() => onChange()}>
             ⇄ {control.label}
           </button>
