@@ -5,8 +5,9 @@ import { Lab } from '../features/lab/Lab'
 import { Quiz } from '../features/quiz/Quiz'
 import { useProgress } from '../progress/store'
 import { Icon, ProgressRing } from '../ui/primitives'
+import { RichText } from '../ui/RichText'
 import { BlockView } from './blocks'
-import { BuildGuide } from './BuildGuide'
+import { BuildGuide, WiringFigure, partsForStep } from './BuildGuide'
 import { lessonSteps, nextLesson } from './curriculum'
 import { NotFound } from './pages'
 import { href } from './router'
@@ -37,6 +38,12 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   // Mastery also weighs steps read, so a complete lesson can sit below 100 %: say which part is missing.
   const unreadSteps = steps.filter((s) => !lp?.stepsSeen.includes(s.id)).length
   const [stageCollapsed, setStageCollapsed] = useState(false)
+  // On the Build step the stage shows the wiring diagram (with the simulator a toggle away), beside the steps.
+  const build = lesson.realBuild
+  const wiringStage = step.id === 'build' && !!lesson.lab && !!build?.breadboard
+  const [stageView, setStageView] = useState<'wiring' | 'lab'>('wiring')
+  const showWiring = wiringStage && stageView === 'wiring'
+  const [buildStep, setBuildStep] = useState<number | null>(null)
   // The quiz keeps its own "Next question"; until it's finished on this visit, the lesson button becomes a quiet "Skip quiz".
   const attemptsOnArrival = useRef(lp?.quizAttempts ?? 0)
   const quizInProgress = step.id === 'quiz' && (lp?.quizAttempts ?? 0) === attemptsOnArrival.current
@@ -57,6 +64,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
 
   const jumpToChallenges = () => {
     setStageCollapsed(false)
+    setStageView('lab')
     requestAnimationFrame(() => revealChallenges())
   }
 
@@ -174,6 +182,9 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
               stepId={step.id}
               onHighlight={highlightParts}
               onJumpToChallenges={jumpToChallenges}
+              buildStep={buildStep}
+              onBuildStep={setBuildStep}
+              wiringStaged={wiringStage}
             />
           </article>
 
@@ -202,12 +213,27 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
         </div>
 
         {lesson.lab && (
-          <div className="lesson-stage" data-collapsed={stageCollapsed || undefined}>
+          <div
+            className="lesson-stage"
+            data-collapsed={stageCollapsed || undefined}
+            data-view={wiringStage ? stageView : undefined}
+          >
             <div className="stage-bar">
-              <span className="stage-bar-title">
-                <span className="live-dot" aria-hidden="true" />
-                {lesson.lab.title}
-              </span>
+              {wiringStage ? (
+                <div className="stage-views" role="group" aria-label="Stage view">
+                  <button type="button" aria-pressed={stageView === 'wiring'} onClick={() => setStageView('wiring')}>
+                    Wiring
+                  </button>
+                  <button type="button" aria-pressed={stageView === 'lab'} onClick={() => setStageView('lab')}>
+                    Simulator
+                  </button>
+                </div>
+              ) : (
+                <span className="stage-bar-title">
+                  <span className="live-dot" aria-hidden="true" />
+                  {lesson.lab.title}
+                </span>
+              )}
               <button
                 type="button"
                 className="stage-toggle"
@@ -220,7 +246,29 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
               </button>
             </div>
             <div className="lesson-stage-lab" id="lesson-stage-lab">
-              <Lab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
+              {showWiring && build?.breadboard && (
+                <WiringFigure
+                  layout={build.breadboard}
+                  title={lesson.title}
+                  highlight={buildStep === null ? [] : partsForStep(build, buildStep)}
+                >
+                  {/* A visual echo of the current step under the board; the step list carries it for screen readers. */}
+                  {buildStep !== null && (
+                    <p className="wiring-step" aria-hidden="true">
+                      <span className="wiring-step-num mono">
+                        Step {buildStep + 1} of {build.steps.length}
+                      </span>
+                      <span className="wiring-step-text">
+                        <RichText text={build.steps[buildStep]} />
+                      </span>
+                    </p>
+                  )}
+                </WiringFigure>
+              )}
+              {/* Hidden, not unmounted, behind the wiring view: the lab keeps its state. */}
+              <div className="stage-sim" hidden={showWiring}>
+                <Lab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
+              </div>
             </div>
           </div>
         )}
@@ -306,18 +354,30 @@ function StepContent({
   stepId,
   onHighlight,
   onJumpToChallenges,
+  buildStep,
+  onBuildStep,
+  wiringStaged,
 }: {
   lesson: Lesson
   stepId: string
   onHighlight: (ids: string[]) => void
   onJumpToChallenges: () => void
+  buildStep: number | null
+  onBuildStep: (step: number) => void
+  wiringStaged: boolean
 }) {
   if (stepId === 'quiz') return <Quiz lessonId={lesson.id} questions={lesson.quiz} />
 
   if (stepId === 'build' && lesson.realBuild)
     return (
       <div className="build">
-        <BuildGuide build={lesson.realBuild} title={lesson.title} />
+        <BuildGuide
+          build={lesson.realBuild}
+          title={lesson.title}
+          active={buildStep}
+          onActive={onBuildStep}
+          staged={wiringStaged}
+        />
         <CompletionChecklist lesson={lesson} onJumpToChallenges={onJumpToChallenges} />
       </div>
     )

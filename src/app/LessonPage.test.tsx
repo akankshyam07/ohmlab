@@ -25,7 +25,13 @@ vi.mock('../content', () => {
       challenges: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
     },
     quiz: [],
-    realBuild: { parts: ['Red LED', '220 Ω resistor'], steps: ['Push the LED in.'], safety: ['Never skip the resistor.'] },
+    realBuild: {
+      parts: ['Red LED', '220 Ω resistor'],
+      steps: ['Push the LED in.', 'Add R1 next to D1.'],
+      safety: ['Never skip the resistor.'],
+      breadboard: { supply: 'uno', parts: [{ id: 'D1' }, { id: 'R1' }, { id: 'W1' }] },
+      stepParts: [['D1', 'W1'], ['R1']],
+    },
   } as unknown as Lesson
   return { lessons: [lesson], getLesson: (id: string) => (id === lesson.id ? lesson : undefined) }
 })
@@ -40,7 +46,11 @@ vi.mock('../progress/store', () => ({
 }))
 
 vi.mock('../features/lab/Lab', () => ({ Lab: () => <section aria-label="Circuit lab" /> }))
-vi.mock('../viz/BreadboardView', () => ({ BreadboardView: () => null }))
+vi.mock('../viz/BreadboardView', () => ({
+  BreadboardView: ({ ariaLabel, highlight }: { ariaLabel: string; highlight?: string[] }) => (
+    <svg role="img" aria-label={ariaLabel} data-highlight={(highlight ?? []).join(',')} />
+  ),
+}))
 vi.mock('../features/quiz/Quiz', () => ({ Quiz: () => <section aria-label="Quiz" /> }))
 
 const renderStep = (step?: string) =>
@@ -89,5 +99,42 @@ describe('LessonPage', () => {
     expect(parts).toHaveTextContent('1 / 2 ready')
     expect(screen.getByText('Push the LED in.')).toBeInTheDocument()
     expect(screen.getAllByRole('group', { name: 'To complete this lesson' })).toHaveLength(2)
+  })
+
+  it('build step: the stage shows the wiring, lit by stepParts, with the simulator a toggle away', () => {
+    renderStep('build')
+    // One board, on the stage (not repeated above the steps), and the lab is hidden behind it.
+    const board = screen.getByRole('img', { name: 'Breadboard wiring for First LED' })
+    expect(board.closest('.lesson-stage')).not.toBeNull()
+    expect(screen.getAllByRole('img', { name: /Breadboard wiring/ })).toHaveLength(1)
+    expect(screen.queryByRole('region', { name: 'Circuit lab' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add R1 next to D1/ }))
+    expect(board).toHaveAttribute('data-highlight', 'R1')
+    fireEvent.click(screen.getByRole('button', { name: /Push the LED in/ }))
+    expect(board).toHaveAttribute('data-highlight', 'D1,W1')
+
+    const views = screen.getByRole('group', { name: 'Stage view' })
+    const wiring = within(views).getByRole('button', { name: 'Wiring' })
+    const simulator = within(views).getByRole('button', { name: 'Simulator' })
+    expect(wiring).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(simulator)
+    expect(simulator).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('region', { name: 'Circuit lab' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /Breadboard wiring/ })).not.toBeInTheDocument()
+    fireEvent.click(wiring)
+    expect(screen.getByRole('img', { name: 'Breadboard wiring for First LED' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Circuit lab' })).not.toBeInTheDocument()
+
+    // "Go to challenges" needs the lab, so it switches the stage back to the simulator.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Go to challenges' })[0])
+    expect(simulator).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('other steps keep the lab title in the stage bar and no view toggle', () => {
+    renderStep()
+    expect(screen.queryByRole('group', { name: 'Stage view' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /Breadboard wiring/ })).not.toBeInTheDocument()
   })
 })

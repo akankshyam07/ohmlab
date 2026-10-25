@@ -94,8 +94,9 @@ function Shell() {
 const TOAST_MS = 5000
 
 /**
- * Achievement toasts: one compact banner over the top bar ("Unlocked: Title +N more"), never over lesson
- * content. Auto-dismissed (all of them) after 5 s unless hovered or focused; Dismiss shows the next one.
+ * Achievement toasts: one compact card ("Unlocked: Title +N more"), bottom left on wide screens and under the
+ * top bar on phones, never over the nav or the mini-stage's toggle. Auto-dismissed (all of them) after 5 s unless
+ * hovered or focused; Dismiss shows the next one.
  */
 function Toasts() {
   const { recentlyUnlocked, dismissUnlocked } = useProgress()

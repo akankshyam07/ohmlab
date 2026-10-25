@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RealBuild } from '../content/types'
 import type { BreadboardLayout, BreadboardViewProps } from '../viz/types'
-import { BuildGuide, partIdsInStep } from './BuildGuide'
+import { BuildGuide, partIdsInStep, partsForStep } from './BuildGuide'
 
 vi.mock('../viz/BreadboardView', () => ({
   BreadboardView: ({ ariaLabel, highlight }: BreadboardViewProps) => (
@@ -31,6 +32,26 @@ describe('partIdsInStep', () => {
   })
 })
 
+describe('partsForStep', () => {
+  const steps = ['Place **R1** from row 10 to row 14.', 'Power the rails from the Uno.']
+  it('uses the authored stepParts over id matching, even where the text names other parts', () => {
+    const build: RealBuild = { parts: [], steps, breadboard: layout, stepParts: [['W1'], ['D1', 'R10']] }
+    expect(partsForStep(build, 0)).toEqual(['W1'])
+    expect(partsForStep(build, 1)).toEqual(['D1', 'R10'])
+  })
+  it('falls back to the ids a step names only when stepParts is absent', () => {
+    expect(partsForStep({ parts: [], steps, breadboard: layout }, 0)).toEqual(['R1'])
+    expect(partsForStep({ parts: [], steps, breadboard: layout, stepParts: [] }, 0)).toEqual([])
+    expect(partsForStep({ parts: [], steps }, 0)).toEqual([])
+  })
+})
+
+/** BuildGuide is controlled (the lesson owns the current step); this holds it the way LessonPage does. */
+function Guide({ build }: { build: RealBuild }) {
+  const [active, setActive] = useState<number | null>(null)
+  return <BuildGuide build={build} title="First LED" active={active} onActive={setActive} />
+}
+
 describe('BuildGuide wiring diagram', () => {
   const build: RealBuild = {
     parts: ['Red LED'],
@@ -55,7 +76,7 @@ describe('BuildGuide wiring diagram', () => {
   })
 
   it('highlights the parts a step names when it is focused or clicked', () => {
-    render(<BuildGuide build={build} title="First LED" />)
+    render(<Guide build={build} />)
     const board = screen.getByRole('img', { name: 'Breadboard wiring for First LED' })
     expect(board).toHaveAttribute('data-highlight', '')
     const step2 = screen.getByRole('button', { name: /Add D1 and wire W1/ })
@@ -68,7 +89,7 @@ describe('BuildGuide wiring diagram', () => {
   })
 
   it('opens full screen in a dialog, closes, and returns focus to the expand button', () => {
-    render(<BuildGuide build={build} title="First LED" />)
+    render(<Guide build={build} />)
     const expand = screen.getByRole('button', { name: 'Full screen' })
     expect(screen.queryByRole('img', { name: /enlarged/ })).not.toBeInTheDocument()
 
@@ -89,8 +110,47 @@ describe('BuildGuide wiring diagram', () => {
     expect(expand).toHaveFocus()
   })
 
+  it('the step scrolled across the reading line becomes current, unless one was just picked', () => {
+    let fire: (target: Element) => void = () => {}
+    const observed: Element[] = []
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(cb: IntersectionObserverCallback) {
+          fire = (target) => cb([{ target, isIntersecting: true } as unknown as IntersectionObserverEntry], this as never)
+        }
+        observe(el: Element) {
+          observed.push(el)
+        }
+        disconnect() {}
+      },
+    )
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+    render(<Guide build={build} />)
+    const board = screen.getByRole('img', { name: 'Breadboard wiring for First LED' })
+    expect(observed).toHaveLength(2)
+    act(() => fire(observed[1]))
+    expect(board).toHaveAttribute('data-highlight', 'D1,W1')
+    expect(screen.getByRole('button', { name: /Add D1/ })).toHaveAttribute('aria-current', 'step')
+
+    fireEvent.click(screen.getByRole('button', { name: /Place R1/ }))
+    act(() => fire(observed[1]))
+    expect(board).toHaveAttribute('data-highlight', 'R1')
+    now.mockReturnValue(20_000)
+    act(() => fire(observed[1]))
+    expect(board).toHaveAttribute('data-highlight', 'D1,W1')
+    now.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('on a lesson stage (staged) the diagram is not repeated above the steps', () => {
+    render(<BuildGuide build={build} title="First LED" active={null} onActive={() => {}} staged />)
+    expect(screen.queryByRole('img', { name: /Breadboard wiring/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Place R1/ })).toBeInTheDocument()
+  })
+
   it('without a layout, steps stay a plain list', () => {
-    render(<BuildGuide build={{ ...build, breadboard: undefined }} title="First LED" />)
+    render(<Guide build={{ ...build, breadboard: undefined }} />)
     expect(screen.queryByRole('figure')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Place R1/ })).not.toBeInTheDocument()
     expect(screen.getByText('Add D1 and wire W1.')).toBeInTheDocument()

@@ -196,8 +196,114 @@
   height: 100%;
 }
 
-.stage-bar {
+.stage-bar,
+.stage-toggle {
   display: none;
+}
+
+.stage-sim > * {
+  height: 100%;
+}
+
+/* ---------- Build step: the stage shows the wiring diagram, with the simulator a toggle away ---------- */
+
+.lesson-stage[data-view] .stage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex: none;
+  min-height: 44px;
+  margin-bottom: var(--sp-2);
+}
+
+.stage-views {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+}
+
+.stage-views button {
+  min-height: 38px;
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    color var(--dur-med) var(--ease-out);
+}
+
+.stage-views button:hover {
+  color: var(--text);
+}
+
+.stage-views button[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sig-current) 45%, transparent);
+}
+
+.lesson-stage .wiring {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+
+/* Fit the board to whichever runs out first, the stage's width or its height. */
+.lesson-stage .wiring-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  container-type: size;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.lesson-stage .wiring-board > * {
+  width: min(100cqw, 100cqh * var(--bb-ratio, 2));
+  margin: auto;
+}
+
+.wiring-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  flex: none;
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 3px solid var(--sig-current);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--sig-current) 7%, var(--surface-1));
+  line-height: 1.6;
+}
+
+/* Two lines at most: an echo of the step beside it, so the board keeps the height. */
+.wiring-step-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.wiring-step-num {
+  color: var(--sig-current);
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .lesson[data-lab='no'] .lesson-head,
@@ -1135,6 +1241,55 @@
     background: var(--surface-2);
   }
 
+  .lesson-stage[data-view] .stage-bar {
+    margin-bottom: 0;
+  }
+
+  /* Mini-stage wiring: the board full bleed on the stage's --bg, panning inside; Full screen floats top right. */
+  .lesson-stage .wiring {
+    position: relative;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .lesson-stage .wiring figcaption,
+  .wiring-step {
+    display: none;
+  }
+
+  /* Bottom right, over the board's empty lower rows and just above the sticky "Scroll sideways" hint. */
+  .lesson-stage .wiring-head {
+    position: absolute;
+    right: 0;
+    bottom: calc(var(--sp-5) + var(--sp-1));
+    z-index: 1;
+    margin: 0;
+  }
+
+  .lesson-stage .wiring-expand {
+    border: 1px solid var(--border-strong);
+    background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .lesson-stage .wiring-board {
+    margin-inline: calc(-1 * var(--gutter));
+  }
+
+  .lesson-stage .wiring-board > * {
+    border-radius: 0;
+    border-inline: 0;
+  }
+
+  /* The board is taller than the window here: keep "Scroll sideways…" in view at its bottom edge. */
+  .lesson-stage .bb-hint {
+    position: sticky;
+    bottom: 0;
+    padding-top: var(--sp-1);
+    background: var(--bg);
+  }
+
   /* Keep focused/scrolled-to content out from under the pinned stage. */
   :root:has(.lesson-stage:not([data-collapsed])) {
     scroll-padding-top: calc(var(--bar-h) + 45svh + var(--sp-3));
@@ -1163,11 +1318,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The ring top right, its "steps read" note to its left on the eyebrow's line: one line, clear of the title. */
   .lesson-mastery {
     position: absolute;
     top: 0;
     right: 0;
-    max-width: 64px;
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    gap: var(--sp-2);
+  }
+
+  .lesson-mastery-note {
+    max-width: none;
+    white-space: nowrap;
+  }
+
+  /* Phones: the full width, never narrower; the mini-stage pans down (and sideways) to the step's parts. */
+  .lesson-stage .wiring-board > * {
+    width: 100%;
   }
 
   .lesson-head .ring {

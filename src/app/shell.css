@@ -172,17 +172,18 @@
 /* ---------- Toasts ---------- */
 
 /*
- * One compact banner over the top bar (its right end on wide screens, the whole bar on phones), so an
- * achievement never covers lesson content: not the stage, not Next, not Retry.
+ * One compact card, clear of the nav and of lesson controls: bottom left from 640 px (the top-right nav and the
+ * mini-stage's toggle stay free); on phones a banner under the top bar, and on lesson pages also under the
+ * mini-stage's bar, so it never covers Settings or "Hide circuit".
  */
 .toasts {
   position: fixed;
-  top: 0;
-  right: max(var(--sp-5), calc((100vw - 1440px) / 2 + var(--sp-5)));
+  bottom: var(--sp-5);
+  left: max(var(--sp-5), calc((100vw - 1440px) / 2 + var(--sp-5)));
   z-index: 80;
   display: flex;
   flex-direction: column;
-  width: min(420px, calc(100vw - 2 * var(--sp-4)));
+  width: min(380px, calc(100vw - 2 * var(--sp-4)));
   pointer-events: none;
 }
 
@@ -193,14 +194,13 @@
   height: 64px;
   padding: 0 0 0 var(--sp-3);
   pointer-events: auto;
-  border-width: 0 1px 1px;
   border-color: color-mix(in srgb, var(--brand) 55%, transparent);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: var(--radius-md);
   box-shadow:
     var(--shadow-panel),
     0 0 30px color-mix(in srgb, var(--brand) 30%, transparent);
   background: var(--surface-2);
-  animation: toast-drop var(--dur-slow) var(--ease-out);
+  animation: toast-rise var(--dur-slow) var(--ease-out);
 }
 
 .toast-icon {
@@ -261,20 +261,35 @@
 
 @media (max-width: 639px) {
   .toasts {
+    top: 60px;
     right: 0;
+    bottom: auto;
     left: 0;
     width: auto;
+  }
+
+  :root:has(.lesson-stage) .toasts {
+    top: calc(60px + 46px);
   }
 
   .toast {
     height: 60px;
     border-width: 0 0 1px;
     border-radius: 0;
+    animation-name: toast-drop;
+  }
+}
+
+@keyframes toast-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
   }
 }
 
 @keyframes toast-drop {
   from {
-    transform: translateY(-100%);
+    opacity: 0;
+    transform: translateY(-24px);
   }
 }
