@@ -9,6 +9,17 @@ export type Block =
   | { type: 'callout'; tone: 'tip' | 'warn' | 'info'; title?: string; text: RichString }
   | { type: 'formula'; expr: string; caption?: RichString }
   | { type: 'table'; head: string[]; rows: RichString[][] }
+  /**
+   * Predict-then-test: the learner commits to a guess before touching the lab. Picking an option reveals
+   * its `why`; `tryIt` then tells them what to change in the lab to check. Exactly one option is correct.
+   */
+  | {
+      type: 'predict'
+      id: string
+      prompt: RichString
+      options: { text: RichString; correct?: boolean; why: RichString }[]
+      tryIt: RichString
+    }
   | {
       type: 'walkthrough'
       title: string
@@ -30,7 +41,8 @@ export type LabControl =
       label: string
       componentId: string
       prop: string
-      options: { label: string; value: ControlValue }[]
+      /** skipOnClick: clicking the part in the diagram never lands on this option (e.g. "No resistor"). */
+      options: { label: string; value: ControlValue; skipOnClick?: boolean }[]
     }
   | {
       type: 'slider'

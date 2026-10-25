@@ -27,8 +27,9 @@ export interface Circuit {
  * - overcurrent: above the part's safe continuous current but not yet destroyed
  * - burnt: far beyond its limit; a real part would be destroyed
  * - overpower: resistor dissipating more than ratedWatts
+ * - overvoltage: LED/diode reverse-biased beyond its rated reverse voltage (LED 5 V); may be damaged
  */
-export type ComponentStatus = 'ok' | 'off' | 'overcurrent' | 'burnt' | 'overpower'
+export type ComponentStatus = 'ok' | 'off' | 'overcurrent' | 'burnt' | 'overpower' | 'overvoltage'
 
 export interface ComponentResult {
   /**
