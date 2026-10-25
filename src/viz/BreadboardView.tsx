@@ -42,7 +42,7 @@ export function parseHole(h: Hole): ParsedHole {
 export const PITCH = 20
 const P = PITCH
 
-/** Board left edge; the supply sits in the 11.2-pitch strip to its left. */
+/** Board left edge; the 9 V battery sits in the 11.2-pitch strip to its left, the Uno above it. */
 const BX = 11.2 * P
 const BOARD_W = 33 * P
 const BOARD_H = 20.8 * P
@@ -50,17 +50,52 @@ const THICK = 0.35 * P
 const colX = (c: number) => BX + 2 * P + (c - 1) * P
 const ROW_Y = Object.fromEntries(STRIP_ROWS.map((r, i) => [r, (i < 5 ? 4.9 + i : 6.9 + i) * P])) as Record<StripRow, number>
 const RAIL_Y: Record<Rail, number> = { 'T+': 1.4 * P, 'T-': 2.4 * P, 'B-': 18.4 * P, 'B+': 19.4 * P }
+/** Rows the column numbers are printed on, between the rails and the strips. */
+const NUMBER_Y = [4.0 * P, 16.85 * P]
 
-// Uno header strip: two socket columns, digital on the left, power and analog nearest the board.
-const UNO = { x: 0, y: 2.8 * P, w: 8.8 * P, h: 15.2 * P }
-const UNO_COL1 = UNO.x + 3 * P
-const UNO_COL2 = UNO.x + 7.6 * P
-const unoRowY = (i: number) => UNO.y + 3 * P + i * P
-const UNO_SOCKETS = Object.fromEntries([
-  ...Array.from({ length: 12 }, (_, i) => [`D${13 - i}`, { x: UNO_COL1, y: unoRowY(i) }]),
-  ...['3V3', '5V', 'GND', 'VIN'].map((pin, i) => [pin, { x: UNO_COL2, y: unoRowY(i) }]),
-  ...Array.from({ length: 6 }, (_, i) => [`A${i}`, { x: UNO_COL2, y: unoRowY(i + 5) }]),
-]) as Record<UnoPin, Point>
+/*
+ * The Uno sits above the board, laid out as the real board is: USB and DC jacks on the left edge,
+ * the digital header along the top edge, and the power and analog headers along the bottom edge,
+ * facing the board's top rails.
+ */
+const UNO = { x: BX + 0.6 * P, y: -15.4 * P, w: 26 * P, h: 12.8 * P }
+const UNO_TOP = UNO.y + 1.1 * P
+const UNO_BOTTOM = UNO.y + UNO.h - 1.1 * P
+
+interface HeaderPin {
+  name: string
+  x: number
+  y: number
+}
+
+/** Header blocks along one edge, left to right, one pitch apart; '' starts the next block. */
+function headerBlocks(names: string[], x0: number, y: number): HeaderPin[][] {
+  const blocks: HeaderPin[][] = [[]]
+  let x = x0
+  for (const name of names) {
+    if (name === '') {
+      blocks.push([])
+      x += 0.6 * P
+      continue
+    }
+    blocks[blocks.length - 1].push({ name, x, y })
+    x += P
+  }
+  return blocks
+}
+
+const DIGITAL_BLOCKS = headerBlocks(['AREF', 'GND', 'D13', 'D12', 'D11', 'D10', 'D9', 'D8', '', 'D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0'], UNO.x + 9 * P, UNO_TOP)
+const POWER_BLOCKS = headerBlocks(['IOREF', 'RESET', '3V3', '5V', 'GND', 'GND', 'VIN', '', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5'], UNO.x + 11 * P, UNO_BOTTOM)
+const UNO_HEADER_PINS = [...POWER_BLOCKS, ...DIGITAL_BLOCKS].flat()
+// 'uno:GND' is the GND beside 5V on the power header (the first one listed).
+const UNO_SOCKETS = Object.fromEntries(
+  UNO_PINS.map((pin) => {
+    const { x, y } = UNO_HEADER_PINS.find((h) => h.name === pin)!
+    return [pin, { x, y }]
+  }),
+) as Record<UnoPin, Point>
+/** Silkscreen spelling, where it differs from the pin's name in the hole grammar. */
+const UNO_SILK: Partial<Record<string, string>> = { '3V3': '3.3V' }
 
 const BAT = { x: 1.2 * P, y: 6.6 * P, w: 5.6 * P, h: 10.6 * P }
 const BAT_TERMINALS: Record<'+' | '-', Point> = { '+': { x: 9.2 * P, y: 4.4 * P }, '-': { x: 9.2 * P, y: 5.6 * P } }
@@ -91,19 +126,30 @@ function connectedBox(p: ParsedHole): Box | null {
   return null
 }
 
-/** "a5", "top + rail 3", "Uno 5V", "battery +". */
+/**
+ * Where a leg goes, as the build steps say it: "c8", "top + rail", "Uno 5V", "battery +".
+ * A rail is one connected strip, so its column doesn't matter and isn't named.
+ */
 export function holeLabel(h: Hole): string {
   const p = parseHole(h)
   switch (p.kind) {
     case 'strip':
       return h
     case 'rail':
-      return `${p.rail[0] === 'T' ? 'top' : 'bottom'} ${p.rail[1] === '+' ? '+' : '−'} rail ${p.col}`
+      return `${p.rail[0] === 'T' ? 'top' : 'bottom'} ${p.rail[1] === '+' ? '+' : '−'} rail`
     case 'uno':
-      return `Uno ${p.pin}`
+      return `Uno ${UNO_SILK[p.pin] ?? p.pin}`
     case 'battery':
       return `battery ${p.terminal === '+' ? '+' : '−'}`
   }
+}
+
+/** holeLabel in a sentence: "the top + rail", "the battery’s + lead". */
+function holePhrase(h: Hole): string {
+  const p = parseHole(h)
+  if (p.kind === 'rail') return `the ${holeLabel(h)}`
+  if (p.kind === 'battery') return `the battery’s ${p.terminal === '+' ? '+' : '−'} lead`
+  return holeLabel(h)
 }
 
 /* ------------------------------------------------------------------ resistor colour code */
@@ -112,20 +158,26 @@ export type BandColor = 'black' | 'brown' | 'red' | 'orange' | 'yellow' | 'green
 const DIGITS: BandColor[] = ['black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', 'grey', 'white']
 
 /**
- * 4-band colour code: two digits, multiplier, ±5 % gold tolerance (rounded to two significant
- * figures, as 4-band parts are). A 0 Ω link is a single black band.
+ * Resistor colour code. 5 bands (the default, as on the kit's 1 % metal-film parts): three digits,
+ * multiplier, brown ±1 % tolerance. 4 bands: two digits, multiplier, gold ±5 %. The value is rounded
+ * to that many significant figures. A 0 Ω link is a single black band.
  */
-export function resistorBands(ohms: number): BandColor[] {
+export function resistorBands(ohms: number, bands: 4 | 5 = 5): BandColor[] {
   if (ohms === 0) return ['black']
-  if (!Number.isFinite(ohms) || ohms < 0.1 || ohms >= 1e11) throw new RangeError(`No 4-band colour code for ${ohms} Ω`)
-  let exp = Math.floor(Math.log10(ohms)) - 1
+  const figures = bands - 2
+  const lowest = 10 ** (figures - 3) // the smallest value a silver (×0.01) multiplier can show
+  if (!Number.isFinite(ohms) || ohms < lowest || ohms >= 10 ** (figures + 9)) throw new RangeError(`No ${bands}-band colour code for ${ohms} Ω`)
+  let exp = Math.floor(Math.log10(ohms)) - (figures - 1)
   let digits = Math.round(ohms / 10 ** exp)
-  if (digits >= 100) {
+  // log10 can land a hair off at powers of ten; renormalise to exactly `figures` digits.
+  if (digits >= 10 ** figures) {
     digits = Math.round(digits / 10)
     exp++
   }
+  if (exp > 9) throw new RangeError(`No ${bands}-band colour code for ${ohms} Ω`)
   const multiplier: BandColor = exp === -2 ? 'silver' : exp === -1 ? 'gold' : DIGITS[exp]
-  return [DIGITS[Math.floor(digits / 10)], DIGITS[digits % 10], multiplier, 'gold']
+  const digitBands = String(digits).padStart(figures, '0').split('').map((d) => DIGITS[Number(d)])
+  return [...digitBands, multiplier, bands === 5 ? 'brown' : 'gold']
 }
 
 // Physical colours: these depict real parts, so they don't come from the theme tokens.
@@ -196,27 +248,30 @@ export function layoutProblems(layout: BreadboardLayout): string[] {
 
 const FS = 11 // base text size, viewBox units
 export const MIN_TEXT_PX = 10
-/** Largest text size (viewBox units) counter-scaling may reach; below the width that needs more, the drawing scrolls. */
+/** Largest text size (viewBox units) counter-scaling may reach; below the scale that needs more, the drawing scrolls. */
 const MAX_FS = 16.5
-/** Narrowest the drawing may render before it scrolls sideways (text would drop below 10 px). */
-const minWidthFor = (vbW: number) => Math.ceil((vbW * MIN_TEXT_PX) / MAX_FS)
+/** Smallest rendered scale (CSS px per viewBox unit) before the drawing scrolls instead of shrinking. */
+const MIN_SCALE = MIN_TEXT_PX / MAX_FS
 
 /** Text size in viewBox units: `base`, enlarged so it renders at ≥ MIN_TEXT_PX at `scale` (rendered px per unit). */
 type TextSize = (base: number) => number
 const textSizer = (scale: number): TextSize => (base) => (scale > 0 ? Math.max(base, MIN_TEXT_PX / scale) : base)
 
-function useWidth<T extends Element>() {
+/** Content-box size of an element, kept current with a ResizeObserver (0 where unsupported). */
+function useSize<T extends Element>() {
   const ref = useRef<T>(null)
-  const [width, setWidth] = useState(0)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    setWidth(Math.round(el.getBoundingClientRect().width))
-    const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)))
+    const set = (w: number, h = 0) =>
+      setSize((s) => (s.width === Math.round(w) && s.height === Math.round(h) ? s : { width: Math.round(w), height: Math.round(h) }))
+    set(el.clientWidth, el.clientHeight)
+    const ro = new ResizeObserver(([entry]) => set(entry.contentRect.width, entry.contentRect.height))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  return [ref, width] as const
+  return [ref, size] as const
 }
 
 /* ------------------------------------------------------------------ parts */
@@ -231,6 +286,8 @@ interface Drawn {
   title: string
   detail: string
   groups: Box[]
+  /** Shows an id badge: every component, and jumpers that stand for one (a switch S1). */
+  badge: boolean
 }
 
 const dist = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
@@ -241,6 +298,10 @@ const boxOf = (pts: Point[], pad = 0): Box => ({
   x1: Math.max(...pts.map((p) => p.x)) + pad,
   y1: Math.max(...pts.map((p) => p.y)) + pad,
 })
+
+/** Ids like R1, D3 or S2 name a lab component; ids like 'w-5v' exist only for the code and are never shown. */
+const COMPONENT_ID = /^[A-Z]{1,3}\d+$/
+const capital = (s: string) => s[0].toUpperCase() + s.slice(1)
 
 /** Control point of a wire's arc: it bows up (or left, when vertical), more for longer runs. */
 function wireControl(a: Point, b: Point): Point {
@@ -255,12 +316,46 @@ function wireControl(a: Point, b: Point): Point {
   return { x: (a.x + b.x) / 2 + nx * bow, y: (a.y + b.y) / 2 + ny * bow }
 }
 
-/** LED geometry: it stands up out of the board, lens above its two legs. */
+/** A wire's arc as a chain of small boxes, so badges can keep off it. */
+function wireBoxes(a: Point, b: Point): Box[] {
+  const c = wireControl(a, b)
+  const n = Math.max(4, Math.ceil(dist(a, b) / P))
+  const pts = Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n
+    const u = 1 - t
+    return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y }
+  })
+  return pts.slice(1).map((p, i) => boxOf([pts[i], p], 4))
+}
+
+/** The LED leans toward its shorter (cathode) leg, as a real one does, so the straight anode leg shows clearly longer. */
+const LED_TILT = 18
+
+/** LED geometry: it stands up out of the board, lens above its two legs, leaning toward the cathode. */
 function ledGeometry(anode: Point, cathode: Point) {
   const cx = (anode.x + cathode.x) / 2
-  const base = Math.min(anode.y, cathode.y) - 0.8 * P
-  const cathodeRight = cathode.x >= anode.x
-  return { cx, base, sA: cathodeRight ? -1 : 1, sC: cathodeRight ? 1 : -1, r: 0.9 * P, h: 2.1 * P }
+  const base = Math.min(anode.y, cathode.y) - 1.6 * P
+  const sC = cathode.x >= anode.x ? 1 : -1
+  const tilt = LED_TILT * sC
+  const t = (tilt * Math.PI) / 180
+  /** A point in the upright LED's frame (origin at the rim centre) → viewBox, after the lean. */
+  const at = (lx: number, ly: number): Point => ({ x: cx + lx * Math.cos(t) - ly * Math.sin(t), y: base + lx * Math.sin(t) + ly * Math.cos(t) })
+  const h = 2.1 * P
+  const footA = at(-sC * 0.55 * P, 0.3 * P)
+  const footC = at(sC * 0.55 * P, 0.3 * P)
+  // "+" and "−" sit just outside each leg, beside its midpoint.
+  const beside = (foot: Point, hole: Point, out: number): Point => {
+    const len = dist(foot, hole) || 1
+    // The leg's normal on the `out` side (out = -1 left, 1 right).
+    let nx = -(hole.y - foot.y) / len
+    let ny = (hole.x - foot.x) / len
+    if (Math.sign(nx) !== out) [nx, ny] = [-nx, -ny]
+    return { x: (foot.x + hole.x) / 2 + nx * 0.55 * P, y: (foot.y + hole.y) / 2 + ny * 0.55 * P }
+  }
+  const plus = beside(footA, anode, -sC)
+  const minus = beside(footC, cathode, sC)
+  const outline = [at(-1.05 * P, -h), at(1.05 * P, -h), at(-1.05 * P, 0.35 * P), at(1.05 * P, 0.35 * P)]
+  return { cx, base, sC, tilt, r: 0.9 * P, h, footA, footC, plus, minus, outline }
 }
 
 function describePart(part: BreadboardPart): Drawn {
@@ -269,25 +364,37 @@ function describePart(part: BreadboardPart): Drawn {
   const [a, b] = ends
   const groups = holes.map((h) => connectedBox(parseHole(h))).filter((g): g is Box => g !== null)
   const [ha, hb] = holes.map(holeLabel)
+  const [pa, pb] = holes.map(holePhrase)
   switch (part.kind) {
     case 'resistor': {
       const value = formatSI(part.ohms, 'Ω')
       const box = boxOf(ends, 0.6 * P)
-      return { part, ends, box, tip: { x: (box.x0 + box.x1) / 2, y: box.y0 }, groups, aria: `Resistor ${part.id}, ${value}, from ${ha} to ${hb}`, title: `${part.id} · ${value}`, detail: `${ha} → ${hb}` }
+      return { part, ends, box, tip: { x: (box.x0 + box.x1) / 2, y: box.y0 }, groups, badge: true, aria: `Resistor ${part.id}, ${value}, from ${pa} to ${pb}`, title: `${part.id} · ${value}`, detail: `${ha} → ${hb}` }
     }
     case 'diode': {
       const box = boxOf(ends, 0.6 * P)
-      return { part, ends, box, tip: { x: (box.x0 + box.x1) / 2, y: box.y0 }, groups, aria: `Diode ${part.id}, anode in ${ha}, cathode (banded end) in ${hb}`, title: `${part.id} · diode`, detail: `anode ${ha} · band ${hb}` }
+      return { part, ends, box, tip: { x: (box.x0 + box.x1) / 2, y: box.y0 }, groups, badge: true, aria: `Diode ${part.id}, anode in ${pa}, cathode (banded end) in ${pb}`, title: `${part.id} · diode`, detail: `anode ${ha} · band ${hb}` }
     }
     case 'led': {
       const g = ledGeometry(a, b)
-      const box = boxOf([...ends, { x: g.cx - 1.2 * P, y: g.base - g.h }, { x: g.cx + 1.2 * P, y: g.base }], 0.3 * P)
-      return { part, ends, box, tip: { x: g.cx, y: box.y0 }, groups, aria: `LED ${part.id} (${part.color}), anode (long leg) in ${ha}, cathode (flat side) in ${hb}`, title: `${part.id} · ${part.color} LED`, detail: `+ ${ha} · − ${hb}` }
+      const box = boxOf([...ends, ...g.outline], 0.2 * P)
+      return { part, ends, box, tip: g.outline.reduce((t, p) => (p.y < t.y ? p : t)), groups, badge: true, aria: `LED ${part.id} (${part.color}), anode (long leg) in ${pa}, cathode (short leg, flat side) in ${pb}`, title: `${part.id} · ${part.color} LED`, detail: `+ ${ha} · − ${hb}` }
     }
     case 'wire': {
       const c = wireControl(a, b)
       const apex = { x: 0.25 * a.x + 0.5 * c.x + 0.25 * b.x, y: 0.25 * a.y + 0.5 * c.y + 0.25 * b.y }
-      return { part, ends, box: boxOf([a, b, apex], 0.4 * P), tip: apex, groups, aria: `${part.color[0].toUpperCase()}${part.color.slice(1)} wire ${part.id}, from ${ha} to ${hb}`, title: `${part.id} · ${part.color} wire`, detail: `${ha} → ${hb}` }
+      const named = COMPONENT_ID.test(part.id)
+      return {
+        part,
+        ends,
+        box: boxOf([a, b, apex], 0.4 * P),
+        tip: apex,
+        groups,
+        badge: named,
+        aria: `${capital(part.color)} jumper wire${named ? ` ${part.id}` : ''} from ${pa} to ${pb}`,
+        title: named ? `${part.id} · ${part.color} jumper` : `${capital(part.color)} jumper wire`,
+        detail: `${ha} → ${hb}`,
+      }
     }
   }
 }
@@ -308,10 +415,13 @@ const Lead = ({ d }: { d: string }) => (
   </>
 )
 
+/** Band centres along the body (0–1): the tolerance band stands apart at the far end, so the code reads from the other end. */
+const BAND_X: Record<number, number[]> = { 1: [0.5], 4: [0.2, 0.34, 0.48, 0.81], 5: [0.17, 0.29, 0.41, 0.53, 0.83] }
+
 function Axial({ a, b, kind, bands, uid }: { a: Point; b: Point; kind: 'resistor' | 'diode'; bands: BandColor[]; uid: string }) {
   const d = dist(a, b)
   const angle = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI
-  const len = kind === 'resistor' ? clamp(d - 0.9 * P, 1.2 * P, 2.6 * P) : clamp(d - 0.9 * P, 1.2 * P, 2.2 * P)
+  const len = kind === 'resistor' ? clamp(d - 0.9 * P, 1.2 * P, 2.7 * P) : clamp(d - 0.9 * P, 1.2 * P, 2.2 * P)
   const x0 = (d - len) / 2
   const x1 = x0 + len
   let shapes: ReactNode
@@ -319,7 +429,7 @@ function Axial({ a, b, kind, bands, uid }: { a: Point; b: Point; kind: 'resistor
     // Dog-bone body: two bulged caps joined by a slimmer middle.
     const r = 0.46 * P
     const n = 0.36 * P
-    const cap = len * 0.27
+    const cap = len * 0.25
     const body = (cls: string, fill?: string) => (
       <g className={cls} fill={fill}>
         <rect x={x0} y={-r} width={cap} height={2 * r} rx={r * 0.75} />
@@ -327,16 +437,17 @@ function Axial({ a, b, kind, bands, uid }: { a: Point; b: Point; kind: 'resistor
         <rect x={x0 + cap * 0.6} y={-n} width={len - cap * 1.2} height={2 * n} />
       </g>
     )
-    const bandX = bands.length === 1 ? [0.5] : [0.2, 0.36, 0.5, 0.8]
+    const bandX = BAND_X[bands.length] ?? BAND_X[5]
+    const bw = len * (bands.length === 5 ? 0.075 : 0.09)
     shapes = (
       <>
         <rect className="bb-shadow" x={x0 + 2} y={-r + 4} width={len} height={2 * r} rx={r} filter={`url(#${uid}-blur)`} />
         {body('bb-res-body')}
         {bands.map((band, i) => {
           const cx = x0 + bandX[i] * len
-          const onCap = cx < x0 + cap || cx > x1 - cap
+          const onCap = cx - bw / 2 < x0 + cap || cx + bw / 2 > x1 - cap
           const hh = (onCap ? r : n) - 0.4
-          return <rect key={i} className={`bb-band bb-band--${band}`} x={cx - len * 0.045} y={-hh} width={len * 0.09} height={2 * hh} fill={BAND_HEX[band]} />
+          return <rect key={i} className={`bb-band bb-band--${band}`} x={cx - bw / 2} y={-hh} width={bw} height={2 * hh} fill={BAND_HEX[band]} />
         })}
         {body('bb-shade', `url(#${uid}-shade)`)}
       </>
@@ -347,41 +458,41 @@ function Axial({ a, b, kind, bands, uid }: { a: Point; b: Point; kind: 'resistor
       <>
         <rect className="bb-shadow" x={x0 + 2} y={-r + 4} width={len} height={2 * r} rx={r} filter={`url(#${uid}-blur)`} />
         <rect className="bb-diode-body" x={x0} y={-r} width={len} height={2 * r} rx={r * 0.55} />
-        <rect className="bb-diode-band" x={x1 - len * 0.26} y={-r} width={len * 0.12} height={2 * r} />
+        {/* The cathode band: wide, bright silver, at the cathode end. */}
+        <rect className="bb-diode-band" x={x1 - len * 0.27} y={-r} width={len * 0.17} height={2 * r} fill={`url(#${uid}-silver)`} />
         <rect x={x0} y={-r} width={len} height={2 * r} rx={r * 0.55} fill={`url(#${uid}-shade)`} />
       </>
     )
   }
   return (
-    <>
-      <g transform={`translate(${a.x} ${a.y}) rotate(${angle})`}>
-        <Lead d={`M0 0H${x0 + 2}M${x1 - 2} 0H${d}`} />
-        {shapes}
-      </g>
-    </>
+    <g transform={`translate(${a.x} ${a.y}) rotate(${angle})`}>
+      <Lead d={`M0 0H${x0 + 2}M${x1 - 2} 0H${d}`} />
+      {shapes}
+    </g>
   )
 }
 
 function Led({ anode, cathode, color, uid }: { anode: Point; cathode: Point; color: LedColor; uid: string }) {
-  const { cx, base, sA, sC, r, h } = ledGeometry(anode, cathode)
+  const { cx, base, sC, tilt, r, h, footA, footC } = ledGeometry(anode, cathode)
+  const sA = -sC
   const top = base - h
-  const foot = base + 0.3 * P
-  const fa = { x: cx + sA * 0.42 * P, y: foot }
-  const fc = { x: cx + sC * 0.42 * P, y: foot }
-  // The anode leg is the long one: drawn with a joggle, as on a real 5 mm LED.
-  const kneeY = Math.min(fa.y + 0.45 * P, anode.y - 0.2 * P)
-  const anodeLeg = `M${fa.x} ${fa.y}V${kneeY}L${fa.x + sA * 0.32 * P} ${kneeY + 0.28 * P}L${anode.x} ${anode.y}`
-  const cathodeLeg = `M${fc.x} ${fc.y}L${cathode.x} ${cathode.y}`
   const dome = `M${cx - r} ${base}V${top + r}A${r} ${r} 0 0 1 ${cx + r} ${top + r}V${base}Z`
-  // The flange is flat on the cathode side.
-  const flangeL = cx + (sC < 0 ? -r : -1.18 * P)
-  const flangeR = cx + (sC > 0 ? r : 1.18 * P)
+  // The rim is wider than the dome, except on the cathode side, where it is cut flat.
+  const rimY0 = base - 0.1 * P
+  const rimY1 = base + 0.28 * P
+  const rr = (rimY1 - rimY0) / 2
+  const outer = cx + sA * (r + 0.3 * P)
+  const flat = cx + sC * r
+  const rim =
+    sA < 0
+      ? `M${flat} ${rimY0}H${outer + rr}A${rr} ${rr} 0 0 0 ${outer + rr} ${rimY1}H${flat}Z`
+      : `M${flat} ${rimY0}H${outer - rr}A${rr} ${rr} 0 0 1 ${outer - rr} ${rimY1}H${flat}Z`
   return (
     <>
-      <ellipse className="bb-shadow" cx={cx + 0.55 * P} cy={base + 0.35 * P} rx={1.15 * P} ry={0.38 * P} filter={`url(#${uid}-blur)`} />
-      <Lead d={cathodeLeg} />
-      <Lead d={anodeLeg} />
-      <g className="bb-lens" style={{ color: LED_COLORS[color] }}>
+      <ellipse className="bb-shadow" cx={cx + 0.5 * P * sC} cy={base + 1.2 * P} rx={1.15 * P} ry={0.38 * P} filter={`url(#${uid}-blur)`} />
+      <Lead d={`M${footC.x} ${footC.y}L${cathode.x} ${cathode.y}`} />
+      <Lead d={`M${footA.x} ${footA.y}L${anode.x} ${anode.y}`} />
+      <g className="bb-lens" style={{ color: LED_COLORS[color] }} transform={`rotate(${tilt} ${cx} ${base})`}>
         <path d={dome} fill={`url(#${uid}-lens-${color})`} className="bb-lens-body" />
         {/* The lead frame seen through the lens: a small post (anode) and the larger anvil (cathode). */}
         <rect className="bb-frame" x={cx + sA * 0.34 * P - 0.08 * P} y={base - 0.95 * P} width={0.16 * P} height={0.9 * P} />
@@ -389,9 +500,32 @@ function Led({ anode, cathode, color, uid }: { anode: Point; cathode: Point; col
         <path className="bb-bond" d={`M${cx + sA * 0.34 * P} ${base - 0.95 * P}Q${cx} ${base - 1.6 * P} ${cx + sC * 0.22 * P} ${base - 1.0 * P}`} />
         <ellipse className="bb-glare" cx={cx - 0.42 * P} cy={top + r * 0.95} rx={0.17 * P} ry={0.62 * P} />
         <ellipse className="bb-glare bb-glare--soft" cx={cx + 0.45 * P} cy={top + r * 1.2} rx={0.08 * P} ry={0.35 * P} />
-        <rect className="bb-flange" x={flangeL} y={base - 0.08 * P} width={flangeR - flangeL} height={0.34 * P} rx={2} fill={`url(#${uid}-lens-${color})`} />
+        <path className="bb-flange" d={rim} fill={`url(#${uid}-lens-${color})`} />
+        <line className="bb-flat" x1={flat} x2={flat} y1={rimY0 - 0.02 * P} y2={rimY1} />
       </g>
     </>
+  )
+}
+
+/** "+" by every LED's anode leg and "−" by its cathode leg, above all parts so a neighbour never hides them. */
+function Polarity({ drawn, ts }: { drawn: Drawn[]; ts: TextSize }) {
+  return (
+    <g aria-hidden="true" style={{ fontSize: ts(FS * 1.25) }}>
+      {drawn.map((d) => {
+        if (d.part.kind !== 'led') return null
+        const { plus, minus } = ledGeometry(d.ends[0], d.ends[1])
+        return (
+          <g key={d.part.id}>
+            <text className="bb-pol bb-pol--pos" x={plus.x} y={plus.y}>
+              +
+            </text>
+            <text className="bb-pol bb-pol--neg" x={minus.x} y={minus.y}>
+              −
+            </text>
+          </g>
+        )
+      })}
+    </g>
   )
 }
 
@@ -415,6 +549,15 @@ function holeSquares(points: Point[], s: number, dy = 0) {
   return points.map((p) => `M${p.x - s / 2} ${p.y - s / 2 + dy}h${s}v${s}h${-s}Z`).join('')
 }
 
+/** Columns that get a printed number: 1, every fifth, and every column in use. */
+const numberedColumns = (usedCols: Set<number>) => Array.from({ length: BOARD_COLUMNS }, (_, i) => i + 1).filter((c) => c === 1 || c % 5 === 0 || usedCols.has(c))
+
+/** A printed column number's extent, for keeping badges off it. */
+const numberBox = (c: number, y: number, fs: number): Box => {
+  const hw = String(c).length * 0.32 * fs + 2
+  return { x0: colX(c) - hw, x1: colX(c) + hw, y0: y - 0.55 * fs, y1: y + 0.55 * fs }
+}
+
 function Board({ ts, usedCols }: { ts: TextSize; usedCols: Set<number> }) {
   const cols = Array.from({ length: BOARD_COLUMNS }, (_, i) => i + 1)
   const holes: Point[] = []
@@ -423,7 +566,6 @@ function Board({ ts, usedCols }: { ts: TextSize; usedCols: Set<number> }) {
     for (const rail of Object.keys(RAIL_Y) as Rail[]) holes.push({ x: colX(c), y: RAIL_Y[rail] })
   }
   const fs = ts(FS)
-  const numbered = cols.filter((c) => c === 1 || c % 5 === 0 || usedCols.has(c))
   const lineX0 = colX(1) - 0.6 * P
   const lineX1 = colX(BOARD_COLUMNS) + 0.6 * P
   const railLines: [number, 'pos' | 'neg'][] = [
@@ -462,53 +604,101 @@ function Board({ ts, usedCols }: { ts: TextSize; usedCols: Set<number> }) {
             </text>
           )),
         )}
-        {numbered.map((c) =>
-          [4.0 * P, 16.85 * P].map((y) => (
-            <text key={`${c}-${y}`} x={colX(c)} y={y} className={`bb-colnum${usedCols.has(c) ? ' is-used' : ''}`}>
-              {c}
-            </text>
-          )),
-        )}
+        {/* Numbers of columns in use are printed over the parts instead (see ColumnNumbers). */}
+        {numberedColumns(usedCols)
+          .filter((c) => !usedCols.has(c))
+          .map((c) =>
+            NUMBER_Y.map((y) => (
+              <text key={`${c}-${y}`} x={colX(c)} y={y} className="bb-colnum">
+                {c}
+              </text>
+            )),
+          )}
       </g>
     </g>
   )
 }
 
-function UnoStrip({ ts, uid }: { ts: TextSize; uid: string }) {
-  const fs = ts(FS)
-  const pins = Object.entries(UNO_SOCKETS) as [UnoPin, Point][]
-  const header = (x: number, from: number, to: number) => (
-    <rect className="bb-header" x={x - 0.5 * P} y={unoRowY(from) - 0.5 * P} width={P} height={(to - from + 1) * P} rx={2} />
+/** Numbers of the columns in use, on top of everything else, so no wire or LED hides where a leg goes. */
+function ColumnNumbers({ ts, usedCols }: { ts: TextSize; usedCols: Set<number> }) {
+  return (
+    <g className="bb-print bb-colnums" aria-hidden="true" style={{ fontSize: ts(FS) }}>
+      {[...usedCols].map((c) =>
+        NUMBER_Y.map((y) => (
+          <text key={`${c}-${y}`} x={colX(c)} y={y} className="bb-colnum is-used">
+            {c}
+          </text>
+        )),
+      )}
+    </g>
   )
+}
+
+function Uno({ ts, uid, used }: { ts: TextSize; uid: string; used: Set<string> }) {
+  const { x, y, w, h } = UNO
+  const fs = ts(FS * 0.8)
+  const groupFs = ts(FS * 0.72)
+  const silk = (pin: HeaderPin) => UNO_SILK[pin.name] ?? pin.name
+  const longest = (pins: HeaderPin[]) => Math.max(...pins.map((p) => silk(p).length)) * 0.62 * fs
+  const topPins = DIGITAL_BLOCKS.flat()
+  const bottomPins = POWER_BLOCKS.flat()
+  // Pin names run inward from each header, rotated, as printed on the board.
+  const topLabelY = UNO_TOP + 0.75 * P
+  const bottomLabelY = UNO_BOTTOM - 0.75 * P
+  const digitalY = topLabelY + longest(topPins) + 0.9 * groupFs
+  const powerY = bottomLabelY - longest(bottomPins) - 0.9 * groupFs
+  const centre = (pins: HeaderPin[]) => (pins[0].x + pins[pins.length - 1].x) / 2
+  const chipH = 1.3 * P
+  const chip = { x: x + 12.5 * P, y: (digitalY + powerY) / 2 - chipH / 2, w: 9 * P, h: chipH }
+  const ch = 1.2 * P // the chamfered corner beside D0
+  const rc = 8
+  const outline = `M${x + rc} ${y}H${x + w - ch}L${x + w} ${y + ch}V${y + h - rc}Q${x + w} ${y + h} ${x + w - rc} ${y + h}H${x + rc}Q${x} ${y + h} ${x} ${y + h - rc}V${y + rc}Q${x} ${y} ${x + rc} ${y}Z`
+  const isUsed = (pin: HeaderPin) => used.has(pin.name) && UNO_SOCKETS[pin.name as UnoPin]?.x === pin.x && UNO_SOCKETS[pin.name as UnoPin]?.y === pin.y
   return (
     <g className="bb-uno" aria-hidden="true">
-      <rect className="bb-board-shadow" x={UNO.x + 4} y={UNO.y + 10} width={UNO.w} height={UNO.h} rx={10} />
-      {/* USB and DC jacks peeking over the top edge. */}
-      <rect className="bb-usb" x={UNO.x + 0.7 * P} y={UNO.y - 0.9 * P} width={2.6 * P} height={2.4 * P} rx={3} fill={`url(#${uid}-metal)`} />
-      <rect className="bb-dcjack" x={UNO.x + 5.2 * P} y={UNO.y - 0.6 * P} width={2.6 * P} height={2.1 * P} rx={3} />
-      <rect className="bb-pcb" x={UNO.x} y={UNO.y} width={UNO.w} height={UNO.h} rx={9} />
-      <rect className="bb-pcb-gloss" x={UNO.x + 1.5} y={UNO.y + 1.5} width={UNO.w - 3} height={UNO.h * 0.4} rx={8} />
-      <rect className="bb-usb" x={UNO.x + 0.7 * P} y={UNO.y - 0.9 * P} width={2.6 * P} height={1.2 * P} rx={3} fill={`url(#${uid}-metal)`} />
-      <circle className="bb-mount" cx={UNO_COL2} cy={unoRowY(11) + 0.1 * P} r={0.42 * P} />
-      {header(UNO_COL1, 0, 11)}
-      {header(UNO_COL2, 0, 3)}
-      {header(UNO_COL2, 5, 10)}
-      <path className="bb-socket" d={holeSquares(pins.map(([, p]) => p), 0.42 * P)} />
+      <rect className="bb-board-shadow" x={x + 4} y={y + 10} width={w} height={h} rx={10} />
+      <path className="bb-pcb" d={outline} />
+      <rect className="bb-pcb-gloss" x={x + 1.5} y={y + 1.5} width={w - ch - 3} height={h * 0.4} rx={7} />
+      {/* USB-B and DC barrel jacks overhang the left edge. */}
+      <rect className="bb-usb" x={x - 1.3 * P} y={y + 1.5 * P} width={4.6 * P} height={3.4 * P} rx={2} fill={`url(#${uid}-metal)`} />
+      <rect className="bb-usb-slot" x={x - 1.3 * P} y={y + 2.3 * P} width={1.1 * P} height={1.8 * P} rx={1} />
+      <rect className="bb-dcjack" x={x - 0.7 * P} y={y + h - 4.7 * P} width={4.8 * P} height={3 * P} rx={3} />
+      <circle className="bb-dcjack-pin" cx={x - 0.1 * P} cy={y + h - 3.2 * P} r={0.45 * P} />
+      <rect className="bb-reset" x={x + 5.4 * P} y={y + 0.9 * P} width={1.3 * P} height={1.3 * P} rx={2} />
+      <circle className="bb-reset-cap" cx={x + 6.05 * P} cy={y + 1.55 * P} r={0.4 * P} />
+      {[y + 3.4 * P, y + h - 2.8 * P].map((cy) => (
+        <circle key={cy} className="bb-mount" cx={x + w - 1.0 * P} cy={cy} r={0.42 * P} />
+      ))}
+      {/* The microcontroller, as a plain 28-pin DIP outline. */}
+      <g className="bb-chip">
+        <path className="bb-chip-pins" d={Array.from({ length: 14 }, (_, i) => `M${chip.x + (i + 0.5) * (chip.w / 14)} ${chip.y - 3}v${chip.h + 6}`).join('')} />
+        <rect x={chip.x} y={chip.y} width={chip.w} height={chip.h} rx={2} />
+        <circle className="bb-chip-notch" cx={chip.x + 0.1 * P} cy={chip.y + chip.h / 2} r={0.28 * P} />
+      </g>
+      {[...DIGITAL_BLOCKS, ...POWER_BLOCKS].map((block) => (
+        <rect key={`${block[0].x}-${block[0].y}`} className="bb-header" x={block[0].x - 0.5 * P} y={block[0].y - 0.5 * P} width={block.length * P} height={P} rx={2} />
+      ))}
+      <path className="bb-socket" d={holeSquares(UNO_HEADER_PINS, 0.42 * P)} />
       <g className="bb-silk" style={{ fontSize: fs }}>
-        {pins.map(([pin, p]) => (
-          <text key={pin} x={p.x - 0.72 * P} y={p.y} textAnchor="end">
-            {pin}
+        {topPins.map((p) => (
+          <text key={`t${p.x}`} className={isUsed(p) ? 'is-used' : undefined} x={p.x} y={topLabelY} transform={`rotate(-90 ${p.x} ${topLabelY})`} textAnchor="end">
+            {silk(p)}
           </text>
         ))}
-        <g className="bb-silk-group" style={{ fontSize: ts(FS * 0.82) }}>
-          <text x={UNO.x + 0.35 * P} y={UNO.y + 1.95 * P} textAnchor="start">
-            DIGITAL
+        {bottomPins.map((p) => (
+          <text key={`b${p.x}`} className={isUsed(p) ? 'is-used' : undefined} x={p.x} y={bottomLabelY} transform={`rotate(-90 ${p.x} ${bottomLabelY})`} textAnchor="start">
+            {silk(p)}
           </text>
-          <text x={UNO_COL2 + 0.5 * P} y={UNO.y + 1.95 * P} textAnchor="end">
+        ))}
+        <g className="bb-silk-group" style={{ fontSize: groupFs }}>
+          <text x={centre(topPins)} y={digitalY} textAnchor="middle">
+            DIGITAL (PWM~)
+          </text>
+          <text x={centre(POWER_BLOCKS[0])} y={powerY} textAnchor="middle">
             POWER
           </text>
-          <text x={UNO_COL2 + 0.5 * P} y={unoRowY(4)} textAnchor="end">
-            ANALOG
+          <text x={centre(POWER_BLOCKS[1])} y={powerY} textAnchor="middle">
+            ANALOG IN
           </text>
         </g>
       </g>
@@ -554,21 +744,33 @@ function Battery({ ts, uid }: { ts: TextSize; uid: string }) {
 
 /* ------------------------------------------------------------------ view */
 
-const STATIC_BOX: Box = { x0: -0.8 * P, y0: -0.8 * P, x1: BX + BOARD_W + 0.8 * P, y1: BOARD_H + THICK + 0.9 * P }
+const BOARD_BOX: Box = { x0: BX - 0.8 * P, y0: -0.8 * P, x1: BX + BOARD_W + 0.8 * P, y1: BOARD_H + THICK + 0.9 * P }
+const SUPPLY_BOX: Record<BreadboardLayout['supply'], Box> = {
+  battery9v: { ...BOARD_BOX, x0: -0.8 * P },
+  uno: { ...BOARD_BOX, x0: Math.min(BOARD_BOX.x0, UNO.x - 1.3 * P - 0.6 * P), y0: UNO.y - 0.8 * P },
+}
 // Wires go over parts (as on a real bench, and so a tall LED never hides where a jumper lands).
 const DRAW_ORDER: Record<BreadboardPart['kind'], number> = { resistor: 0, diode: 0, led: 1, wire: 2 }
 
 export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewProps) {
   const uid = 'bb' + useId().replace(/[^a-zA-Z0-9]/g, '')
-  const [wrapRef, widthPx] = useWidth<HTMLDivElement>()
+  const [scrollRef, avail] = useSize<HTMLDivElement>()
   const [active, setActive] = useState<string | null>(null)
   const hl = new Set(highlight ?? [])
 
-  const { drawn, problems } = useMemo(() => {
+  const { drawn, problems, usedCols, usedPins } = useMemo(() => {
     const problems = layoutProblems(layout)
     const broken = new Set(problems.map((p) => p.slice(0, p.indexOf(':'))))
     const drawn = layout.parts.filter((p) => !broken.has(p.id)).map(describePart)
-    return { drawn, problems }
+    const usedCols = new Set<number>()
+    const usedPins = new Set<string>()
+    for (const d of drawn)
+      for (const h of holesOf(d.part)) {
+        const p = parseHole(h)
+        if (p.kind === 'strip') usedCols.add(p.col)
+        if (p.kind === 'uno') usedPins.add(p.pin)
+      }
+    return { drawn, problems, usedCols, usedPins }
   }, [layout])
 
   useEffect(() => {
@@ -576,7 +778,7 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
   }, [problems])
 
   const vb = useMemo(() => {
-    const b = { ...STATIC_BOX }
+    const b = { ...SUPPLY_BOX[layout.supply] }
     for (const d of drawn) {
       b.x0 = Math.min(b.x0, d.box.x0 - 0.4 * P)
       b.y0 = Math.min(b.y0, d.box.y0 - 1.6 * P)
@@ -584,56 +786,66 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
       b.y1 = Math.max(b.y1, d.box.y1 + 0.4 * P)
     }
     return { x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 }
-  }, [drawn])
+  }, [drawn, layout.supply])
 
-  const minWidth = minWidthFor(vb.w)
-  const scale = widthPx > 0 ? Math.max(widthPx, minWidth) / vb.w : 0
+  // The svg fills the width (and the height, when the container gives the figure one) at `meet`, but never
+  // below MIN_SCALE: past that it keeps its size and the box scrolls, so text stays ≥ MIN_TEXT_PX.
+  const minWidth = Math.ceil(vb.w * MIN_SCALE)
+  const minHeight = Math.ceil(vb.h * MIN_SCALE)
+  const scale =
+    avail.width > 0 ? Math.min(Math.max(avail.width, minWidth) / vb.w, avail.height > 0 ? Math.max(avail.height, minHeight) / vb.h : Infinity) : 0
   const ts = textSizer(scale)
-  const narrow = widthPx > 0 && widthPx < minWidth
+  const scrollsX = avail.width > 0 && avail.width < minWidth
+  const scrollsY = avail.height > 0 && avail.height < minHeight - 1
 
-  const usedCols = new Set<number>()
-  for (const d of drawn)
-    for (const h of holesOf(d.part)) {
-      const p = parseHole(h)
-      if (p.kind === 'strip') usedCols.add(p.col)
-    }
-
-  // Part ids sit beside components (not wires), clear of every other part.
-  const idTags = useMemo(() => {
-    const comps = drawn.filter((d) => d.part.kind !== 'wire')
+  // Id badges sit beside their part, clear of every part, wire, used column number and other badge.
+  const badges = useMemo(() => {
     const fs = ts(FS)
-    const tagBox = (cx: number, cy: number, id: string): Box => {
-      const w = id.length * fs * 0.62 + fs * 0.9
-      return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - fs * 0.8, y1: cy + fs * 0.8 }
-    }
-    const candidates = comps.map((d) => {
+    const tagged = drawn.filter((d) => d.badge)
+    const obstacles: Box[] = [
+      ...drawn.flatMap((d) => (d.part.kind === 'wire' ? wireBoxes(d.ends[0], d.ends[1]) : [d.box])),
+      ...[...usedCols].flatMap((c) => NUMBER_Y.map((y) => numberBox(c, y, fs))),
+    ]
+    const view: Box = { x0: vb.x, y0: vb.y, x1: vb.x + vb.w, y1: vb.y + vb.h }
+    const inside = (b: Box) => b.x0 >= view.x0 && b.x1 <= view.x1 && b.y0 >= view.y0 && b.y1 <= view.y1
+    const candidates = tagged.map((d) => {
+      const hw = (d.part.id.length * fs * 0.62 + fs * 0.9) / 2
+      const hh = fs * 0.8
       const { x0, y0, x1, y1 } = d.box
       const mx = (x0 + x1) / 2
       const my = (y0 + y1) / 2
-      const id = d.part.id
-      const gap = fs
-      const w = id.length * fs * 0.62 + fs * 0.9
-      const above = y0 - gap * 0.4
-      const below = y1 + gap * 0.4
-      return [
-        tagBox(mx, above, id),
-        tagBox(mx, below, id),
-        ...[-w, w].flatMap((dx) => [tagBox(mx + dx, above, id), tagBox(mx + dx, below, id)]),
-        tagBox(x1 + w / 2 + 3, my, id),
-        tagBox(x0 - w / 2 - 3, my, id),
+      const at = (cx: number, cy: number): Box => ({ x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh })
+      const ring = (g: number) => [
+        at(mx, y0 - g - hh),
+        at(mx, y1 + g + hh),
+        at(x1 + g + hw, my),
+        at(x0 - g - hw, my),
+        at(x1 + hw, y0 - g - hh),
+        at(x0 - hw, y0 - g - hh),
+        at(x1 + hw, y1 + g + hh),
+        at(x0 - hw, y1 + g + hh),
       ]
+      const all = [...ring(3), ...ring(3 + 2 * hh), ...ring(3 + 4 * hh)]
+      const fit = all.filter(inside)
+      return fit.length ? fit : all
     })
-    const chosen = placeLabels(candidates, comps.map((d) => d.box))
-    return comps.map((d, i) => ({ id: d.part.id, box: candidates[i][chosen[i]] }))
-  }, [drawn, scale])
+    const chosen = placeLabels(candidates, obstacles)
+    return tagged.map((d, i) => {
+      const box = candidates[i][chosen[i]]
+      // A badge pushed away from its part gets a thin leader to it.
+      const from = { x: clamp(d.tip.x, box.x0, box.x1), y: clamp(d.tip.y, box.y0, box.y1) }
+      const to = { x: clamp(from.x, d.box.x0, d.box.x1), y: clamp(from.y, d.box.y0, d.box.y1) }
+      return { id: d.part.id, box, leader: dist(from, to) > fs ? { from, to } : null }
+    })
+  }, [drawn, usedCols, vb, scale])
 
   const ordered = [...drawn].sort((x, y) => DRAW_ORDER[x.part.kind] - DRAW_ORDER[y.part.kind])
   const activeDrawn = drawn.find((d) => d.part.id === active)
 
   return (
     <figure className="bb" aria-label={ariaLabel}>
-      <div className="bb-scroll" ref={wrapRef}>
-        <svg className="bb-svg" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} style={{ minWidth }} preserveAspectRatio="xMidYMid meet">
+      <div className="bb-scroll" ref={scrollRef}>
+        <svg className="bb-svg" viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} style={{ minWidth, minHeight }} preserveAspectRatio="xMidYMid meet">
           <defs>
             <filter id={`${uid}-blur`} x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation={1.8} />
@@ -644,10 +856,15 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
               <stop offset="0.6" stopColor="#000" stopOpacity={0} />
               <stop offset="1" stopColor="#000" stopOpacity={0.38} />
             </linearGradient>
-            <linearGradient id={`${uid}-metal`} x1="0" y1="0" x2="1" y2="0">
+            <linearGradient id={`${uid}-metal`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#8d949c" />
               <stop offset="0.35" stopColor="#e3e7ec" />
               <stop offset="1" stopColor="#7d838b" />
+            </linearGradient>
+            <linearGradient id={`${uid}-silver`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="0.45" stopColor="#d9dee5" />
+              <stop offset="1" stopColor="#9aa2ad" />
             </linearGradient>
             <linearGradient id={`${uid}-bat`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#2a2c31" />
@@ -668,7 +885,7 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
             ))}
           </defs>
 
-          {layout.supply === 'uno' ? <UnoStrip ts={ts} uid={uid} /> : <Battery ts={ts} uid={uid} />}
+          {layout.supply === 'uno' ? <Uno ts={ts} uid={uid} used={usedPins} /> : <Battery ts={ts} uid={uid} />}
           <Board ts={ts} usedCols={usedCols} />
 
           {activeDrawn && (
@@ -682,12 +899,12 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
           {ordered.map((d) => {
             const { part } = d
             const lit = hl.has(part.id)
-            const halo =
-              part.kind === 'wire' ? (
-                <path className="bb-halo bb-halo--wire" d={`M${d.ends[0].x} ${d.ends[0].y}Q${wireControl(d.ends[0], d.ends[1]).x} ${wireControl(d.ends[0], d.ends[1]).y} ${d.ends[1].x} ${d.ends[1].y}`} />
-              ) : (
-                <rect className="bb-halo" x={d.box.x0} y={d.box.y0} width={d.box.x1 - d.box.x0} height={d.box.y1 - d.box.y0} rx={0.5 * P} />
-              )
+            const c = part.kind === 'wire' ? wireControl(d.ends[0], d.ends[1]) : null
+            const halo = c ? (
+              <path className="bb-halo bb-halo--wire" d={`M${d.ends[0].x} ${d.ends[0].y}Q${c.x} ${c.y} ${d.ends[1].x} ${d.ends[1].y}`} />
+            ) : (
+              <rect className="bb-halo" x={d.box.x0} y={d.box.y0} width={d.box.x1 - d.box.x0} height={d.box.y1 - d.box.y0} rx={0.5 * P} />
+            )
             return (
               <g
                 key={part.id}
@@ -720,9 +937,13 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
             )}
           </g>
 
+          <Polarity drawn={drawn} ts={ts} />
+          <ColumnNumbers ts={ts} usedCols={usedCols} />
+
           <g className="bb-ids" aria-hidden="true" style={{ fontSize: ts(FS) }}>
-            {idTags.map(({ id, box }) => (
+            {badges.map(({ id, box, leader }) => (
               <g key={id} className={hl.has(id) ? 'is-highlighted' : undefined}>
+                {leader && <line className="bb-leader" x1={leader.from.x} y1={leader.from.y} x2={leader.to.x} y2={leader.to.y} />}
                 <rect x={box.x0} y={box.y0} width={box.x1 - box.x0} height={box.y1 - box.y0} rx={(box.y1 - box.y0) / 2} />
                 <text x={(box.x0 + box.x1) / 2} y={(box.y0 + box.y1) / 2}>
                   {id}
@@ -734,9 +955,9 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
           {activeDrawn && <Tooltip d={activeDrawn} ts={ts} vb={vb} />}
         </svg>
       </div>
-      {narrow && (
+      {(scrollsX || scrollsY) && (
         <p className="bb-hint" aria-hidden="true">
-          Scroll sideways to see the whole board <span>→</span>
+          {scrollsX ? 'Scroll sideways to see the whole board' : 'Scroll to see the whole board'} <span>{scrollsX ? '→' : '↓'}</span>
         </p>
       )}
     </figure>

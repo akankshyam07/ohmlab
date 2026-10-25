@@ -103,28 +103,28 @@ const lessonLayout: CircuitLayout = {
 const unoLed: BreadboardLayout = {
   supply: 'uno',
   parts: [
-    { kind: 'wire', id: 'W1', from: 'uno:5V', to: 'T+1', color: 'red' },
-    { kind: 'wire', id: 'W2', from: 'uno:GND', to: 'T-2', color: 'black' },
-    { kind: 'wire', id: 'W3', from: 'T+6', to: 'a6', color: 'red' },
+    { kind: 'wire', id: 'w-5v', from: 'uno:5V', to: 'T+1', color: 'red' },
+    { kind: 'wire', id: 'w-gnd', from: 'uno:GND', to: 'T-2', color: 'black' },
+    { kind: 'wire', id: 'w-plus', from: 'T+6', to: 'a6', color: 'red' },
     { kind: 'resistor', id: 'R1', from: 'b6', to: 'b10', ohms: 220 },
     { kind: 'led', id: 'D1', anode: 'e10', cathode: 'e11', color: 'red' },
-    { kind: 'wire', id: 'W4', from: 'a11', to: 'T-11', color: 'black' },
+    { kind: 'wire', id: 'w-minus', from: 'a11', to: 'T-11', color: 'black' },
   ],
 }
 
 const batteryLed: BreadboardLayout = {
   supply: 'battery9v',
   parts: [
-    { kind: 'wire', id: 'W1', from: 'bat:+', to: 'T+1', color: 'red' },
-    { kind: 'wire', id: 'W2', from: 'bat:-', to: 'T-2', color: 'black' },
-    { kind: 'wire', id: 'W3', from: 'T+6', to: 'a6', color: 'red' },
+    { kind: 'wire', id: 'w-bat-plus', from: 'bat:+', to: 'T+1', color: 'red' },
+    { kind: 'wire', id: 'w-bat-minus', from: 'bat:-', to: 'T-2', color: 'black' },
+    { kind: 'wire', id: 'w-plus', from: 'T+6', to: 'a6', color: 'red' },
     { kind: 'resistor', id: 'R1', from: 'b6', to: 'b10', ohms: 470 },
     { kind: 'diode', id: 'D2', anode: 'c10', cathode: 'c14' },
     { kind: 'led', id: 'D1', anode: 'e14', cathode: 'e15', color: 'green' },
-    { kind: 'wire', id: 'W4', from: 'a15', to: 'T-15', color: 'black' },
-    { kind: 'wire', id: 'W5', from: 'j20', to: 'B-20', color: 'blue' },
+    { kind: 'wire', id: 'w-minus', from: 'a15', to: 'T-15', color: 'black' },
+    { kind: 'wire', id: 'w-b-minus', from: 'j20', to: 'B-20', color: 'blue' },
     { kind: 'resistor', id: 'R2', from: 'g20', to: 'g26', ohms: 4700 },
-    { kind: 'wire', id: 'W6', from: 'f26', to: 'e26', color: 'yellow' },
+    { kind: 'wire', id: 'w-bridge', from: 'f26', to: 'e26', color: 'yellow' },
   ],
 }
 
@@ -181,6 +181,12 @@ function Demo() {
       </Card>
       <Card title="Breadboard · 9 V battery, 470 Ω, diode, green LED">
         <BreadboardView layout={batteryLed} ariaLabel="Breadboard: 9 V battery, resistor, diode and green LED" />
+      </Card>
+      <Card title="Breadboard · fitted to a 520 px-tall box (scales to the height)">
+        <div className="fit-demo" style={{ height: 520, border: '1px dashed var(--border)' }}>
+          <style>{'.fit-demo > .bb { height: 100% }'}</style>
+          <BreadboardView layout={unoLed} ariaLabel="Breadboard fitted to its box's height" />
+        </div>
       </Card>
       <Card title="1 · 5 V, 220 Ω, red LED">
         <CircuitView circuit={c1} layout={ledLayout} result={solveDC(c1)} ariaLabel="Battery, resistor and red LED in series" onPartClick={click} />

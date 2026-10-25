@@ -24,9 +24,18 @@
   overflow: hidden;
 }
 
+/* Width-driven by default (the svg's height follows its viewBox). Give the figure a height and the
+   drawing fits whichever runs out first; below its minimum size (set inline) the box scrolls. */
+.bb {
+  display: flex;
+  flex-direction: column;
+}
+
 .bb-scroll {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
 }
 
@@ -34,6 +43,7 @@
   display: block;
   width: 100%;
   height: auto;
+  max-height: 100%;
   font-family: var(--font-body);
   user-select: none;
 }
@@ -74,25 +84,41 @@
   dominant-baseline: central;
 }
 .bb-print text.is-used { fill: #2b2924; font-weight: 700; }
+/* Used column numbers sit over the parts: a halo in the board's colour keeps them legible on a wire. */
+.bb-colnums text {
+  paint-order: stroke;
+  stroke: var(--bb-face-bottom);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
 .bb-colnum { letter-spacing: -0.04em; }
 .bb-rail-sign { font-weight: 700; }
 .bb-print .bb-rail-sign--pos { fill: var(--bb-red); }
 .bb-print .bb-rail-sign--neg { fill: var(--bb-blue); }
 
-/* Uno header strip (stylised: no logo or brand marks) */
+/* Uno (simplified, true to the real layout; no logo or brand marks) */
 .bb-pcb { fill: var(--bb-pcb); stroke: var(--bb-pcb-dark); stroke-width: 1.5; }
 .bb-pcb-gloss { fill: #fff; opacity: 0.07; }
 .bb-usb { stroke: #5c626a; stroke-width: 1; }
+.bb-usb-slot { fill: #3d4248; }
 .bb-dcjack { fill: #1b1c1f; stroke: #000; }
+.bb-dcjack-pin { fill: #000; stroke: #4a4d53; }
+.bb-reset { fill: #d7d9dc; stroke: #8a8e94; }
+.bb-reset-cap { fill: #b73a3a; }
+.bb-chip rect { fill: #1d1e22; stroke: #000; }
+.bb-chip-pins { stroke: #bfc4ca; stroke-width: 2.4; }
+.bb-chip-notch { fill: #2c2d32; }
 .bb-mount { fill: var(--bb-pcb-dark); stroke: #d9c27a; stroke-width: 2; }
 .bb-header { fill: #17181b; stroke: #000; stroke-width: 1; }
 .bb-socket { fill: #000; stroke: #3a3c42; stroke-width: 1; }
 .bb-silk text {
   fill: #eef6f7;
-  font-weight: 600;
+  font-weight: 500;
+  opacity: 0.72;
   dominant-baseline: central;
 }
-.bb-silk-group text { font-weight: 700; letter-spacing: 0.08em; opacity: 0.8; }
+.bb-silk text.is-used { font-weight: 800; opacity: 1; fill: #fff; }
+.bb-silk-group text { font-weight: 700; letter-spacing: 0.06em; opacity: 0.8; }
 
 /* 9 V battery */
 .bb-bat-band { fill: #c46a1f; opacity: 0.92; }
@@ -129,12 +155,26 @@
 .bb-legend-ring { fill: #1f1d1a; }
 .bb-legend-tip { fill: var(--bb-lead); stroke: var(--bb-lead-edge); stroke-width: 0.8; }
 
-.bb-res-body { fill: #dcc597; }
+/* 1 % metal-film resistors, as in the kit, have a light-blue body. */
+.bb-res-body { fill: #8fbfe6; }
 .bb-diode-body { fill: #232428; }
-.bb-diode-band { fill: #c9ced6; }
+.bb-diode-band { stroke: #7d848e; stroke-width: 0.6; }
 
 .bb-lens-body { opacity: 0.94; stroke: color-mix(in srgb, currentColor 55%, #000); stroke-width: 1; }
 .bb-flange { stroke: color-mix(in srgb, currentColor 50%, #000); stroke-width: 1; }
+/* The flat on the rim marks the cathode. */
+.bb-flat { stroke: #fff; stroke-width: 1.8; opacity: 0.85; stroke-linecap: round; }
+.bb-pol {
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: var(--bb-face-bottom);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.bb-pol--pos { fill: var(--bb-red); }
+.bb-pol--neg { fill: var(--bb-blue); }
 .bb-frame { fill: #000; opacity: 0.28; }
 .bb-bond { fill: none; stroke: #000; stroke-width: 0.8; opacity: 0.35; }
 .bb-glare { fill: #fff; opacity: 0.7; }
@@ -177,6 +217,8 @@
 }
 
 .bb-ids rect { fill: var(--surface-3); stroke: var(--border-strong); stroke-width: 1; opacity: 0.94; }
+.bb-leader { stroke: var(--surface-3); stroke-width: 1.6; stroke-dasharray: 3 2; opacity: 0.9; }
+.bb-ids .is-highlighted .bb-leader { stroke: var(--brand); }
 .bb-ids text {
   fill: var(--text);
   font-family: var(--font-display);
