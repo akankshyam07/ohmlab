@@ -31,7 +31,8 @@ Built in three rounds: **build → review → fix**. Each review round was a Cri
 | 1 Build | Contracts, docs, solver, circuit view, shell, lab/quiz/progress, 6 lessons, CI, E2E | 191 unit, 25 E2E |
 | 2 Fix (first review) | Quiz shuffle, reverse-voltage status, 20 mA limit, stage-fitting lab, reading-first phone layout, predict cards, ordered challenges, completion checklist, build primers | 250 unit, 37 E2E |
 | 3 Fix (second review) | Illustrated BreadboardView + hole-by-hole wiring for every build (topology-tested), label collision avoidance, readable dense labs, phone meter strip, visible challenge feedback, flow stops after burnout | 302 unit, 37 E2E (also under `/ohmlab/` base path) |
-| 4 Verify | Third review pass | In progress |
+| 4 Fix (third review) | Build-step sticky wiring stage with per-step parts, kit-true 5-band resistors, clear LED polarity, real Uno layout, quiz review marks and links, honest burnout meter | 322 unit, 37 E2E (root and `/ohmlab/`) |
+| 5 Verify | Final review pass | No S1/S2 left; verdict: beats the reference on teaching and delight |
 
 ## Handoff notes
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-## v1.0 — MVP (in progress)
+## v1.0 — MVP (done, pending deployment)
 Six interactive Phase 1 lessons (Days 1, 2, 5, 6, 7, 8), a real DC solver, the live schematic lab, predict cards, quizzes, progress and achievements, illustrated breadboard wiring for every build, the 100-day map, and GitHub Pages. See PRD.md.
 
 ## v1.1 — Complete Phase 1 (next)
@@ -21,4 +21,6 @@ Run real Arduino sketches in-browser (AVR emulation, e.g. avr8js, with precompil
 Phases 3–7 content, optional 3D bench view, accounts and sync (would need a backend), i18n, teacher mode.
 
 ## Known limitations of v1.0
-DC only; ideal sources; no temperature effects; LED brightness is perceptual, not photometric; progress lives in one browser only.
+- Simulator: DC only; ideal sources; no temperature effects; no reverse breakdown (warned, not modelled); LED brightness is perceptual, not photometric. A node behind a reversed LED shows a leakage-defined reading (~0.86 V on Day 8), explained in the lesson.
+- Progress lives in one browser only.
+- Open S3 polish from the final review: the desktop toast briefly covers the challenge tray; on phones the "Full screen" pill sits over breadboard rows g–j; mouse-wheel over the phone mini-stage scrolls its contents.

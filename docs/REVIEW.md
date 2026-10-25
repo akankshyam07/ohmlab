@@ -209,3 +209,61 @@ There are no S1s. The only S2 is T1. There are 14 S3s (T2–T15), and T7 also co
 ### Delight verdict versus the reference
 
 Ohmlab is now level with the reference on visual delight for the hardware bridge: the breadboard is as polished as the reference's, and more trustworthy because every hole is specified and the wiring is electrically correct. On top of that it still has a real solver, predictions, checked challenges and graded quizzes. It doesn't beat the reference yet, because the two halves never share the screen. The reference shows the board and its callouts together. Ohmlab pins the simulator while you build and scrolls the breadboard away when you pick a step (T1). Make the Build step's sticky panel the breadboard, with step-driven highlights. Then Ohmlab beats the reference on both delight and teaching.
+
+## Final pass (2026-10-25)
+
+**Scope:** T1–T15; a re-trace of Day 8's new breadboard layout; a home → Day 1 lab → quiz regression at 1280×800 and 375×812. Console errors: none. Screenshots are in `/private/tmp/claude-501/-Users-smohanty-Desktop-Electronics/e636e1fe-371e-4e39-9b18-7a45d3e7cb5d/scratchpad/review/p4/`.
+
+### T1–T15
+
+| # | Status | Evidence |
+|---|---|---|
+| T1 Build highlighting off-screen | **Fixed** | On the Build step the sticky stage now has Wiring and Simulator tabs and opens on Wiring, both on desktop (704 px) and at 375 px (365 px). Every wiring step highlights its parts, and the highlighted parts stay in view after the click. In Day 1, steps 2 and 5–11 highlight something; steps 1, 3 and 4 have no parts, which is correct. In Day 8, steps 2–3 and 6–15 highlight something. A "Step 6 of 11" caption under the board repeats the active step (`dt-first-led-step6.png`, `ph-diodes-leds-step8.png`). |
+| T2 Red ✓ marks | **Fixed** | ✓ is green (94,242,160) and ✗ is red. |
+| T3 Review link mapping | **Fixed** | The resistor-position question now links to "A circuit is a closed loop". |
+| T4 "More controls" overlap | **Fixed** | No hint text remains, and in the burnt state the LED colour row is visible and clickable (`burnt-stage.png`). |
+| T5 Overlay covers R1 | **Fixed** | "Challenge done" now docks below the schematic. |
+| T6 730 mA vs open circuit | **Fixed** | The meter reads "730 mA, peak at failure" and the banner says "the circuit is now open (0 A)". |
+| T7 Day 6 phone labels | **Fixed** | No overlapping labels measured, and none visible (`ph-d6-stage2.png`). |
+| T8 4-band resistors | **Fixed** | 5 bands on a blue metal-film body, like the Elegoo kit. |
+| T9 LED polarity | **Fixed** | The longer, bent anode leg is marked +, the cathode is marked −, and the flat rim is drawn (`z-led.png`). |
+| T10 Uno outline | **Fixed** | A true-to-layout Uno: digital header along the top, power and analog headers along the bottom, USB and barrel jack. |
+| T11 Day 5/8 clutter | **Fixed** | No badge overlaps another badge or a column number. The LEDs are staggered (`bb-diodes-leds.png`). |
+| T12 Drawing state | **Fixed** | Day 5 and Day 6 say "About the diagram: it shows the finished circuit after step 12 / step 10". |
+| T13 Internal ids in names | **Fixed** | Names now read like "Red jumper wire from Uno 5V to the top + rail". |
+| T14 Toast placement | **Fixed** | Bottom-left, 380×64 px. |
+| T15 Phone ring label | **Fixed** | "steps read 1 / 6" fits on one line beside the ring (`ph-d1.png`). |
+
+### Day 8 breadboard re-trace
+
+The board is wired as follows:
+- **Supply and resistor:** + rail → a3; R1 runs b3–b7 (column 3 to column 7).
+- **D1:** anode d7, cathode d10.
+- **Column 10:** D1's cathode, D2's anode (e10) and one end of S1 (a10).
+- **Column 14:** D2's cathode (e14), the other end of S1 (a14), D3's anode (b14) and one end of S2 (d14).
+- **Column 18:** D3's cathode (b18, band side), the other end of S2 (d18) and the a18 → − rail jumper.
+
+So S1 bypasses D2 and S2 bypasses D3, exactly like the lab's switches. Every hole matches the step text. The LED legs spread 3–4 holes, which works in practice.
+
+### Regression sweep
+
+| Path | Result |
+|---|---|
+| Home → Day 1 → lab challenges → quiz, desktop | All 4 challenges complete. The quiz passes and the header shows "Lesson complete". |
+| Same path at 375 px | Same result; no horizontal scroll (scrollWidth 375). Choice feedback renders. |
+| Day 8 lab, desktop and phone | All 4 challenges complete. The −9 V reverse warning still works. |
+
+### Remaining issues (all S3)
+
+1. At 1280×800 the bottom-left toast covers the lab's challenge tray for about 6 s.
+2. On a phone, the "Full screen" pill on the Wiring stage sits over rows g–j of the board. No parts are covered.
+3. Mouse-wheel scrolling over the phone mini-stage scrolls its inside instead of the page, which can push the schematic out of view until it's scrolled back (seen with a wheel; not tried with touch).
+4. The floating-node reading (Day 8, D2 at 862 mV with 0 A) is still shown, though the challenge text explains it.
+
+### Final verdict against the reference
+
+No S1 or S2 issues remain. Ohmlab now beats the reference:
+- **Teaching:** a real solver, prediction, checked challenges, graded quizzes with review links, and statuses that agree with the lessons.
+- **Delight:** the Build step is now a polished, accurate breadboard with a true-to-layout Uno, kit-faithful 5-band resistors and step-by-step highlighting, sharing the screen with the instructions. On a phone it's usable hole for hole.
+
+The reference's one remaining edge is its single-screen 3D presentation of the board, which is charm rather than learning value.
