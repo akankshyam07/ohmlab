@@ -41,3 +41,15 @@
 - Keyboard-only pass through journey 1.
 - Contrast: all text tokens ≥ 4.5:1 on `--surface-1` (checked at design time; re-check new colours).
 - Reduced motion: emulate `prefers-reduced-motion: reduce` in Playwright and check that no CSS animations run on the lab.
+
+## Results (2026-10-25)
+
+**Specs:** `e2e/fixtures.ts` (auto fixture that fails any test on a console or page error, plus the Day 1 helpers), `e2e/journeys.spec.ts` (journeys 1–7, a reduced-motion check and 320 px no-horizontal-scroll checks for home, a lesson and a lesson quiz), `e2e/bugs.spec.ts` (bug repros marked `test.fixme`), and the existing `e2e/smoke.spec.ts`.
+
+**`npx playwright test` (desktop + mobile):** 23 passed, 3 skipped. The skipped tests are the BUG-1 repro on both projects (fixme) and the phone-only stage-coverage check on the desktop project.
+
+Journey 1 completes Day 1 through the real controls. It checks the walkthrough highlights V1, R1 and D1, chooses 220 Ω (meter reads 13.5–14.5 mA), flips the LED by clicking it, burns it with "No resistor" (BURNT tag and alert shown), resets the circuit, cycles R1 to 220 Ω with a blue LED, and scores 6 / 6 on the quiz. It then checks mastery reaches 100 %, the last step's Next opens Day 2, and home shows Day 1 complete with "Continue: Day 2". The reduced-motion check was confirmed to fail when motion is allowed: cv-flow, cv-pulse, cv-smoke and lab-pop animations are all detected.
+
+### Bugs
+
+1. **BUG-1 (S3, fixed)** The reversed-LED meter is not 0.** Repro: open `#/lesson/first-led` and press "Flip the LED". Expected: the "Current through the loop" meter reads 0, as the "Flip it" success text says ("the meter reads 0"). Actual: it reads "0.005 nA". The solver leaks about 5 pA, and `formatSI` only rounds values below 1e-12 to 0. The Lab meters don't apply the diagram's 10 µA "no current" threshold. Suspected file: `src/features/lab/Lab.tsx` (meter value); `src/ui/format.ts` is an alternative. Tracked in `e2e/bugs.spec.ts`.

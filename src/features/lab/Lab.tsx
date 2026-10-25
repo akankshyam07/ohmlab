@@ -10,6 +10,9 @@ import { CircuitView } from '../../viz/CircuitView'
 import './Lab.css'
 
 const UNIT: Record<Readout['quantity'], string> = { current: 'A', voltage: 'V', power: 'W' }
+// Like a bench multimeter: readings below the meter's resolution show as 0, so solver leakage
+// (picoamps through a reversed LED) isn't presented as a real current.
+const RESOLUTION: Record<Readout['quantity'], number> = { current: 1e-7, voltage: 1e-3, power: 1e-6 }
 const KIND_NAME: Record<ComponentKind, string> = {
   vsource: 'battery',
   resistor: 'resistor',
@@ -198,7 +201,8 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
             const r = result.ok ? result.components[readout.componentId] : undefined
             const raw = r?.[readout.quantity]
             // Direction is shown by the diagram; meters show magnitude except for voltage, whose sign beginners probe.
-            const value = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
+            const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
+            const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
             return (
               <div
                 key={`${readout.componentId}-${readout.quantity}`}
