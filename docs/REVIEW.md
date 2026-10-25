@@ -147,3 +147,65 @@ The fixes solved most of the real learning problems. The quiz can't be gamed, th
 The cost is the layout: fitting everything into a fixed height shrinks the schematic until it can't be read on the busier labs (Days 5 and 8 on desktop, Days 6 and 8 on phones). The bridge to real hardware is still text only.
 
 Ohmlab clearly beats the reference on teaching. It doesn't yet beat it on delight, which needs a schematic that is always legible plus one illustrated breadboard view per build. The current S2 work is N1–N3.
+
+## Third pass (2026-10-25)
+
+**Method:** Same as before: headless Chromium against port 4794, at 1280×800, 375×812 and 320×640 (touch). I opened the Build step of all six lessons, inline and full-screen, and checked step → part highlighting. I traced every breadboard net by hand against the lab circuit. Then I ran a full Day 1 and Day 8 regression on desktop and phone, with zero console errors. Screenshots are in `/private/tmp/claude-501/-Users-smohanty-Desktop-Electronics/e636e1fe-371e-4e39-9b18-7a45d3e7cb5d/scratchpad/review/p3/`.
+
+### Re-check of open items
+
+| Item | Status | Evidence |
+|---|---|---|
+| N1 / #4 schematic squeezed on desktop | **Fixed** | At 1280×800 every lab's schematic is now 336–409 px tall with 14–21 px labels. Once the stage sticks, the meters sit at y≈522–595. In Day 1's burnt state the schematic is still 336 px. |
+| N2 / #5 / #21 phone labels and meters | **Partly fixed** | Meters now use short names ("V across LED", "I from supply"), Reset is an icon, and Day 8 has no label collisions. Day 6 still has "R1 · 10 kΩ" on top of the Vin probe and "S1 (load switch)" on top of "R2 · 1 kΩ" (`ph375-voltage-divider-stage.png`). Meters 4–5 sit behind a fade, which is acceptable. |
+| N3 phone challenge feedback | **Fixed** | A "✓ Challenge done … Next: …" overlay appears in the mini-stage for about 6 s (`ph375-n3-220.png`). New S3: it covers R1 and its label while it shows. |
+| N4 swipe strip without affordance | **Fixed** | The edge fade mask is in place. |
+| N5 bypassed D3 "blocking" | **Fixed** | Now reads "Diode D3, no current". |
+| N6 "Complete" vs 79 % | **Fixed** | The ring is labelled "steps read 3 / 6". |
+| N7 predict reveals too early | **Fixed** | Now "Guess locked in. Now test it", then "Show the answer". The guess survives a reload, and the premise is phrased "(where the lab starts)". |
+| N8 early burn gives no message | **Fixed** | "That's a later challenge … Finish this one first: …". |
+| N9 lesson Next during quiz | **Fixed** | Hidden until the quiz ends. |
+| #10 burnt LED conducts | **Fixed** | The current dots stop, the wires dim, and the part is tagged "circuit open after failure" (`d1-burnt-desktop2.png`). Leftover S3: the meter still reads 730 mA. |
+| #12 builds text only | **Fixed** | An illustrated breadboard is on every Build step (see below). |
+| #18 quiz review | **Fixed** | Each missed question has a "Review: <section>" link. |
+| #19 toasts | **Fixed** | One compact toast, top right ("Unlocked: First Light +3 more"). It no longer covers Next or Retry. |
+| #23 phone tables | **Fixed** | The table stacks into cards (309 px in a 309 px container, `ph-table.png`). |
+| #24 floating node | **Partly fixed** | Still reads 862 mV at 0 A, but the challenge text now explains why it means nothing. |
+| #29 magnitude under reduced motion | **Fixed** | Chevron opacity scales with current: 0.38 at 10 kΩ, 0.47 at 1 kΩ, 0.53 at 220 Ω. |
+
+### Illustrated breadboards (all 6 Build steps)
+
+- **Electrically correct in all six.** Each breadboard is wired correctly against its lab circuit.
+  - Day 1/2: 5V → + rail → a8, R1 c8–c12, LED anode e12 / cathode e13, a13 → − rail.
+  - Day 5/6: R1 b4–b8, R2 c8–c12, the yellow S1 jumper d8→d15, R3/RL c15–c19, both returns to the − rail.
+  - Day 7: R1 c5–c9 across the rails.
+  - Day 8: R1 b3–b7, D1 c7→c9, D2 d9→d11, S1 a9–a11 across D2, D3 b11→b15 (band at 15), S2 c11–c15 across D3, a15 → − rail.
+  - The step text gives every hole, so a beginner can wire hole for hole.
+- **It looks like a real breadboard** (`fs-first-led.png`): rails with red and blue stripes, a centre channel, a–j and 1–30 printed, 3D LEDs, banded resistors and a 1N4007 with its band. It's accessible: every part has a name such as "LED D1 (red), anode (long leg) in e12, cathode (flat side) in e13".
+- **The full-screen dialog** works on desktop: Esc closes it and focus returns to "Full screen". At 375 px it pans sideways and opens with the Uno off-screen.
+
+### Remaining and new issues
+
+| # | Sev | Repro | What happens | Fix |
+|---|---|---|---|---|
+| T1 | **S2** | Desktop 1280×800, `#/lesson/first-led/build`. Click step 7 ("Put the 220 Ω resistor R1…"). Same on 375 px. | The sticky panel still shows the simulator lab (on 1 kΩ, unrelated to the build), while the wiring diagram is at the top of the page. After the click, the highlighted R1 sits 829 px above the viewport (1,340 px on Day 8), so the highlight is never seen next to its step. On a phone the 365 px mini-stage also covers the diagram. Highlighting also misses most of the core wiring: in Day 1 only steps 7 and 9 highlight anything. The LED step (6), the rail jumpers (5, 8) and the Uno power wires match no part id. | On the Build step, replace the sticky lab with the breadboard, or make the figure sticky. Highlight by an explicit `parts:` list per step rather than matching ids in the text. Include the step list in the full-screen dialog. |
+| T2 | S3 | Quiz with mixed results | The ✓ for right answers is the same red (rgb 255,107,125) as the ✗ (`quiz-mixed.png`). | Use the success green. |
+| T3 | S3 | Quiz review links | "You move the resistor to the other side…" links to "Why an LED needs a resistor". The idea is taught in "A circuit is a closed loop". | Map links per question. |
+| T4 | S3 | Day 1 burnt, 1280×800 | The "▾ more controls" hint overlaps the Flip button text. The LED-colour row (needed next, for "Switch to a blue LED") sits under the tray until you scroll the 100 px dock (`dt-burnt-stage.png`). | Make the hint a real button placed clear of Flip, or give the dock its full height. |
+| T5 | S3 | Any challenge completion | The "Challenge done" overlay covers R1 and its label for about 6 s, on desktop and phone. | Dock it below the schematic or at the bottom edge. |
+| T6 | S3 | Day 1 burnt | The schematic says "circuit open after failure" while the meter still reads 730 mA. | Label it "730 mA (peak, at failure)", or show 0 A with the peak noted. |
+| T7 | S3 | Day 6 phone mini-stage | Label collisions (see N2). | Per-lesson phone label offsets. |
+| T8 | S3 | All breadboards | Resistors are drawn with 4 bands (red-red-brown-gold), but the Elegoo kit uses 5-band parts (red-red-black-black-brown), as Day 2 itself teaches. | Draw 5 bands. |
+| T9 | S3 | All LEDs in the drawings | Polarity is shown only by a slight kink in the anode leg. There's no flat rim and no +. | Draw the longer anode leg, the flat side, and a small "+" tag. |
+| T10 | S3 | Uno drawing | The Uno is a two-column pin list, not the real board layout (power header on the bottom edge, digital pins on the top). | Use a simplified but true-to-layout Uno outline. |
+| T11 | S3 | Day 5 / Day 8 boards | Labels and wires cover the column numbers ("12/13", "15", "4", "19"). On Day 8 the two LED bodies overlap, the D2 badge sits on the S1 jumper, and D1's cathode and S2's holes look like D2's legs (`z2-diodes-leds.png`). | Lift badges off the holes, route wires clear of the number row, and stagger the LEDs. |
+| T12 | S3 | Day 5 / Day 6 | The drawing shows the final step (load and S1 in place) with no caption saying so. Building "as drawn" at step 5 adds the load and gives 3.13 V instead of the expected 3.33 V. | Caption "Drawing shows step 8", or per-step diagram states. |
+| T13 | S3 | Breadboard accessible names | Internal ids leak into names ("Red wire w-5v", "w-plus"). | Use plain names ("red jumper from 5V"). |
+| T14 | S3 | Toast | The compact toast covers the top-right nav (Settings) for about 6 s on desktop and phone. | Bottom-left on desktop. |
+| T15 | S3 | Phone header | The "39 % steps read 1 / 6" ring label wraps onto 3 lines. | Put the label beside the ring or shorten it. |
+
+There are no S1s. The only S2 is T1. There are 14 S3s (T2–T15), and T7 also covers the Day 6 part of N2 and the #21 phone-label item.
+
+### Delight verdict versus the reference
+
+Ohmlab is now level with the reference on visual delight for the hardware bridge: the breadboard is as polished as the reference's, and more trustworthy because every hole is specified and the wiring is electrically correct. On top of that it still has a real solver, predictions, checked challenges and graded quizzes. It doesn't beat the reference yet, because the two halves never share the screen. The reference shows the board and its callouts together. Ohmlab pins the simulator while you build and scrolls the breadboard away when you pick a step (T1). Make the Build step's sticky panel the breadboard, with step-driven highlights. Then Ohmlab beats the reference on both delight and teaching.

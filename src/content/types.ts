@@ -120,6 +120,8 @@ export interface RealBuild {
   safety?: RichString[]
   /** Illustrated wiring for the finished build; must connect the same way as the lab circuit. */
   breadboard?: BreadboardLayout
+  /** Breadboard part ids each step places or uses, aligned with `steps` (empty array for steps with none). */
+  stepParts?: string[][]
 }
 
 export interface Lesson {
