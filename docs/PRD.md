@@ -29,6 +29,8 @@ Beginner resources either (a) explain theory with static diagrams, or (b) give r
 | R8 | Responsive: desktop, tablet, phone (≥320 px), keyboard operable, WCAG AA contrast, reduced-motion support | Must |
 | R9 | Static site on GitHub Pages with hash routing; CI runs typecheck, unit tests, build and E2E | Must |
 | R10 | Settings: reset progress, toggle current animation | Should |
+| R11 | Predict-then-test cards in every lesson | Must (added after review) |
+| R12 | Illustrated breadboard wiring for every build, matching the lab circuit | Should (added after review) |
 
 ## Out of scope for MVP (see ROADMAP.md)
 
@@ -51,3 +53,8 @@ Free-form drag-and-drop circuit builder, capacitor/transient simulation, Arduino
 | 2026-10-25 | Content as typed TS modules | Lab challenges need code (check functions); TS catches content schema errors at build |
 | 2026-10-25 | Hand-rolled hash router, no router library | Two route shapes; GitHub Pages needs hash routing; avoids a dependency |
 | 2026-10-25 | localStorage for progress | No backend on Pages; single-device MVP |
+| 2026-10-25 | Predict-then-test blocks before lab moments | Review: "predict first" was asked but unsupported; committing to a guess is the core of the method |
+| 2026-10-25 | Challenges unlock in order and only complete on learner actions | Review: accidental burns completed challenges and unlocked achievements before learners read anything |
+| 2026-10-25 | One LED limit everywhere: ok ≤ 20 mA, warn above; reverse > 5 V flagged | Review: the simulator called states "fine" that the lessons call harmful |
+| 2026-10-25 | Illustrated breadboard per build (pulled forward from v1.1) | Review: text-only builds were the main delight gap against the reference; wiring is topology-tested against the lab circuit |
+| 2026-10-25 | Lesson "Next" stays usable mid-quiz as "Skip quiz" | Quiz place persists in the session, so peeking at the build doesn't cost progress |

@@ -24,20 +24,19 @@ The Product Manager (the main session) coordinates, owns `docs/PRD.md`, `ARCHITE
 
 ## Status
 
-| Workstream | State |
-|---|---|
-| Contracts, tokens, PRD, architecture, reference analysis, feature spec, roadmap, CI, README | Done (PM) |
-| Solver | Done: 43 tests, LED Vf calibrated per colour |
-| Circuit view | Done: 13 tests, visual check on desktop + mobile |
-| Shell + design system | Done: 22 tests, visual check |
-| Lab, quiz, progress | Done: 59 tests (parser word-prefix fix by PM) |
-| Content | Done: 6 lessons, 46 tests incl. reachability and wire-direction checks |
-| Integration | Done: typecheck clean, 191 unit tests, production build, E2E smoke on desktop + mobile |
-| E2E journeys (QA) | In progress |
-| Critical user review | In progress |
+Built in three rounds: **build → review → fix**. Each review round was a Critical User Reviewer pass (docs/REVIEW.md) followed by parallel fix agents with disjoint file ownership.
+
+| Round | Work | Result |
+|---|---|---|
+| 1 Build | Contracts, docs, solver, circuit view, shell, lab/quiz/progress, 6 lessons, CI, E2E | 191 unit, 25 E2E |
+| 2 Fix (first review) | Quiz shuffle, reverse-voltage status, 20 mA limit, stage-fitting lab, reading-first phone layout, predict cards, ordered challenges, completion checklist, build primers | 250 unit, 37 E2E |
+| 3 Fix (second review) | Illustrated BreadboardView + hole-by-hole wiring for every build (topology-tested), label collision avoidance, readable dense labs, phone meter strip, visible challenge feedback, flow stops after burnout | 302 unit, 37 E2E (also under `/ohmlab/` base path) |
+| 4 Verify | Third review pass | In progress |
 
 ## Handoff notes
 
 - USER_JOURNEYS.md was written by the Content Developer, not the PM.
 - The Lab marks a `lab` step when a lesson with a lab is shown, so mastery counts it.
 - E2E uses port 4791 because 4173 is often taken on dev machines.
+- BUG-2 (lesson Next enabled mid-quiz) was closed as by design: the quiz place is kept in sessionStorage and the button reads "Skip quiz".
+- Contract additions after round 1: `overvoltage` status, `predict` block, `skipOnClick` option, `BreadboardLayout` / `RealBuild.breadboard`.

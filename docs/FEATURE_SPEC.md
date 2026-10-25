@@ -47,6 +47,15 @@ Each feature lists the acceptance criteria that QA tests. "AC" items are pass/fa
 - AC1: "Animate current flow" persists.
 - AC2: "Reset progress" requires confirmation, then clears progress.
 
+## F10. Predict cards
+- AC1: The learner must pick an option and press "Lock in my guess"; the card then sends them to the lab ("Try it in the lab").
+- AC2: "Show the answer" reveals the why; the guess is remembered in this browser.
+
+## F11. Breadboard wiring diagram
+- AC1: Every build shows a half-size breadboard with the Uno header or a 9 V battery, colour-banded resistors, polarised LEDs and diodes.
+- AC2: Its nets match the lab circuit in the stated build configuration (content test); no two legs share a hole; red wires on +, black on −.
+- AC3: Selecting a build step highlights the parts it names; the diagram opens full screen in an accessible dialog.
+
 ## F9. Quality gates
 - AC1: Usable at 320, 375, 768, 1024 and 1440 px wide with no horizontal scroll.
 - AC2: Every control works by keyboard with a visible focus ring; text contrast is ≥ 4.5:1.
