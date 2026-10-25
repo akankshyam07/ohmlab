@@ -74,6 +74,23 @@
   /* One-off entrances (schematic draw-on). */
   --dur-intro: 900ms;
 
+  /* Isometric bench illustration (src/viz/iso). Base colours only: face shades are computed in code. */
+  --iso-ink: #0a0f1d;
+  --iso-bench: #0c1220;
+  --iso-bench-grid: rgba(120, 150, 255, 0.07);
+  --iso-pcb: #1f4c8a;
+  --iso-pcb-trace: #5d93dc;
+  --iso-silk: #e6ecff;
+  --iso-board: #dfe4ee;
+  --iso-board-hole: #222b40;
+  --iso-board-print: #7c879f;
+  --iso-rail-pos: #e5484d;
+  --iso-rail-neg: #3d7cf5;
+  --iso-metal: #c3cbd8;
+  --iso-plastic: #23262e;
+  --iso-chip: #191b21;
+  --iso-resistor: #79a9e3;
+
   color-scheme: dark;
 }
 

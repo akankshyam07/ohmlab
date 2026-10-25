@@ -1,0 +1,486 @@
+/* Isometric bench. Motion uses transform and opacity only (plus the wires' draw-on dashoffset),
+   with the motion tokens, and is off under reduced motion or the "Animate current flow" setting. */
+
+.iso-bench {
+  margin: 0;
+  /* User units per CSS px; set from the rendered width so ink lines stay 1.25 px at any size. */
+  --iso-px: 1px;
+}
+
+.iso-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 46%, rgba(120, 150, 255, 0.09), transparent 70%),
+    var(--iso-bench);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.iso-scene,
+.iso-layer,
+.iso-live {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+
+/* Pulses and glow repaint only their own layer, never the static drawing beneath. */
+.iso-live {
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+/* ---------------------------------------------------------------- ink */
+
+.iso-ln {
+  stroke: var(--iso-ink);
+  stroke-width: calc(1.25 * var(--iso-px));
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.iso-hl {
+  stroke-width: calc(0.75 * var(--iso-px));
+  stroke-linecap: round;
+  stroke-opacity: 0.8;
+  transform: translateY(calc(-1.1 * var(--iso-px)));
+}
+
+.iso-groove {
+  stroke-width: calc(1 * var(--iso-px));
+}
+
+.iso-under {
+  fill: none;
+  stroke: var(--iso-ink);
+  stroke-width: calc(var(--w) + 2.5 * var(--iso-px));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iso-shadow {
+  mix-blend-mode: multiply;
+  opacity: 0.25;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.iso-print {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+/* Idle life: the only thing that moves at rest. Stepped so it repaints a few times a second, not 60. */
+.iso-traces {
+  animation: iso-shimmer 3s steps(12) infinite alternate;
+}
+
+@keyframes iso-shimmer {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- parts */
+
+.iso-part {
+  outline: none;
+}
+
+.iso-part[role='button'] {
+  cursor: pointer;
+}
+
+.iso-lift {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.iso-part:hover > .iso-lift {
+  transform: translateY(calc(-2 * var(--iso-px)));
+}
+
+.iso-part:hover > .iso-shadow {
+  opacity: 0.42;
+}
+
+.iso-ring {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: calc(2 * var(--iso-px));
+  stroke-linejoin: round;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+.iso-part:focus-visible > .iso-ring {
+  opacity: 1;
+}
+
+.iso-part.is-hl > .iso-ring {
+  opacity: 0.85;
+  stroke-dasharray: calc(5 * var(--iso-px)) calc(4 * var(--iso-px));
+}
+
+.has-hl .iso-part:not(.is-hl) > .iso-lift {
+  opacity: 0.55;
+}
+
+.iso-lit,
+.iso-dead {
+  transition: opacity var(--dur-tween) var(--ease-out);
+}
+
+/* Change: a spring pop for a new value or colour, a squash-flip for a reversed LED. */
+.iso-pop > .iso-lift {
+  animation: iso-pop 520ms var(--ease-spring) backwards;
+}
+
+.iso-flip > .iso-lift {
+  transform-origin: 50% 50%;
+  animation: iso-flip 520ms var(--ease-spring) backwards;
+}
+
+@keyframes iso-pop {
+  from {
+    transform: translateY(calc(-7 * var(--iso-px))) scale(0.82);
+  }
+}
+
+@keyframes iso-flip {
+  from {
+    transform: scaleX(-1);
+  }
+  40% {
+    transform: scaleX(-0.05);
+  }
+}
+
+/* ---------------------------------------------------------------- live layer */
+
+.iso-glow {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition:
+    opacity var(--dur-tween) var(--ease-out),
+    transform var(--dur-tween) var(--ease-out);
+}
+
+.iso-spill {
+  transition: opacity var(--dur-tween) var(--ease-out);
+}
+
+.iso-flash {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: iso-flash 640ms var(--ease-out) both;
+}
+
+.iso-smoke {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: iso-smoke 1500ms var(--ease-out) both;
+}
+
+@keyframes iso-flash {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes iso-smoke {
+  from {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.7);
+  }
+}
+
+.iso-pulses {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity var(--dur-med) var(--ease-out);
+}
+
+.iso-pulse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 14%, var(--sig-current) 30%, rgba(56, 225, 255, 0.28) 55%, transparent 70%);
+  will-change: transform;
+  transform: translate(-99px, -99px);
+}
+
+/* ---------------------------------------------------------------- intro */
+
+.iso-pre .iso-scene,
+.iso-pre .iso-live,
+.iso-intro .iso-pulses,
+.is-morphing .iso-pulses,
+.iso-pre .iso-overlay,
+.iso-intro .iso-live,
+.iso-intro .iso-overlay,
+.is-morphing .iso-live,
+.is-morphing .iso-overlay {
+  opacity: 0;
+}
+
+.iso-intro .iso-board,
+.iso-intro .iso-uno,
+.iso-intro .iso-battery {
+  animation: iso-fade 360ms var(--ease-out) backwards;
+}
+
+.iso-intro .iso-uno {
+  animation-delay: 80ms;
+}
+
+.iso-intro .iso-part > .iso-lift {
+  animation: iso-drop 480ms var(--ease-spring) backwards;
+  animation-delay: var(--d);
+}
+
+.iso-intro .iso-part > .iso-shadow {
+  animation: iso-fade 300ms var(--ease-out) backwards;
+  animation-delay: var(--d);
+}
+
+.iso-intro .iso-draw {
+  animation: iso-draw 380ms var(--ease-out) backwards;
+  animation-delay: var(--dw);
+}
+
+@keyframes iso-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes iso-drop {
+  from {
+    opacity: 0;
+    transform: translateY(var(--drop));
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
+@keyframes iso-draw {
+  from {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- camera presets */
+
+.iso-leave,
+.iso-enter {
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.iso-leave {
+  animation: iso-leave 560ms var(--ease-out) forwards;
+}
+
+.iso-enter {
+  animation: iso-enter 560ms var(--ease-out) backwards;
+}
+
+@keyframes iso-leave {
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: var(--to);
+  }
+}
+
+@keyframes iso-enter {
+  from {
+    opacity: 0;
+    transform: var(--from);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- callouts */
+
+.iso-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+.iso-leaders {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.iso-leaders line {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+}
+
+.iso-node {
+  fill: var(--surface-1);
+  stroke: var(--sig-current);
+  stroke-width: 1.5;
+}
+
+.iso-pin circle {
+  fill: var(--surface-1);
+  stroke: var(--sig-current);
+  stroke-width: 1.5;
+}
+
+.iso-pin line {
+  stroke: var(--sig-current);
+  stroke-width: 1;
+}
+
+.iso-pin text {
+  fill: var(--text);
+  font: 600 10px var(--font-mono);
+}
+
+.iso-callout {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.iso-callout strong {
+  font: 600 11px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.iso-callout span {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.iso-tag {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font: 600 10.5px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+}
+
+.iso-tag.is-danger {
+  color: var(--danger);
+}
+
+.iso-tag.is-warn {
+  color: var(--warn);
+}
+
+.iso-tag.is-info {
+  color: var(--info);
+}
+
+.iso-legend {
+  margin: var(--sp-3) 0 0;
+  padding-left: 1.6em;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  display: grid;
+  gap: 4px;
+}
+
+.iso-legend strong {
+  font: 600 11px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.iso-caption {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------- motion off */
+
+.iso-still .iso-scene *,
+.iso-still .iso-live * {
+  animation: none !important;
+  transition: none !important;
+}
+
+.iso-still .iso-part:hover > .iso-lift {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iso-stage *,
+  .iso-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .iso-part:hover > .iso-lift {
+    transform: none;
+  }
+}

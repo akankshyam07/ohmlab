@@ -1,0 +1,354 @@
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 30% -10%, rgba(167, 139, 250, 0.1), transparent 60%),
+    linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--bg);
+}
+
+.concept {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-5) var(--sp-7);
+}
+
+.concept-head {
+  margin-bottom: var(--sp-4);
+}
+
+.eyebrow {
+  margin: 0 0 var(--sp-2);
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-strong);
+}
+
+.concept h1 {
+  font-size: clamp(1.8rem, 3.2vw, 2.3rem);
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: var(--sp-2) 0 0;
+  max-width: 62ch;
+  color: var(--text-muted);
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-panel);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+.bench-panel {
+  overflow: hidden;
+}
+
+.bench-panel .iso-stage {
+  border-top: 1px solid var(--border);
+}
+
+.bench-panel .iso-caption,
+.dense-panel .iso-caption,
+.bench-panel .iso-legend,
+.dense-panel .iso-legend {
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin-left: var(--sp-2);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font: 600 11px/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-strong);
+}
+
+/* Segmented control */
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font: 500 13px/1.2 var(--font-body);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.seg button:hover {
+  color: var(--text);
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.seg button.is-danger[aria-pressed='true'] {
+  color: var(--danger);
+}
+
+.seg-wide {
+  display: flex;
+}
+
+.seg-wide button {
+  flex: 1;
+  padding: 7px 4px;
+}
+
+.controls {
+  padding: var(--sp-4);
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.controls h2 {
+  font-size: var(--fs-lg);
+}
+
+.field {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.field-label,
+.meter-label {
+  font: 600 11px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.btn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font: 500 13px/1.2 var(--font-body);
+  cursor: pointer;
+}
+
+.btn[aria-pressed='true'] {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.swatches button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-1);
+  background: var(--sw);
+  box-shadow: 0 0 0 1px var(--border-strong);
+  cursor: pointer;
+  padding: 0;
+}
+
+.swatches button[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px var(--text),
+    0 0 12px var(--sw);
+}
+
+.meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+.meter {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.meter-label {
+  font-size: 10px;
+}
+
+.meter-value {
+  font: 600 1.35rem/1.1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter.is-current .meter-value {
+  color: var(--sig-current);
+  text-shadow: 0 0 14px rgba(56, 225, 255, 0.35);
+}
+
+.meter.is-voltage .meter-value {
+  color: var(--sig-voltage);
+}
+
+.meter.is-power .meter-value {
+  color: var(--sig-power);
+}
+
+.state {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.state .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.state.is-ok .dot {
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok);
+}
+
+.state.is-warn .dot {
+  background: var(--warn);
+}
+
+.state.is-danger .dot {
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger);
+}
+
+.state.is-info .dot {
+  background: var(--info);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.switch input {
+  accent-color: var(--brand);
+  width: 16px;
+  height: 16px;
+}
+
+.dense {
+  margin-top: var(--sp-6);
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: center;
+}
+
+.dense h2 {
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-xl);
+}
+
+.dense p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.checks {
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}
+
+.checks li::before {
+  content: '✓';
+  color: var(--ok);
+  margin-right: 8px;
+  font-weight: 700;
+}
+
+.dense-panel {
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .dense {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .concept {
+    padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  }
+}
+
+@media (max-width: 420px) {
+  .panel-bar {
+    padding: var(--sp-3);
+  }
+
+  .seg button {
+    padding: 5px 9px;
+  }
+
+  .meter-value {
+    font-size: 1.15rem;
+  }
+}
