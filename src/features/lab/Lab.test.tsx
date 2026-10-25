@@ -1,11 +1,11 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Lab as LabData } from '../../content/types'
 import { ProgressProvider } from '../../progress/store'
 import { STORAGE_KEY } from '../../progress/types'
 import { SIM_LIMITATIONS } from '../../sim/limitations'
-import { Lab } from './Lab'
+import { Lab, shortMeterLabel } from './Lab'
 
 vi.mock('../../content', () => ({ lessons: [], getLesson: () => undefined, phases: [] }))
 
@@ -87,14 +87,17 @@ const lab: LabData = {
   clickControls: { R1: 'r', D1: 'flip' },
 }
 
-function setup() {
+function setup(options?: Parameters<typeof userEvent.setup>[0]) {
   render(
     <ProgressProvider>
       <Lab lessonId="day01" lab={lab} showFlow={false} />
     </ProgressProvider>,
   )
-  return userEvent.setup()
+  return userEvent.setup(options)
 }
+
+const flash = () => document.querySelector('.lab-tray-flash')
+const chip = () => document.querySelector('.lab-chip-region')!
 
 const meter = () => within(screen.getByRole('status')).getByText(/A$/).textContent ?? ''
 const milliamps = () => {
@@ -120,7 +123,7 @@ describe('Lab', () => {
     expect(screen.queryByText('Dimmer, and safer!')).not.toBeInTheDocument()
     await user.click(screen.getByRole('radio', { name: '1 kΩ' }))
     expect(milliamps()).toBeLessThan(5)
-    expect(screen.getByText('Dimmer, and safer!')).toBeInTheDocument()
+    expect(flash()).toHaveTextContent('Dimmer, and safer!')
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).lessons.day01.challengesDone).toEqual(['dim'])
   })
 
@@ -195,7 +198,7 @@ describe('Lab', () => {
 
     await user.click(screen.getByRole('radio', { name: '1 kΩ' })) // 'dim' passes; this state also satisfies 'glow'
     expect(tray).toHaveTextContent('Challenges 1 / 3')
-    expect(screen.getByText('Dimmer, and safer!')).toBeInTheDocument()
+    expect(flash()).toHaveTextContent('Dimmer, and safer!')
 
     await user.click(screen.getByRole('radio', { name: '220 Ω' })) // the learner's next move completes 'glow'
     expect(tray).toHaveTextContent('Challenges 2 / 3')
@@ -225,5 +228,50 @@ describe('Lab', () => {
     await user.click(screen.getByRole('radio', { name: '0 Ω' }))
     await user.click(screen.getByRole('button', { name: 'How the simulator works' }))
     expect(about).toHaveAttribute('open')
+  })
+
+  it('shows a success chip over the schematic for about 4 s, naming the challenge and what is next', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const user = setup({ advanceTimers: vi.advanceTimersByTime })
+      expect(chip()).toHaveAttribute('aria-live', 'polite')
+      expect(chip()).toBeEmptyDOMElement()
+      await user.click(screen.getByRole('radio', { name: '1 kΩ' }))
+      expect(chip()).toHaveTextContent(/Challenge done: Make the LED current less than 5 mA\./)
+      expect(chip()).toHaveTextContent('Dimmer, and safer!') // read out, visually hidden
+      expect(chip()).toHaveTextContent('Next: Keep the LED glowing.')
+      act(() => vi.advanceTimersByTime(4100))
+      expect(chip()).toBeEmptyDOMElement()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('says so when a later challenge is met before its turn', async () => {
+    const user = setup()
+    await user.click(screen.getByRole('button', { name: /Flip LED/ })) // meets the locked 'flip' challenge
+    expect(chip()).toHaveTextContent(/That’s a later challenge: Flip the LED/)
+    expect(chip()).toHaveTextContent('Finish this one first: Make the LED current less than 5 mA.')
+    expect(screen.getByText(/^Challenges \d \/ 3$/)).toHaveTextContent('Challenges 0 / 3')
+  })
+
+  it('collapses the intro to one line behind Show details', async () => {
+    const user = setup()
+    const toggle = screen.getByRole('button', { name: 'Show details' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: 'Hide details' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('gives meters a short label for the phone strip, keeping the full one for screen readers', () => {
+    expect(shortMeterLabel('Voltage across D1')).toBe('V across D1')
+    expect(shortMeterLabel('Current through D1')).toBe('I through D1')
+    expect(shortMeterLabel('Voltage across the LED')).toBe('V across LED')
+    expect(shortMeterLabel('Current from the supply (through R1)')).toBe('I from supply')
+    expect(shortMeterLabel('Vout (across R2)')).toBe('Vout')
+    expect(shortMeterLabel('Current')).toBe('Current')
+    setup()
+    const label = within(screen.getByRole('status')).getByText('LED current')
+    expect(label).toBeVisible()
   })
 })

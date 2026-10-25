@@ -10,7 +10,14 @@ import { optionOrder } from './shuffle'
 const { lesson } = vi.hoisted(() => ({
   lesson: {
     id: 'day01',
-    sections: [],
+    sections: [
+      { id: 'ohms-law', title: 'Ohm’s law', blocks: [{ type: 'text', text: 'Current is voltage divided by resistance: I = V / R.' }] },
+      {
+        id: 'why-resistor',
+        title: 'Why an LED needs a resistor',
+        blocks: [{ type: 'text', text: 'An LED barely resists once it turns on, so a series resistor limits the current.' }],
+      },
+    ],
     quiz: [],
     lab: {
       challenges: [
@@ -191,6 +198,12 @@ describe('Quiz', () => {
     const review = screen.getByRole('list', { name: 'Your answers' })
     expect(review.textContent).toMatch(/Missed: What limits the current/)
     expect(review.textContent).toMatch(/Right: What current flows/)
+    // Each missed question links to the section that teaches it; right ones don't.
+    expect(screen.getAllByRole('link', { name: /^Review:/ })).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Review: Why an LED needs a resistor' })).toHaveAttribute(
+      'href',
+      '#/lesson/day01/why-resistor',
+    )
   })
 
   it('keeps its place when the learner leaves the quiz and comes back', async () => {

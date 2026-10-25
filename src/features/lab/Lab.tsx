@@ -24,6 +24,47 @@ const KIND_NAME: Record<ComponentKind, string> = {
 
 const clone = <T,>(x: T): T => structuredClone(x)
 
+/**
+ * The phone mini-stage form of a meter label: "Voltage across D1" → "V across D1", "Current from the supply
+ * (through R1)" → "I from supply". The full label stays as the accessible name.
+ */
+export function shortMeterLabel(label: string): string {
+  return label
+    .replace(/\s*\([^)]*\)$/, '')
+    .replace(/^Voltage (?=\S)/, 'V ')
+    .replace(/^Current (?=\S)/, 'I ')
+    .replace(/\bthe /g, '')
+}
+
+const CHIP_MS = 4000
+
+/** Marks a scroller with data-overflow="start end top bottom" (the edges hiding more) so CSS can fade them. */
+function useOverflowEdges<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  // No deps: content (meter values, alerts) changes on every render and can change the overflow.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => {
+      const edges = []
+      if (el.scrollLeft > 1) edges.push('start')
+      if (el.scrollLeft < el.scrollWidth - el.clientWidth - 1) edges.push('end')
+      if (el.scrollTop > 1) edges.push('top')
+      if (el.scrollTop < el.scrollHeight - el.clientHeight - 1) edges.push('bottom')
+      el.dataset.overflow = edges.join(' ')
+    }
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    observer?.observe(el)
+    return () => {
+      el.removeEventListener('scroll', update)
+      observer?.disconnect()
+    }
+  })
+  return ref
+}
+
 function readProp(circuit: Circuit, componentId: string, prop: string): ControlValue | undefined {
   const component = circuit.components.find((c) => c.id === componentId)
   return component ? (component as unknown as Record<string, ControlValue>)[prop] : undefined
@@ -79,6 +120,14 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   const [doneBefore, setDoneBefore] = useState(done)
   const aboutRef = useRef<HTMLDetailsElement>(null)
   const [bannersOpen, setBannersOpen] = useState(false)
+  const [introOpen, setIntroOpen] = useState(false)
+  // A short-lived note over the schematic: a challenge just completed, or a later one was met too early.
+  const [chip, setChip] = useState<{ id: string; locked: boolean }>()
+  const stageRef = useRef<HTMLDivElement>(null)
+  const trayRef = useRef<HTMLDetailsElement>(null)
+  const metersRef = useOverflowEdges<HTMLDivElement>()
+  const controlsRef = useOverflowEdges<HTMLDivElement>()
+  const dockRef = useOverflowEdges<HTMLDivElement>()
 
   // A different lab (new lesson) starts fresh.
   if (source !== lab) {
@@ -86,7 +135,14 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
     setCircuit(clone(lab.circuit))
     setLayout(clone(lab.layout))
     setDoneBefore(done)
+    setChip(undefined)
   }
+
+  useEffect(() => {
+    if (!chip) return
+    const timer = setTimeout(() => setChip(undefined), CHIP_MS)
+    return () => clearTimeout(timer)
+  }, [chip])
 
   const result = useMemo(() => solveDC(circuit), [circuit])
 
@@ -108,7 +164,16 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   const active = lab.challenges.find((ch) => !done.includes(ch.id))
   const change = (next: Circuit) => {
     setCircuit(next)
-    if (active && passes(active.check, solveDC(next), next)) completeChallenge(lessonId, active.id)
+    if (!active) return
+    const solved = solveDC(next)
+    if (passes(active.check, solved, next)) {
+      completeChallenge(lessonId, active.id)
+      setChip({ id: active.id, locked: false })
+      return
+    }
+    // Meeting a later challenge early doesn't count; say so instead of staying silent.
+    const early = lab.challenges.find((ch) => ch !== active && !done.includes(ch.id) && passes(ch.check, solved, next))
+    if (early) setChip({ id: early.id, locked: true })
   }
 
   const componentOf = (id: string) => circuit.components.find((c) => c.id === id)
@@ -157,7 +222,7 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
     </button>
   )
 
-  // In a short stage each banner is a one-line chip; "More" shows the full text (it is always in the DOM).
+  // Each banner is a one-line chip; "More" shows the full text (it is always in the DOM).
   const banner = (key: string, tone: 'danger' | 'warn', alert: boolean, headline: string, text: ReactNode, link = true) => (
     <div
       key={key}
@@ -184,6 +249,16 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   const doneCount = lab.challenges.filter((ch) => done.includes(ch.id)).length
   const fresh = lab.challenges.filter((ch) => done.includes(ch.id) && !doneBefore.includes(ch.id))
   const latest = fresh.at(-1)
+  const chipChallenge = chip && lab.challenges.find((ch) => ch.id === chip.id)
+
+  // On a tall (desktop) stage the open challenge list is a sheet over the meters and controls, sized so it
+  // never covers the schematic.
+  const sizeTraySheet = (tray: HTMLDetailsElement) => {
+    const stage = stageRef.current
+    if (!tray.open || !stage) return
+    const room = tray.getBoundingClientRect().top - stage.getBoundingClientRect().bottom - 8
+    tray.style.setProperty('--sheet-room', `${Math.max(Math.round(room), 140)}px`)
+  }
 
   return (
     <section aria-label="Circuit lab" className="lab">
@@ -199,7 +274,22 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
           </button>
         </header>
 
-        <div className="lab-stage">
+        <div className="lab-intro" data-expanded={introOpen || undefined}>
+          <p className="lab-intro-text" id={`lab-intro-${lessonId}`}>
+            <RichText text={lab.intro} />
+          </p>
+          <button
+            type="button"
+            className="lab-link lab-intro-toggle"
+            aria-expanded={introOpen}
+            aria-controls={`lab-intro-${lessonId}`}
+            onClick={() => setIntroOpen((open) => !open)}
+          >
+            {introOpen ? 'Hide details' : 'Show details'}
+          </button>
+        </div>
+
+        <div className="lab-stage" ref={stageRef}>
           <CircuitView
             circuit={circuit}
             layout={layout}
@@ -209,23 +299,68 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
             highlight={highlight}
             showFlow={showFlow}
           />
+          <div className="lab-chip-region" aria-live="polite">
+            {chipChallenge && chip && (
+              <div key={`${chip.id}-${chip.locked}`} className={`lab-chip ${chip.locked ? 'lab-chip--early' : ''}`}>
+                {chip.locked ? (
+                  <>
+                    <p className="lab-chip-line">
+                      That’s a later challenge: <RichText text={chipChallenge.prompt} />
+                    </p>
+                    {active && (
+                      <p className="lab-chip-next">
+                        Finish this one first: <RichText text={active.prompt} />
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="lab-chip-line">
+                      <span aria-hidden="true">✓ </span>Challenge done: <RichText text={chipChallenge.prompt} />
+                      <span className="sr-only">
+                        {' '}
+                        <RichText text={chipChallenge.success} />
+                      </span>
+                    </p>
+                    <p className="lab-chip-next">
+                      {active ? (
+                        <>
+                          Next: <RichText text={active.prompt} />
+                        </>
+                      ) : (
+                        'All challenges done!'
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {lab.readouts.length > 0 && (
-          <div className="lab-meters">
+          <div className="lab-meters" ref={metersRef}>
             {lab.readouts.map((readout) => {
               const r = result.ok ? result.components[readout.componentId] : undefined
               const raw = r?.[readout.quantity]
               // Direction is shown by the diagram; meters show magnitude except for voltage, whose sign beginners probe.
               const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
               const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
+              const short = shortMeterLabel(readout.label)
               return (
                 <div
                   key={`${readout.componentId}-${readout.quantity}`}
                   role="status"
                   className={`lab-meter lab-meter--${readout.quantity}`}
                 >
-                  <span className="lab-meter-label">{readout.label}</span>
+                  <span className="lab-meter-label">
+                    <span className="lab-meter-long">{readout.label}</span>
+                    {short !== readout.label && (
+                      <span className="lab-meter-short" aria-hidden="true">
+                        {short}
+                      </span>
+                    )}
+                  </span>
                   <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
                 </div>
               )
@@ -233,71 +368,69 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
           </div>
         )}
 
-        {!result.ok &&
-          banner('settle', 'danger', true, 'The circuit can’t settle.', (
-            <>
-              {result.error}
-              {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
-            </>
-          ), false)}
-        {burnt.map(([id]) => {
-          const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
-          return banner(id, 'danger', true, `${id} burnt out.`, (
-            <>
-              In real life this {kind} would be dead (maybe with a puff of smoke). That’s why we simulate first.
-              The meters show the current at the instant it failed; a real {kind} usually breaks open then, so the
-              current stops.
-            </>
-          ))
-        })}
-        {overvolted.map(([id, r]) =>
-          banner(
-            id,
-            'warn',
-            true,
-            `${id} is reverse-biased by ${Math.abs(r.voltage).toFixed(1)} V;`,
-            componentOf(id)?.kind === 'led'
-              ? 'most LEDs are rated for only 5 V in reverse and can be damaged.'
-              : 'that’s more than this diode is rated to block, and it can be damaged.',
-          ),
-        )}
-        {stressed.map(([id, r]) =>
-          banner(
-            id,
-            'warn',
-            false,
-            `${id} is under stress.`,
-            r.status === 'overpower'
-              ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
-              : componentOf(id)?.kind === 'led'
-                ? 'More than the 20 mA a typical LED is rated for. A real one would run hot and wear out quickly.'
-                : 'More current than it’s made for. A real part would run hot and wear out quickly.',
-          ),
-        )}
+        <div className="lab-dock" ref={dockRef}>
+          {!result.ok &&
+            banner('settle', 'danger', true, 'The circuit can’t settle.', (
+              <>
+                {result.error}
+                {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
+              </>
+            ), false)}
+          {burnt.map(([id]) => {
+            const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
+            return banner(id, 'danger', true, `${id} burnt out.`, (
+              <>
+                In real life this {kind} would be dead (maybe with a puff of smoke). That’s why we simulate first.
+                The meters show the current at the instant it failed; a real {kind} usually breaks open then, so the
+                current stops.
+              </>
+            ))
+          })}
+          {overvolted.map(([id, r]) =>
+            banner(
+              id,
+              'warn',
+              true,
+              `${id} is reverse-biased by ${Math.abs(r.voltage).toFixed(1)} V;`,
+              componentOf(id)?.kind === 'led'
+                ? 'most LEDs are rated for only 5 V in reverse and can be damaged.'
+                : 'that’s more than this diode is rated to block, and it can be damaged.',
+            ),
+          )}
+          {stressed.map(([id, r]) =>
+            banner(
+              id,
+              'warn',
+              false,
+              `${id} is under stress.`,
+              r.status === 'overpower'
+                ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
+                : componentOf(id)?.kind === 'led'
+                  ? 'More than the 20 mA a typical LED is rated for. A real one would run hot and wear out quickly.'
+                  : 'More current than it’s made for. A real part would run hot and wear out quickly.',
+            ),
+          )}
 
-        {lab.controls.length > 0 && (
-          <div className="lab-controls">
-            {lab.controls.map((control) => (
-              <Control
-                key={control.id}
-                control={control}
-                value={control.type === 'flip' ? undefined : readProp(circuit, control.componentId, control.prop)}
-                flipped={control.type === 'flip' && isFlipped(lab.circuit, circuit, control.componentId)}
-                onChange={(v) => applyControl(control, v)}
-              />
-            ))}
-          </div>
-        )}
+          {lab.controls.length > 0 && (
+            <div className="lab-controls" ref={controlsRef}>
+              {lab.controls.map((control) => (
+                <Control
+                  key={control.id}
+                  control={control}
+                  value={control.type === 'flip' ? undefined : readProp(circuit, control.componentId, control.prop)}
+                  flipped={control.type === 'flip' && isFlipped(lab.circuit, circuit, control.componentId)}
+                  onChange={(v) => applyControl(control, v)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="lab-more">
-        <p className="lab-intro">
-          <RichText text={lab.intro} />
-        </p>
-
         {lab.challenges.length > 0 && (
           <div className="lab-tray">
-            <details className="lab-tray-details">
+            <details className="lab-tray-details" ref={trayRef} onToggle={(e) => sizeTraySheet(e.currentTarget)}>
               <summary className="lab-tray-summary">
                 <span className="lab-tray-count">
                   Challenges {doneCount} / {lab.challenges.length}
@@ -331,7 +464,7 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
                           {isDone && <span className="sr-only"> (done)</span>}
                           {isLocked && <span className="lab-tag">Up next</span>}
                         </p>
-                        {isDone && ch !== latest && (
+                        {isDone && (
                           <p className="lab-challenge-success">
                             <RichText text={ch.success} />
                           </p>
@@ -350,15 +483,22 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
                 })}
               </ol>
             </details>
-            {/* The just-solved challenge's explanation stays visible while the tray is closed. */}
-            <p className="lab-tray-flash" aria-live="polite">
-              {latest && (
+            {/* The just-solved challenge's explanation stays in view while the tray is closed (one line on a tall
+                stage, where it opens the tray with the full text). */}
+            {latest && (
+              <button
+                type="button"
+                className="lab-tray-flash"
+                onClick={() => {
+                  if (trayRef.current) trayRef.current.open = true
+                }}
+              >
                 <span key={latest.id} className="lab-celebrate">
                   <span aria-hidden="true">✓ </span>
                   <RichText text={latest.success} />
                 </span>
-              )}
-            </p>
+              </button>
+            )}
           </div>
         )}
 

@@ -4,7 +4,9 @@ import type { QuizQuestion } from '../../content/types'
 import { useProgress } from '../../progress/store'
 import { formatSI } from '../../ui/format'
 import { RichText } from '../../ui/RichText'
+import { href } from '../../app/router'
 import { parseAnswer, unitScale } from './parse'
+import { teachingSection } from './review'
 import { optionOrder } from './shuffle'
 import './Quiz.css'
 
@@ -156,17 +158,27 @@ export function Quiz({ lessonId, questions }: { lessonId: string; questions: Qui
           )}
         </div>
         <ol className="quiz-review" aria-label="Your answers">
-          {questions.map((q, i) => (
-            <li key={q.id} className={results[i] ? 'quiz-review--right' : 'quiz-review--missed'}>
-              <span className="quiz-review-mark" aria-hidden="true">
-                {results[i] ? '✓' : '✗'}
-              </span>
-              <span>
-                <span className="sr-only">{results[i] ? 'Right: ' : 'Missed: '}</span>
-                <RichText text={q.prompt} />
-              </span>
-            </li>
-          ))}
+          {questions.map((q, i) => {
+            const section = !results[i] && lesson ? teachingSection(lesson, q) : undefined
+            return (
+              <li key={q.id} className={results[i] ? 'quiz-review--right' : 'quiz-review--missed'}>
+                <span className="quiz-review-mark" aria-hidden="true">
+                  {results[i] ? '✓' : '✗'}
+                </span>
+                <span className="quiz-review-body">
+                  <span>
+                    <span className="sr-only">{results[i] ? 'Right: ' : 'Missed: '}</span>
+                    <RichText text={q.prompt} />
+                  </span>
+                  {section && (
+                    <a className="quiz-review-link" href={href('lesson', lessonId, section.id)}>
+                      Review: {section.title}
+                    </a>
+                  )}
+                </span>
+              </li>
+            )
+          })}
         </ol>
         <button type="button" className="quiz-button" onClick={restart} autoFocus>
           Retry quiz
