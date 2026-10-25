@@ -1,5 +1,6 @@
 import type { Lesson } from '../types'
 import { between } from './checks'
+import { BREADBOARD, NO_METER } from './primer'
 
 const lesson: Lesson = {
   id: 'power',
@@ -34,6 +35,18 @@ const lesson: Lesson = {
           title: 'Analogy: a water wheel',
           text: 'Pressure (voltage) times flow (current) gives the work the water does on the wheel each second. Where it breaks: a resistor doesn’t do useful work like a wheel. It just gets warm, like a pipe with lots of friction.',
         },
+        {
+          type: 'predict',
+          id: 'd7-smaller-r',
+          prompt: 'The lab starts with a 1 kΩ resistor on the 9 V battery: 9 mA, so 9 V × 9 mA = 81 mW of heat. You swap it for **220 Ω**. Roughly how much heat now?',
+          options: [
+            { text: 'Less, about 18 mW: less resistance means less friction.', why: 'Less resistance on the same voltage lets *more* current through, and power is V × I. More current, more heat.' },
+            { text: 'The same 81 mW, because the voltage hasn’t changed.', why: 'The voltage is the same, but the current isn’t: 9 V ÷ 220 Ω ≈ 41 mA instead of 9 mA.' },
+            { text: 'About 0.12 W, a little under the 0.25 W rating.', why: 'Work it through: 9 V ÷ 220 Ω ≈ 41 mA, and 9 V × 41 mA ≈ 0.37 W. That is well over the rating.' },
+            { text: 'About 0.37 W, almost 4.5 times more and well over the 0.25 W rating.', correct: true, why: 'I = 9 V ÷ 220 Ω ≈ 41 mA, so P = 9 V × 41 mA ≈ 0.37 W. Same voltage, about 4.5 times the current, so about 4.5 times the heat.' },
+          ],
+          tryIt: 'With **Supply** on **9 V battery**, set **Resistor R1 (0.25 W)** to **220 Ω** and read **Heat in R1**.',
+        },
       ],
     },
     {
@@ -52,6 +65,18 @@ const lesson: Lesson = {
             ['Current and resistance', '`P = I² × R`', '0.020 A × 0.020 A × 220 Ω = 0.088 W'],
             ['Voltage and resistance', '`P = V² ÷ R`', '9 V × 9 V ÷ 220 Ω ≈ 0.37 W'],
           ],
+        },
+        {
+          type: 'predict',
+          id: 'd7-lower-volts',
+          prompt: '220 Ω on the 9 V battery makes about 0.37 W. You keep **220 Ω** and switch to the Uno’s **5 V**, a bit over half the voltage. What happens to the heat?',
+          options: [
+            { text: 'It roughly halves, to about 0.2 W.', why: 'Halving the voltage also halves the current, and power is voltage × current. Both halve, so the power falls to a quarter, not a half.' },
+            { text: 'It falls to under a third, about 0.11 W, because power goes with the voltage squared.', correct: true, why: 'P = V² ÷ R = 25 ÷ 220 ≈ 0.114 W. The voltage fell to 5/9 of before, so the power fell to (5/9)² ≈ 0.31 of before.' },
+            { text: 'It stays the same, because the resistor hasn’t changed.', why: 'The resistance is the same, but less voltage pushes less current. Both factors of V × I go down.' },
+            { text: 'It goes up, because the Uno can supply more current.', why: 'The resistor decides the current, not the supply’s ability. Less voltage means less current here.' },
+          ],
+          tryIt: 'Keep **Resistor R1 (0.25 W)** on **220 Ω** and switch **Supply** from **9 V battery** to **Uno 5 V**. Watch **Heat in R1**.',
         },
         {
           type: 'text',
@@ -110,7 +135,7 @@ const lesson: Lesson = {
   ],
   lab: {
     title: 'Feel the heat',
-    intro: 'One resistor rated **0.25 W** across a supply. Choose the Uno’s 5 V or a 9 V battery, then pick resistors. Predict the power before each change. In the simulator you can cook as many resistors as you like.',
+    intro: 'One resistor **R1**, rated **0.25 W**, across a supply **V1**. Choose the Uno’s 5 V or a 9 V battery, then pick resistors. Predict the power before each change. Find the safe limit first; then you can cook as many resistors as you like.',
     circuit: {
       ground: 'gnd',
       components: [
@@ -122,7 +147,7 @@ const lesson: Lesson = {
       width: 14,
       height: 9,
       parts: [
-        { id: 'V1', from: { x: 3, y: 3 }, to: { x: 3, y: 6 }, label: 'Supply', labelSide: 'left' },
+        { id: 'V1', from: { x: 3, y: 3 }, to: { x: 3, y: 6 }, label: 'V1', labelSide: 'left' },
         { id: 'R1', from: { x: 10, y: 3 }, to: { x: 10, y: 6 }, label: 'R1 (¼ W)', labelSide: 'right' },
       ],
       wires: [
@@ -149,8 +174,8 @@ const lesson: Lesson = {
         componentId: 'R1',
         prop: 'ohms',
         options: [
-          { label: '10 Ω', value: 10 },
-          { label: '100 Ω', value: 100 },
+          { label: '10 Ω', value: 10, skipOnClick: true },
+          { label: '100 Ω', value: 100, skipOnClick: true },
           { label: '220 Ω', value: 220 },
           { label: '330 Ω', value: 330 },
           { label: '1 kΩ', value: 1000 },
@@ -165,18 +190,18 @@ const lesson: Lesson = {
     ],
     challenges: [
       {
-        id: 'overheat',
-        prompt: 'Overheat R1: push it past its **0.25 W** rating.',
-        hint: 'Power is V² ÷ R. Smaller resistance on a bigger voltage means more heat.',
-        success: 'Too hot! On 9 V, 220 Ω dissipates about 0.37 W; 100 Ω about 0.81 W, which would burn. A real ¼ W resistor would discolour and could fail.',
-        check: (r) => r.components.R1?.status === 'overpower' || r.components.R1?.status === 'burnt',
-      },
-      {
         id: 'smallest-safe-9v',
         prompt: 'On the **9 V** battery, find the **smallest** kit resistor that stays within its rating.',
         hint: 'Work down from 1 kΩ and stop just before it overheats.',
         success: '330 Ω dissipates about 0.245 W, just under 0.25 W. Inside the rating, but with no margin at all. It would be too hot to touch. That’s why designers use the half rule.',
         check: (r) => between(r.components.V1?.voltage, 8.99, 9.01) && r.components.R1?.status === 'ok' && (r.components.R1.power ?? 0) > 0.2,
+      },
+      {
+        id: 'overheat',
+        prompt: 'Now you know where the limit is: **overheat** R1, pushing it past its **0.25 W** rating.',
+        hint: 'Power is V² ÷ R. Go one size smaller than the safe value you just found.',
+        success: 'Too hot! On 9 V, 220 Ω dissipates about 0.37 W; 100 Ω about 0.81 W, which would burn. A real ¼ W resistor would discolour and could fail.',
+        check: (r) => r.components.R1?.status === 'overpower' || r.components.R1?.status === 'burnt',
       },
       {
         id: 'half-rule',
@@ -223,9 +248,9 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'You connect a ¼ W 220 Ω resistor straight across a 9 V battery. What happens?',
       options: [
-        { text: 'It overheats: 81 ÷ 220 ≈ 0.37 W, well over its 0.25 W rating.', correct: true, why: 'Right. It will get very hot, may discolour or smoke, and could fail. Use 1 kΩ or more on 9 V.' },
         { text: 'Nothing: resistors don’t mind voltage.', why: 'Voltage drives current, and V × I is heat. Here that heat is more than the resistor can shed.' },
         { text: 'The battery is shorted, because 220 Ω is almost zero.', why: '220 Ω is a real resistance; the current is about 41 mA, not a short circuit. But it is still too much power for this resistor.' },
+        { text: 'It overheats: 81 ÷ 220 ≈ 0.37 W, well over its 0.25 W rating.', correct: true, why: 'It will get very hot, may discolour or smoke, and could fail. Use 1 kΩ or more on 9 V.' },
         { text: 'It runs at exactly half its rating.', why: 'Work it out: 9 × 9 ÷ 220 ≈ 0.37 W, which is about 1.5 times the rating, not half.' },
       ],
     },
@@ -234,7 +259,7 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Why do designers keep a part at half its power rating or less?',
       options: [
-        { text: 'To leave a safety margin for heat, tolerances and warm surroundings, so the part runs cooler and lasts longer.', correct: true, why: 'Yes. A part run at its limit runs very hot and wears out faster. Margin is cheap; failures aren’t.' },
+        { text: 'To leave a safety margin for heat, tolerances and warm surroundings, so the part runs cooler and lasts longer.', correct: true, why: 'A part run at its limit runs very hot and wears out faster. Margin is cheap; failures aren’t.' },
         { text: 'Because the rating printed on the part is usually twice the real value.', why: 'Ratings are honest. The margin is for real-world conditions, not because the label lies.' },
         { text: 'To save energy from the battery.', why: 'The rule is about the part surviving. To save energy you’d choose a larger resistance, which is a different decision.' },
         { text: 'It’s only needed for resistors, not other parts.', why: 'Engineers derate almost everything: resistors, transistors, regulators, even wires.' },
@@ -245,10 +270,10 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'On the Uno’s 5 V, which gets hotter: a 220 Ω resistor or a 1 kΩ resistor?',
       options: [
-        { text: '220 Ω, because P = V² ÷ R: with the same voltage, less resistance means more power.', correct: true, why: 'Right: 25 ÷ 220 ≈ 0.114 W versus 25 ÷ 1000 = 0.025 W.' },
         { text: '1 kΩ, because more resistance means more friction.', why: 'More resistance means *less current* on the same voltage, and so less heat overall.' },
         { text: 'Both the same, because the voltage is the same.', why: 'Same voltage, different currents. Power depends on both.' },
         { text: 'Neither gets warm on 5 V.', why: '220 Ω on 5 V makes about 0.11 W. You can feel it get warm.' },
+        { text: '220 Ω, because P = V² ÷ R: with the same voltage, less resistance means more power.', correct: true, why: '25 ÷ 220 ≈ 0.114 W versus 25 ÷ 1000 = 0.025 W.' },
       ],
     },
   ],
@@ -259,6 +284,8 @@ const lesson: Lesson = {
       'Resistors: 220 Ω and 1 kΩ',
     ],
     steps: [
+      BREADBOARD,
+      NO_METER,
       'Unplugged: put the 1 kΩ resistor across the breadboard, with jumpers from one end to Uno **5V** and the other end to **GND**.',
       'Plug in for one minute (25 mW). Unplug, then touch the resistor lightly: it is barely warm, if at all.',
       'Swap in the 220 Ω resistor (about 0.114 W). Plug in for one minute, unplug, and touch it briefly and carefully: noticeably warm.',

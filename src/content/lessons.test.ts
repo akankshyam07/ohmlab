@@ -3,7 +3,8 @@ import { solveDC } from '../sim/solver'
 import type { Circuit, Component, SolveResult } from '../sim/types'
 import type { CircuitLayout, Point } from '../viz/types'
 import { getLesson, lessons, phases } from './index'
-import type { ControlValue, Lab, LabControl } from './types'
+import { BREADBOARD, LED_WAY, METER_NEEDED, METER_OPTIONAL, METER_VOLTS, NO_METER } from './lessons/primer'
+import type { Block, ControlValue, Lab, LabControl } from './types'
 
 const NODE_FIELDS: Record<Component['kind'], string[]> = {
   vsource: ['pos', 'neg'],
@@ -57,6 +58,22 @@ function apply(lab: Lab, settings: Setting[]): { circuit: Circuit; layout: Circu
   }
   return { circuit, layout }
 }
+
+/** The lab with some controls set by id, e.g. { r1: 1000, load: true }. */
+function withControls(lab: Lab, values: Record<string, ControlValue>) {
+  const settings = Object.entries(values).map(([id, value]) => {
+    const control = lab.controls.find((c) => c.id === id)
+    if (!control) throw new Error(`no control ${id}`)
+    return { control, value }
+  })
+  const { circuit } = apply(lab, settings)
+  return { circuit, result: solveDC(circuit) }
+}
+
+type Predict = Extract<Block, { type: 'predict' }>
+const predictsOf = (lesson: (typeof lessons)[number]) =>
+  lesson.sections.flatMap((s) => s.blocks.filter((b): b is Predict => b.type === 'predict'))
+const LEADING_VERDICT = /^(right|correct|exactly|yes)\b/i
 
 function* configurations(lab: Lab): Generator<Setting[]> {
   const axes = lab.controls.map((control) => valuesFor(control).map((value) => ({ control, value })))
@@ -158,7 +175,57 @@ describe('lesson schema', () => {
         }
       })
 
+      it('quiz: correct answers are not mostly first, and never start with a verdict', () => {
+        const choices = lesson.quiz.filter((q) => q.type === 'choice')
+        const first = choices.filter((q) => q.options[0].correct).length
+        expect(first, 'choice questions with the correct option first').toBeLessThanOrEqual(choices.length / 2)
+        // The quiz says "Correct"/"Not quite" itself and quotes the right option's why as a correction.
+        for (const q of choices) for (const o of q.options) if (o.correct) expect(o.why, q.id).not.toMatch(LEADING_VERDICT)
+      })
+
+      it('has at least 2 predict blocks: one correct option, a why for each, and a tryIt that names a lab control', () => {
+        const predicts = predictsOf(lesson)
+        expect(predicts.length).toBeGreaterThanOrEqual(2)
+        const controlLabels = lesson.lab!.controls.map((c) => c.label)
+        for (const p of predicts) {
+          expect(p.options.length, p.id).toBeGreaterThanOrEqual(3)
+          expect(p.options.filter((o) => o.correct).length, p.id).toBe(1)
+          for (const o of p.options) expect(o.why.trim().length, `${p.id}: ${o.text}`).toBeGreaterThan(10)
+          for (const o of p.options) if (o.correct) expect(o.why, p.id).not.toMatch(LEADING_VERDICT)
+          expect(controlLabels.some((label) => p.tryIt.includes(`**${label}**`)), `${p.id} tryIt names a control`).toBe(true)
+        }
+      })
+
+      it('build steps open with the breadboard primer and say whether a multimeter is needed', () => {
+        const build = lesson.realBuild!
+        expect(build.steps[0]).toBe(BREADBOARD)
+        const meter = [NO_METER, METER_NEEDED, METER_OPTIONAL].filter((m) => build.steps.includes(m))
+        expect(meter.length, 'exactly one multimeter statement').toBe(1)
+        const later = build.steps.slice(build.steps.indexOf(meter[0]) + 1).join(' ')
+        if (meter[0] !== NO_METER) expect(build.steps, 'meter primer').toContain(METER_VOLTS)
+        else expect(later, 'no meter steps on a no-meter day').not.toMatch(/DC volts|multimeter/i)
+        if (build.parts.some((p) => /LED/.test(p))) expect(build.steps).toContain(LED_WAY)
+      })
+
       const lab = lesson.lab!
+      it('skipOnClick sits only on choice options, and never on anything a click must reach', () => {
+        for (const c of lab.controls) {
+          if (c.type !== 'choice') {
+            expect(JSON.stringify(c), c.id).not.toContain('skipOnClick')
+            continue
+          }
+          const initial = (lab.circuit.components.find((x) => x.id === c.componentId) as unknown as Record<string, ControlValue>)[c.prop]
+          expect(c.options.find((o) => o.value === initial)?.skipOnClick, `${c.id}: the starting value is skipped`).toBeFalsy()
+          expect(c.options.filter((o) => !o.skipOnClick).length, c.id).toBeGreaterThanOrEqual(2)
+          // Anything that burns a part straight from the starting circuit must be a deliberate choice, not a click.
+          for (const o of c.options) {
+            const { result } = withControls(lab, { [c.id]: o.value })
+            const burns = Object.values(result.components).some((r) => r.status === 'burnt')
+            if (burns) expect(o.skipOnClick, `${c.id}: ${o.label} burns a part`).toBe(true)
+          }
+        }
+      })
+
       it('lab ids all resolve', () => {
         const ids = new Set(lab.circuit.components.map((c) => c.id))
         const controlIds = new Set(lab.controls.map((c) => c.id))
@@ -236,6 +303,16 @@ describe('lesson schema', () => {
   }
 })
 
+describe('predict blocks', () => {
+  it('have ids unique across all lessons, and vary where the correct option sits', () => {
+    const predicts = lessons.flatMap(predictsOf)
+    expect(new Set(predicts.map((p) => p.id)).size).toBe(predicts.length)
+    const positions = predicts.map((p) => p.options.findIndex((o) => o.correct))
+    expect(positions.filter((i) => i === 0).length).toBeLessThanOrEqual(predicts.length / 2)
+    expect(new Set(positions).size).toBeGreaterThanOrEqual(3)
+  })
+})
+
 describe('lab reachability (brute force with solveDC)', () => {
   for (const [id, lab] of labs) {
     it(`${id}: every challenge is reachable but not already solved, and wire currents balance`, () => {
@@ -309,25 +386,80 @@ describe('numeric quiz answers match hand calculations', () => {
 })
 
 describe('simulator values quoted in lesson text', () => {
-  const loop = (volts: number, ohms: number, colors: ('red' | 'blue')[]) => {
+  const loop = (volts: number, ohms: number, parts: ('red' | 'blue' | 'diode')[]) => {
     const components: Component[] = [
       { kind: 'vsource', id: 'V1', pos: 'v', neg: 'g', volts },
       { kind: 'resistor', id: 'R1', a: 'v', b: 'n0', ohms },
     ]
-    colors.forEach((color, i) =>
-      components.push({ kind: 'led', id: `D${i + 1}`, anode: `n${i}`, cathode: i === colors.length - 1 ? 'g' : `n${i + 1}`, color }),
-    )
-    return solveDC({ ground: 'g', components }).components.D1.current * 1000
+    parts.forEach((p, i) => {
+      const ends = { id: `D${i + 1}`, anode: `n${i}`, cathode: i === parts.length - 1 ? 'g' : `n${i + 1}` }
+      components.push(p === 'diode' ? { kind: 'diode', ...ends } : { kind: 'led', color: p, ...ends })
+    })
+    return solveDC({ ground: 'g', components }).components.R1.current * 1000
   }
   it.each([
     ['Day 1: red, 220 Ω, about 14 mA', 5, 220, ['red'], 14],
     ['Day 1: blue, 220 Ω, about 9 mA', 5, 220, ['blue'], 9],
+    ['Day 1: red, 10 kΩ, about 0.33 mA', 5, 10000, ['red'], 0.33],
+    ['Day 8: 1N4007 + red, 220 Ω, about 10.7 mA', 5, 220, ['diode', 'red'], 10.7],
     ['Day 2: red, 330 Ω, about 9.3 mA', 5, 330, ['red'], 9.3],
     ['Day 2: red on 9 V, 330 Ω, about 21 mA', 9, 330, ['red'], 21],
     ['Day 2: red on 9 V, 1 kΩ, about 7 mA', 9, 1000, ['red'], 7],
     ['Day 8: two red, 220 Ω, about 5.6 mA', 5, 220, ['red', 'red'], 5.6],
     ['Day 8: two blue on 9 V, 220 Ω, about 13 mA', 9, 220, ['blue', 'blue'], 13],
-  ] as const)('%s', (_label, volts, ohms, colors, quoted) => {
-    expect(Math.abs(loop(volts, ohms, [...colors]) - quoted) / quoted).toBeLessThan(0.05)
+  ] as const)('%s', (_label, volts, ohms, parts, quoted) => {
+    expect(Math.abs(loop(volts, ohms, [...parts]) - quoted) / quoted).toBeLessThan(0.05)
+  })
+})
+
+describe('challenges agree with what the lesson teaches', () => {
+  const challenge = (lessonId: string, id: string) => {
+    const lab = getLesson(lessonId)!.lab!
+    return { lab, ch: lab.challenges.find((c) => c.id === id)! }
+  }
+
+  it('Day 6: the 10× rule (1 kΩ / 1 kΩ with a 10 kΩ load) passes the stiff challenge; weaker dividers do not', () => {
+    const { lab, ch } = challenge('voltage-divider', 'stiff')
+    const run = (ohms: number, r1 = ohms) => {
+      const { circuit, result } = withControls(lab, { r1, r2: ohms, load: true })
+      return { vout: result.nodeVoltages.mid, pass: ch.check(result, circuit) }
+    }
+    // The loading table: 10 kΩ / 10 kΩ → 1.67 V, 1 kΩ / 1 kΩ → 2.38 V (about 5 % sag), 220 Ω / 220 Ω → 2.47 V.
+    expect(run(10000).vout).toBeCloseTo(1.667, 2)
+    expect(run(1000).vout).toBeCloseTo(2.381, 2)
+    expect(run(220).vout).toBeCloseTo(2.473, 2)
+    expect(Math.abs(1 - run(1000).vout / 2.5)).toBeCloseTo(0.05, 2)
+    expect(run(1000).pass).toBe(true)
+    expect(run(330).pass).toBe(true)
+    expect(run(220).pass).toBe(true)
+    expect(run(2000).pass).toBe(false)
+    // 5.1 kΩ over 10 kΩ happens to land near 2.5 V when loaded, but it isn't stiff.
+    expect(run(10000, 5100).vout).toBeGreaterThan(2.35)
+    expect(run(10000, 5100).pass).toBe(false)
+  })
+
+  it('Day 8: reverse blocking passes on 5 V but not when D1 is over-stressed on 9 V', () => {
+    const { lab, ch } = challenge('diodes-leds', 'reverse-block')
+    const five = withControls(lab, { 'flip-d1': true, supply: 5 })
+    const nine = withControls(lab, { 'flip-d1': true, supply: 9 })
+    expect(ch.check(five.result, five.circuit)).toBe(true)
+    expect(nine.result.components.D1.status).toBe('overvoltage')
+    expect(ch.check(nine.result, nine.circuit)).toBe(false)
+  })
+
+  it('LED challenges never accept a current the simulator warns about', () => {
+    for (const [id, lab] of labs) {
+      for (const settings of configurations(lab)) {
+        const { circuit } = apply(lab, settings)
+        const result = solveDC(circuit)
+        for (const ch of lab.challenges) {
+          if (!ch.check(result, circuit)) continue
+          if (id === 'first-led' && ch.id === 'burn-it') continue
+          for (const [part, r] of Object.entries(result.components))
+            if (circuit.components.find((c) => c.id === part)?.kind === 'led')
+              expect(['ok', 'off'], `${id}/${ch.id}: ${part} at ${(r.current * 1000).toFixed(1)} mA`).toContain(r.status)
+        }
+      }
+    }
   })
 })

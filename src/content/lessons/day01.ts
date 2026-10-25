@@ -1,5 +1,6 @@
 import type { Lesson } from '../types'
 import { between, mA, part } from './checks'
+import { BREADBOARD, LED_WAY, NO_METER } from './primer'
 
 const lesson: Lesson = {
   id: 'first-led',
@@ -87,6 +88,18 @@ const lesson: Lesson = {
           title: 'Unit shortcut',
           text: 'Volts ÷ kilohms gives milliamps. 3 V ÷ 1 kΩ = 3 mA. It saves counting zeros.',
         },
+        {
+          type: 'predict',
+          id: 'd1-ten-k',
+          prompt: 'The lab starts with R1 = 1 kΩ, and about 3 mA flows. What happens to the LED if you swap 1 kΩ for **10 kΩ**?',
+          options: [
+            { text: 'It gets brighter, because a bigger resistor is stronger.', why: 'A bigger resistance opposes current *more*, so less flows. Less current means less light.' },
+            { text: 'It glows much more faintly: about a tenth of the current, roughly 0.3 mA.', correct: true, why: 'The resistor still gets about 3 V, and 3 V ÷ 10 kΩ = 0.3 mA. Ten times the resistance, a tenth of the current. The simulator shows about 0.33 mA: a faint glow.' },
+            { text: 'Nothing changes, because the LED always takes 2 V.', why: 'The LED’s voltage hardly changes, true. But the *resistor* sets the current, and with ten times the resistance only a tenth as much flows.' },
+            { text: 'It goes out completely, because 10 kΩ blocks the current.', why: 'A resistor never blocks completely; it only limits. About 0.3 mA still flows, enough for a faint glow.' },
+          ],
+          tryIt: 'Set **Resistor R1** to **10 kΩ** and read **Current through the loop**. Then try **220 Ω**.',
+        },
       ],
     },
     {
@@ -99,7 +112,13 @@ const lesson: Lesson = {
         },
         {
           type: 'text',
-          text: 'An LED also takes a roughly fixed slice of the voltage, called its **forward voltage** (*Vf*). For a red LED it is about **2 V**. Give it a little more than that and its current shoots up, with almost nothing inside to stop it. A small LED is happy at **5–20 mA**. With no limit it can pass hundreds of mA and die in a flash.',
+          text: 'An LED also takes a roughly fixed slice of the voltage, called its **forward voltage** (*Vf*). For a red LED it is about **2 V**. Give it a little more than that and its current shoots up, with almost nothing inside to stop it. A small LED is happy at **5–20 mA**: 20 mA is its comfortable continuous rating, and about 30 mA is a typical absolute maximum. With no limit it can pass hundreds of mA and die in a flash.',
+        },
+        {
+          type: 'callout',
+          tone: 'info',
+          title: 'One number to remember: 20 mA',
+          text: 'The simulator warns you as soon as an LED goes over **20 mA**, and marks it burnt far beyond its maximum (over 60 mA). The burnt line is a rule of thumb for the simulator, not a measured fact: real LEDs vary.',
         },
         {
           type: 'text',
@@ -117,6 +136,18 @@ const lesson: Lesson = {
           ],
         },
         {
+          type: 'predict',
+          id: 'd1-backwards',
+          prompt: 'With 220 Ω in place, you put the LED in **backwards**. What does the current meter show?',
+          options: [
+            { text: 'About 14 mA, flowing the other way round the loop.', why: 'That would be true for a resistor, which works both ways. An LED is a one-way part: backwards, it blocks.' },
+            { text: 'Hundreds of mA: the LED burns out.', why: 'Backwards, almost no current flows, so nothing heats up. 5 V is also within what a typical LED can block in reverse (about 5 V).' },
+            { text: 'About 0 mA. The LED blocks, and nearly all 5 V sits across it the wrong way round.', correct: true, why: 'An LED only conducts from anode to cathode. Backwards it acts like an open switch, so the whole loop carries nothing, and the supply’s full 5 V appears across the LED.' },
+            { text: 'About 3 mA, the same as with 1 kΩ.', why: 'The resistor value doesn’t matter here. Backwards, the LED stops the current whatever resistor you use.' },
+          ],
+          tryIt: 'Press **Flip the LED** (or click the LED) and watch **Current through the loop** and **Voltage across the LED**. Flip it back afterwards.',
+        },
+        {
           type: 'callout',
           tone: 'warn',
           title: 'Only in the simulator',
@@ -127,7 +158,7 @@ const lesson: Lesson = {
   ],
   lab: {
     title: 'Your first LED circuit',
-    intro: 'A 5 V supply, a resistor and a red LED in one loop. Predict what each change will do *before* you make it. Click the resistor to change its value, and click the LED to flip it around.',
+    intro: 'A 5 V supply **V1**, a resistor **R1** and a red LED **D1** in one loop. Predict what each change will do *before* you make it. Click the resistor to step through the safe values, and click the LED to flip it around. The challenges unlock one at a time.',
     circuit: {
       ground: 'gnd',
       components: [
@@ -140,9 +171,9 @@ const lesson: Lesson = {
       width: 14,
       height: 9,
       parts: [
-        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: '5 V supply', labelSide: 'left' },
+        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
         { id: 'R1', from: { x: 5, y: 1 }, to: { x: 8, y: 1 }, label: 'R1', labelSide: 'above' },
-        { id: 'D1', from: { x: 11, y: 3 }, to: { x: 11, y: 6 }, label: 'LED', labelSide: 'right' },
+        { id: 'D1', from: { x: 11, y: 3 }, to: { x: 11, y: 6 }, label: 'D1 (LED)', labelSide: 'right' },
       ],
       wires: [
         { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 5, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
@@ -159,10 +190,10 @@ const lesson: Lesson = {
         componentId: 'R1',
         prop: 'ohms',
         options: [
-          { label: 'No resistor (0 Ω, sim only)', value: 0 },
           { label: '220 Ω', value: 220 },
           { label: '1 kΩ', value: 1000 },
           { label: '10 kΩ', value: 10000 },
+          { label: 'No resistor (0 Ω, sim only)', value: 0, skipOnClick: true },
         ],
       },
       { type: 'flip', id: 'flip', label: 'Flip the LED', componentId: 'D1' },
@@ -204,9 +235,9 @@ const lesson: Lesson = {
       },
       {
         id: 'burn-it',
-        prompt: 'It’s a simulator, so **break it!** Burn the LED out.',
-        hint: 'Put the LED the right way round and remove the thing that limits the current.',
-        success: 'Pop. With no resistor, nothing limits the current: the simulator shows hundreds of mA, many times the LED’s 20 mA limit. A real LED would be dead in a moment. This is exactly why every LED gets a resistor.',
+        prompt: 'You’ve seen the safe circuit. It’s a simulator, so now **break it!** Burn the LED out.',
+        hint: 'Put the LED the right way round, then choose **No resistor** in the Resistor R1 list. (Clicking R1 skips it on purpose.)',
+        success: 'Pop. With no resistor, nothing limits the current: the simulator shows hundreds of mA, far beyond the LED’s 20 mA rating and its roughly 30 mA maximum. A real LED would be dead in a moment. This is exactly why every LED gets a resistor.',
         check: (r) => r.components.D1?.status === 'burnt',
       },
       {
@@ -227,9 +258,9 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'What is the difference between voltage and current?',
       options: [
-        { text: 'Voltage is the push between two points; current is how much charge flows past a point each second.', correct: true, why: 'Right. Voltage is the cause (pressure), current is the effect (flow). Voltage is always *between* two points; current is measured *at* a point in the loop.' },
         { text: 'They are the same thing measured in different units.', why: 'No. You can have voltage with no current at all: a battery sitting on a table has 9 V between its terminals but nothing flows until you close a loop.' },
         { text: 'Current is the push; voltage is the flow.', why: 'This is backwards. Voltage is the push (like water pressure) and current is the flow (litres per second).' },
+        { text: 'Voltage is the push between two points; current is how much charge flows past a point each second.', correct: true, why: 'Voltage is the cause (pressure), current is the effect (flow). Voltage is always *between* two points; current is measured *at* a point in the loop.' },
         { text: 'Voltage flows through the wires; current stays inside the battery.', why: 'Voltage doesn’t flow anywhere. It is a difference between two points. Current is what flows, all the way round the loop.' },
       ],
     },
@@ -258,8 +289,8 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'You put the LED in backwards (long leg to GND). What happens?',
       options: [
-        { text: 'It stays dark, because an LED only lets current through from anode to cathode.', correct: true, why: 'Correct. Backwards, the LED blocks current, so the whole loop carries nothing. Turn it round and it lights.' },
         { text: 'It lights the same; LEDs work both ways.', why: 'No. The D in LED stands for *diode*, a one-way part. That one-way behaviour is the whole point of a diode.' },
+        { text: 'It stays dark, because an LED only lets current through from anode to cathode.', correct: true, why: 'Backwards, the LED blocks current, so the whole loop carries nothing. Turn it round and it lights.' },
         { text: 'It burns out instantly.', why: 'Not on a 5 V supply. Backwards, almost no current flows, so nothing heats up. (LEDs can be damaged by large reverse voltages, but 5 V is within what a typical LED can block.)' },
         { text: 'It lights a different colour.', why: 'The colour is fixed by the material inside the LED. Reversing it only decides whether current flows.' },
       ],
@@ -269,10 +300,10 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Why does an LED need a resistor in series with it?',
       options: [
-        { text: 'Above its forward voltage an LED’s current rises steeply with almost nothing to stop it, so the resistor sets a safe current.', correct: true, why: 'Exactly. The LED takes about 2 V; the resistor takes the rest, and Ohm’s law on the resistor fixes the current.' },
         { text: 'The resistor makes the LED brighter.', why: 'The opposite: a resistor reduces current, so the LED is dimmer than it would be without it. Without it, though, the LED is brightly dead.' },
         { text: 'The resistor stores energy so the LED doesn’t flicker.', why: 'Resistors don’t store energy; they turn it into heat. (Capacitors store energy; that’s Day 10.)' },
         { text: 'It doesn’t really; the resistor is only there to make the circuit look complete.', why: 'Try the **No resistor** option in the lab. The current jumps to hundreds of mA and the LED burns out.' },
+        { text: 'Above its forward voltage an LED’s current rises steeply with almost nothing to stop it, so the resistor sets a safe current.', correct: true, why: 'The LED takes about 2 V; the resistor takes the rest, and Ohm’s law on the resistor fixes the current.' },
       ],
     },
     {
@@ -280,7 +311,7 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'You move the resistor to the other side of the LED, between the cathode and GND. What changes?',
       options: [
-        { text: 'Nothing. In a single loop the same current flows through every part, so the order doesn’t matter.', correct: true, why: 'Right. The current is the same everywhere in one loop. The resistor limits it wherever it sits.' },
+        { text: 'Nothing. In a single loop the same current flows through every part, so the order doesn’t matter.', correct: true, why: 'The current is the same everywhere in one loop. The resistor limits it wherever it sits.' },
         { text: 'The LED burns out, because current reaches it before the resistor can slow it.', why: 'Current doesn’t “arrive” and then get slowed down. The whole loop settles to one current almost instantly, and the resistor sets it wherever it is.' },
         { text: 'The LED gets dimmer, because current is used up by the LED first.', why: 'Current isn’t used up. The same current that goes into the LED comes out of it. What gets “used” is voltage (energy), shared between the parts.' },
         { text: 'The LED won’t light at all.', why: 'It still lights. The loop is still closed and still has the resistor in it.' },
@@ -296,6 +327,9 @@ const lesson: Lesson = {
       '2 jumper wires',
     ],
     steps: [
+      BREADBOARD,
+      LED_WAY,
+      NO_METER,
       'Unplug the Uno from USB while you wire. Make it a habit.',
       'Push the LED into the breadboard so its two legs are in **different numbered rows**. Note which row has the **long leg** (the anode).',
       'Put the **220 Ω** resistor from the long-leg row to an empty row.',

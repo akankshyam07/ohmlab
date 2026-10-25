@@ -1,5 +1,6 @@
 import type { Lesson } from '../types'
-import { between } from './checks'
+import { between, part } from './checks'
+import { BREADBOARD, METER_NEEDED, METER_VOLTS } from './primer'
 
 const kitValues = [
   { label: '220 Ω', value: 220 },
@@ -36,6 +37,18 @@ const lesson: Lesson = {
           type: 'formula',
           expr: 'Vout = Vin × R2 ÷ (R1 + R2)',
           caption: '**R1** is the top resistor (to the supply), **R2** the bottom one (to GND). **Vout** is measured from the middle point to GND.',
+        },
+        {
+          type: 'predict',
+          id: 'd6-start',
+          prompt: 'The lab starts with **R1 = 10 kΩ** on top and **R2 = 1 kΩ** on the bottom, on 5 V. What does Vout read?',
+          options: [
+            { text: 'About 4.5 V, because the bigger resistor wins.', why: 'The bigger resistor takes the bigger share, and it is on *top*. Vout is the share across the *bottom* resistor, which is the small one.' },
+            { text: 'About 0.45 V: R2 is only 1 kΩ of the 11 kΩ total, so it gets 1/11 of 5 V.', correct: true, why: 'Vout = 5 V × 1 kΩ ÷ 11 kΩ ≈ 0.45 V. The output is the bottom resistor’s fraction of the total.' },
+            { text: '2.5 V, because a divider always gives half.', why: 'Only equal resistors give half. Here the ratio is 1 to 10.' },
+            { text: 'About 0.5 V: 1 kΩ ÷ 10 kΩ × 5 V.', why: 'Close, but the fraction is R2 ÷ (R1 + R2) = 1 ÷ 11, not R2 ÷ R1 = 1 ÷ 10.' },
+          ],
+          tryIt: 'Read **Vout (across R2)** in the lab. Then set **R1 (top)** to **1 kΩ** and watch Vout jump to 2.5 V.',
         },
         {
           type: 'text',
@@ -88,6 +101,18 @@ const lesson: Lesson = {
           text: 'Whatever you connect to the output (a sensor, a chip, a meter) is called the **load**. The load connects from the midpoint to GND, which puts it **in parallel with R2**. Parallel resistors combine to something smaller, so the output drops.',
         },
         {
+          type: 'predict',
+          id: 'd6-load',
+          prompt: 'A **1 kΩ / 1 kΩ** divider gives 2.5 V. You connect the **10 kΩ load**, ten times bigger than R2. What does Vout do?',
+          options: [
+            { text: 'Nothing: 10 kΩ is so big that it makes no difference at all.', why: 'Any load takes some current, so there is always some sag. Ten times bigger keeps it small, not zero.' },
+            { text: 'It rises, because the load adds resistance.', why: 'The load sits in parallel with R2, and parallel resistors combine to something *smaller*. Smaller bottom, smaller share.' },
+            { text: 'It drops a little, to about 2.38 V: about 5 % low.', correct: true, why: 'R2 ∥ load = 1 kΩ ∥ 10 kΩ ≈ 909 Ω, so Vout = 5 V × 909 ÷ 1909 ≈ 2.38 V. That 5 % sag is what the 10× rule buys you.' },
+            { text: 'It collapses to about 1.67 V, a third lower.', why: 'That happens when the load equals R2 (10 kΩ on a 10 kΩ / 10 kΩ divider). Here the load is ten times bigger, so the sag is much smaller.' },
+          ],
+          tryIt: 'Set **R1 (top)** and **R2 (bottom)** to **1 kΩ**, then set **Load (10 kΩ)** to **Connected** and read **Vout (across R2)**.',
+        },
+        {
           type: 'walkthrough',
           title: 'A 10 kΩ load on a 10 kΩ / 10 kΩ divider',
           steps: [
@@ -99,16 +124,16 @@ const lesson: Lesson = {
         },
         {
           type: 'table',
-          head: ['Divider (R1 / R2)', 'Unloaded', 'With 10 kΩ load', 'Current wasted in the divider'],
+          head: ['Divider (R1 / R2)', 'Load ÷ R2', 'Vout with 10 kΩ load', 'Sag from 2.50 V', 'Current through the divider'],
           rows: [
-            ['10 kΩ / 10 kΩ', '2.50 V', '1.67 V', '0.25 mA'],
-            ['1 kΩ / 1 kΩ', '2.50 V', '2.38 V', '2.5 mA'],
-            ['220 Ω / 220 Ω', '2.50 V', '2.47 V', '11.4 mA'],
+            ['10 kΩ / 10 kΩ', '1×', '1.67 V', '33 %', '0.25 mA'],
+            ['1 kΩ / 1 kΩ', '10×', '2.38 V', 'about 5 %', '2.5 mA'],
+            ['220 Ω / 220 Ω', '45×', '2.47 V', 'about 1 %', '11.4 mA'],
           ],
         },
         {
           type: 'text',
-          text: 'Smaller resistors make a **stiff** divider that barely sags, but they waste more current all the time. A common rule of thumb: make the load at least **10 times** bigger than R2.',
+          text: 'Smaller resistors make a **stiff** divider that barely sags, but they waste more current all the time. A common rule of thumb: make the load at least **10 times** bigger than R2. At exactly 10× the output sags by about **5 %** (the 1 kΩ row); a bigger ratio sags less.',
         },
         {
           type: 'callout',
@@ -121,7 +146,7 @@ const lesson: Lesson = {
   ],
   lab: {
     title: 'Divide and probe',
-    intro: 'R1 on top, R2 on the bottom. The probe **Vout** reads the midpoint. Predict the output before every change, then flip the load switch and watch it sag.',
+    intro: 'R1 on top, R2 on the bottom. The probe **Vout** reads the midpoint. Predict the output before every change, then connect the load **RL** with switch **S1** and watch it sag.',
     circuit: {
       ground: 'gnd',
       components: [
@@ -136,11 +161,11 @@ const lesson: Lesson = {
       width: 14,
       height: 9,
       parts: [
-        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: '5 V', labelSide: 'left' },
-        { id: 'R1', from: { x: 6, y: 1 }, to: { x: 6, y: 4 }, label: 'R1 (top)', labelSide: 'left' },
-        { id: 'R2', from: { x: 6, y: 5 }, to: { x: 6, y: 8 }, label: 'R2 (bottom)', labelSide: 'left' },
-        { id: 'S1', from: { x: 8, y: 4 }, to: { x: 11, y: 4 }, label: 'Load switch', labelSide: 'above' },
-        { id: 'RL', from: { x: 12, y: 5 }, to: { x: 12, y: 8 }, label: 'Load 10 kΩ', labelSide: 'right' },
+        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
+        { id: 'R1', from: { x: 6, y: 1 }, to: { x: 6, y: 4 }, label: 'R1', labelSide: 'left' },
+        { id: 'R2', from: { x: 6, y: 5 }, to: { x: 6, y: 8 }, label: 'R2', labelSide: 'left' },
+        { id: 'S1', from: { x: 8, y: 4 }, to: { x: 11, y: 4 }, label: 'S1 (load switch)', labelSide: 'above' },
+        { id: 'RL', from: { x: 12, y: 5 }, to: { x: 12, y: 8 }, label: 'RL (load)', labelSide: 'right' },
       ],
       wires: [
         { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 6, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
@@ -164,7 +189,7 @@ const lesson: Lesson = {
     readouts: [
       { componentId: 'R2', quantity: 'voltage', label: 'Vout (across R2)' },
       { componentId: 'R1', quantity: 'voltage', label: 'Voltage across R1' },
-      { componentId: 'R1', quantity: 'current', label: 'Divider current (through R1)' },
+      { componentId: 'R1', quantity: 'current', label: 'Current from the supply (through R1)' },
       { componentId: 'RL', quantity: 'current', label: 'Load current' },
     ],
     challenges: [
@@ -184,10 +209,20 @@ const lesson: Lesson = {
       },
       {
         id: 'stiff',
-        prompt: 'Connect the load. Keep Vout between **2.4 and 2.6 V** even with the 10 kΩ load attached.',
-        hint: 'The load sits in parallel with R2. If R2 is much smaller than 10 kΩ, the load hardly changes anything.',
-        success: 'Small resistors make a stiff divider: the load barely matters. The price is more current wasted through the divider all the time. Check the divider current meter.',
-        check: (r) => r.components.S1?.status === 'ok' && between(r.nodeVoltages.mid, 2.4, 2.6),
+        prompt: 'Connect the load and build a **stiff** divider: follow the 10× rule (the 10 kΩ load at least 10 × R2) and keep Vout within about 5 % of 2.5 V, between **2.35 and 2.65 V**.',
+        hint: 'The load is 10 kΩ, so the 10× rule means R2 is 1 kΩ or less. Keep R1 equal to R2 for 2.5 V. At exactly 10× the output sags about 5 %, to 2.38 V, and that still counts.',
+        success: '1 kΩ / 1 kΩ gives 2.38 V (about 5 % low, the rule’s worst case); 330 Ω / 330 Ω gives 2.46 V and 220 Ω / 220 Ω 2.47 V. Smaller resistors make a stiffer divider. The price: check **Current from the supply**, which flows all the time.',
+        check: (r, c) => {
+          const r2 = part(c, 'R2')
+          const load = part(c, 'RL')
+          return (
+            r.components.S1?.status === 'ok' &&
+            r2?.kind === 'resistor' &&
+            load?.kind === 'resistor' &&
+            r2.ohms * 10 <= load.ohms &&
+            between(r.nodeVoltages.mid, 2.35, 2.65)
+          )
+        },
       },
     ],
   },
@@ -217,10 +252,10 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Which pair gives about 3.3 V from 5 V?',
       options: [
-        { text: 'R1 (top) = 1 kΩ, R2 (bottom) = 2 kΩ', correct: true, why: '5 × 2 ÷ 3 ≈ 3.33 V. The bigger resistor is on the bottom, so the output is the bigger share.' },
         { text: 'R1 (top) = 2 kΩ, R2 (bottom) = 1 kΩ', why: 'Upside down: 5 × 1 ÷ 3 ≈ 1.67 V. The output is the share across the **bottom** resistor.' },
         { text: 'R1 = 1 kΩ, R2 = 1 kΩ', why: 'Equal resistors give half: 2.5 V.' },
         { text: 'R1 (top) = 10 kΩ, R2 (bottom) = 1 kΩ', why: '5 × 1 ÷ 11 ≈ 0.45 V. Far too low.' },
+        { text: 'R1 (top) = 1 kΩ, R2 (bottom) = 2 kΩ', correct: true, why: '5 × 2 ÷ 3 ≈ 3.33 V. The bigger resistor is on the bottom, so the output is the bigger share.' },
       ],
     },
     {
@@ -228,8 +263,8 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'You connect a load to a divider’s output and the voltage drops. Why?',
       options: [
-        { text: 'The load is in parallel with R2, which lowers the bottom resistance, so the bottom gets a smaller share.', correct: true, why: 'Exactly. The divider ratio changes because the bottom half is now R2 ∥ load.' },
         { text: 'The supply gets weaker when more current is drawn.', why: 'In the lab the supply is ideal and stays at exactly 5 V, yet the output still sags. The cause is the divider itself.' },
+        { text: 'The load is in parallel with R2, which lowers the bottom resistance, so the bottom gets a smaller share.', correct: true, why: 'The divider ratio changes because the bottom half is now R2 ∥ load.' },
         { text: 'The load adds resistance in series with R1.', why: 'The load connects from the midpoint to GND, which is alongside R2 (parallel), not in line with R1.' },
         { text: 'Current is used up by the load before it reaches R2.', why: 'Current isn’t used up. Some current that used to go through R2 now goes through the load instead.' },
       ],
@@ -249,7 +284,7 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Can you light a red LED at 15 mA from the midpoint of a 10 kΩ / 10 kΩ divider on 5 V?',
       options: [
-        { text: 'No. At most 5 V ÷ 10 kΩ = 0.5 mA can come through R1, far below 15 mA.', correct: true, why: 'Right. Every bit of load current has to pass through R1, which limits it. Dividers are for signals; use a resistor in series with the LED instead.' },
+        { text: 'No. At most 5 V ÷ 10 kΩ = 0.5 mA can come through R1, far below 15 mA.', correct: true, why: 'Every bit of load current has to pass through R1, which limits it. Dividers are for signals; use a resistor in series with the LED instead.' },
         { text: 'Yes, because the midpoint is at 2.5 V, more than the LED’s 2 V.', why: 'The voltage is there only until you draw current. The LED pulls the midpoint down, and R1 lets at most 0.5 mA through.' },
         { text: 'Yes, if you add a second divider in parallel.', why: 'Two 10 kΩ tops in parallel make 5 kΩ: still only 1 mA at most. The divider resistors are far too large.' },
         { text: 'Only on a 9 V battery.', why: 'On 9 V, R1 still allows at most 9 V ÷ 10 kΩ = 0.9 mA. Still nowhere near 15 mA.' },
@@ -261,9 +296,12 @@ const lesson: Lesson = {
       'Elegoo Uno and USB cable',
       'Breadboard and jumper wires',
       'Resistors: 1 kΩ, 2 kΩ, 5.1 kΩ and two 10 kΩ, plus a third 10 kΩ as the load',
-      'Digital multimeter',
+      'Digital multimeter (needed today)',
     ],
     steps: [
+      BREADBOARD,
+      METER_NEEDED,
+      METER_VOLTS,
       'Unplugged: place R1 = 1 kΩ from a row we’ll call **TOP** to a row called **MID**, and R2 = 2 kΩ from MID to the GND rail.',
       'Jumper Uno **5V** to TOP and Uno **GND** to the GND rail. Plug in USB.',
       'Meter on DC volts: black probe on GND, red on MID. Expect about 3.33 V.',

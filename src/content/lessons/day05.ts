@@ -1,6 +1,7 @@
 import type { SolveResult } from '../../sim/types'
 import type { Lesson } from '../types'
 import { between, mA } from './checks'
+import { BREADBOARD, METER_NEEDED, METER_OHMS, METER_VOLTS } from './primer'
 
 const closed = (r: SolveResult) => r.components.S1?.status === 'ok'
 
@@ -31,6 +32,18 @@ const lesson: Lesson = {
           text: 'So in series the **current is the same** through every part, and the **voltages add up**. The total resistance is simply the sum.',
         },
         { type: 'formula', expr: 'R total = R1 + R2 + …', caption: 'Series: resistances add. The total is always bigger than the biggest one.' },
+        {
+          type: 'predict',
+          id: 'd5-share',
+          prompt: 'In the lab, R1 and R2 are both 1 kΩ in series on 5 V, so each takes 2.5 V. You change **R2 to 2 kΩ**. Which resistor now takes the bigger share of the 5 V?',
+          options: [
+            { text: 'R1, because the current reaches it first.', why: 'Current doesn’t get used up along the way. The same current flows through both, so position doesn’t matter.' },
+            { text: 'Neither: the current is the same, so the voltages stay equal.', why: 'Same current, yes. But V = I × R, so the resistor with more resistance gets more voltage.' },
+            { text: 'R1, because the smaller resistor lets more through.', why: 'In series there is only one current. What differs is the voltage, and V = I × R gives the bigger resistor the bigger share.' },
+            { text: 'R2, about 3.33 V, because the bigger resistor takes the bigger share.', correct: true, why: 'Total 3 kΩ, so I = 5 V ÷ 3 kΩ ≈ 1.67 mA. R2 takes 1.67 mA × 2 kΩ ≈ 3.33 V and R1 the remaining 1.67 V.' },
+          ],
+          tryIt: 'Set **Resistor R2** to **2 kΩ** and compare **Voltage across R1** with **Voltage across R2**.',
+        },
         {
           type: 'walkthrough',
           title: 'R1 = 1 kΩ and R2 = 2 kΩ in series (switch S1 open)',
@@ -69,6 +82,18 @@ const lesson: Lesson = {
         {
           type: 'text',
           text: 'The total is always **smaller than the smallest** branch. Each extra path lets more current through, never less.',
+        },
+        {
+          type: 'predict',
+          id: 'd5-close-s1',
+          prompt: 'All three resistors are 1 kΩ and S1 is open: 5 V ÷ 2 kΩ = 2.5 mA flows. You **close S1**, putting R3 alongside R2. What does the total current do?',
+          options: [
+            { text: 'It drops, because there is now an extra resistor in the circuit.', why: 'An extra resistor in *parallel* adds a path, which lowers the total resistance. Only a resistor in series would reduce the current.' },
+            { text: 'It rises to about 3.3 mA: R2 and R3 together act like 500 Ω, so the total is 1.5 kΩ.', correct: true, why: 'R2 ∥ R3 = 500 Ω, in series with R1’s 1 kΩ makes 1.5 kΩ. 5 V ÷ 1.5 kΩ ≈ 3.33 mA.' },
+            { text: 'It doubles to 5 mA, because there are now two paths.', why: 'Only the bottom half got a second path. All the current still has to pass through R1, so the total resistance falls from 2 kΩ to 1.5 kΩ, not to half.' },
+            { text: 'It stays at 2.5 mA, because the supply is still 5 V.', why: 'Same voltage, but less total resistance, so more current flows.' },
+          ],
+          tryIt: 'Set **Switch S1** to **Closed** and read **Total current**, then **Current through R2** and **Current through R3**.',
         },
         {
           type: 'callout',
@@ -138,7 +163,7 @@ const lesson: Lesson = {
       width: 14,
       height: 9,
       parts: [
-        { id: 'V1', from: { x: 1, y: 3 }, to: { x: 1, y: 6 }, label: '5 V', labelSide: 'left' },
+        { id: 'V1', from: { x: 1, y: 3 }, to: { x: 1, y: 6 }, label: 'V1', labelSide: 'left' },
         { id: 'R1', from: { x: 3, y: 1 }, to: { x: 6, y: 1 }, label: 'R1', labelSide: 'above' },
         { id: 'R2', from: { x: 8, y: 3 }, to: { x: 8, y: 6 }, label: 'R2', labelSide: 'left' },
         { id: 'S1', from: { x: 10, y: 1 }, to: { x: 13, y: 1 }, label: 'S1', labelSide: 'above' },
@@ -249,9 +274,9 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Two different resistors are in series. What is the same for both of them?',
       options: [
-        { text: 'The current through them.', correct: true, why: 'Right. There is only one path, so every bit of charge goes through both.' },
         { text: 'The voltage across them.', why: 'Only if they are equal. In series the voltage is shared in proportion to resistance: the bigger resistor takes more.' },
         { text: 'The power they turn into heat.', why: 'Power is current × voltage. The current is the same, but the voltages differ, so the powers differ.' },
+        { text: 'The current through them.', correct: true, why: 'There is only one path, so every bit of charge goes through both.' },
         { text: 'Nothing; everything is different.', why: 'The current is the same: a single path means a single current.' },
       ],
     },
@@ -260,8 +285,8 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'A 1 kΩ resistor is connected to 5 V. You add a second 1 kΩ in parallel with it. What happens to the current from the supply?',
       options: [
-        { text: 'It doubles, because the new path carries as much current again.', correct: true, why: 'Correct. Each 1 kΩ carries 5 mA, so the supply now gives 10 mA. Total resistance halved to 500 Ω.' },
         { text: 'It halves, because there is more resistance in the circuit.', why: 'Adding a resistor in *parallel* adds a path, which lowers the total resistance. (Adding one in *series* would halve the current.)' },
+        { text: 'It doubles, because the new path carries as much current again.', correct: true, why: 'Each 1 kΩ carries 5 mA, so the supply now gives 10 mA. Total resistance halved to 500 Ω.' },
         { text: 'It stays the same, because the supply is still 5 V.', why: 'The supply voltage is the same, but now there are two paths for current, so more flows in total.' },
         { text: 'Nothing flows, because the current can’t decide which path to take.', why: 'Current takes every available path at once, split by resistance.' },
       ],
@@ -282,9 +307,13 @@ const lesson: Lesson = {
       'Elegoo Uno and USB cable',
       'Breadboard and jumper wires',
       'Resistors: two 1 kΩ and one 2 kΩ',
-      'Digital multimeter',
+      'Digital multimeter (needed today)',
     ],
     steps: [
+      BREADBOARD,
+      METER_NEEDED,
+      METER_OHMS,
+      METER_VOLTS,
       'With nothing powered, put a 1 kΩ and a 2 kΩ resistor in series on the breadboard (end to end, sharing one row).',
       'Set the multimeter to resistance (Ω) and measure across both: expect about 3 kΩ.',
       'Now put the two 1 kΩ resistors in parallel (both ends sharing the same two rows). Measure across them: expect about 500 Ω.',

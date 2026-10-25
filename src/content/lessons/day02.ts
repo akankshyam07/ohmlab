@@ -1,5 +1,6 @@
 import type { Lesson } from '../types'
 import { between, mA } from './checks'
+import { BREADBOARD, LED_WAY, NO_METER } from './primer'
 
 const lesson: Lesson = {
   id: 'ohms-law',
@@ -42,6 +43,18 @@ const lesson: Lesson = {
           title: 'Ohm’s law is for resistors',
           text: 'V = I × R describes a resistor exactly. An LED doesn’t obey it: its voltage stays near Vf whatever the current. That’s why you apply Ohm’s law to the **resistor**, using the voltage the LED leaves over.',
         },
+        {
+          type: 'predict',
+          id: 'd2-low-supply',
+          prompt: 'The lab starts at 5 V with 1 kΩ. You slide the supply down to **1.5 V**. Ohm’s law on the resistor alone would say 1.5 V ÷ 1 kΩ = 1.5 mA. What does the meter show?',
+          options: [
+            { text: 'About 1.5 mA, exactly as Ohm’s law says.', why: 'That treats the LED as if it weren’t there. The LED needs about its forward voltage before it conducts, and 1.5 V is not enough.' },
+            { text: 'About 0.45 mA, because the current scales with the supply: 1.5 ÷ 5 of 1.5 mA.', why: 'That would be true for resistors alone. The LED isn’t a resistor: below its forward voltage it is essentially off.' },
+            { text: 'More than at 5 V, because the resistor has less to do.', why: 'Less push never means more current. Lowering the supply can only reduce it.' },
+            { text: 'Practically nothing. 1.5 V is below the red LED’s forward voltage, so it barely conducts.', correct: true, why: 'A red LED needs roughly 1.7–2 V before real current flows. Below that the meter reads almost zero, even though the supply is on. Ohm’s law applies to the resistor, not to the LED.' },
+          ],
+          tryIt: 'Slide **Supply voltage** down to **1.5 V** and read **Current through R1** and **Voltage across the LED**.',
+        },
       ],
     },
     {
@@ -65,6 +78,18 @@ const lesson: Lesson = {
             { text: 'Your kit has 220 Ω and 330 Ω, not 300 Ω. Round **up** to 330 Ω: slightly less current is always safe.', math: 'I = 3 V ÷ 330 Ω ≈ 9.1 mA', highlight: ['R1', 'D1'] },
             { text: 'In the lab, the realistic LED model shows about **9.3 mA**. Close to the hand calculation, as it should be.', highlight: ['D1'] },
           ],
+        },
+        {
+          type: 'predict',
+          id: 'd2-nine-volt',
+          prompt: '330 Ω gives the red LED about 9 mA on 5 V. You keep **330 Ω** and switch to a **9 V** battery. What happens?',
+          options: [
+            { text: 'Still about 9 mA: the resistor hasn’t changed.', why: 'The resistor is the same, but the voltage across it isn’t. It now takes 9 − 2 = 7 V instead of 3 V, so more current flows.' },
+            { text: 'About 16 mA: 9 V is 1.8 times 5 V, so the current goes up 1.8 times.', why: 'Close in spirit, but the LED keeps its 2 V either way. The resistor’s share grows from 3 V to 7 V, which is 2.3 times, not 1.8.' },
+            { text: 'About 21 mA: the resistor now takes 7 V, and 7 V ÷ 330 Ω is over the LED’s 20 mA rating.', correct: true, why: 'The LED still takes about 2 V, so the resistor’s share jumps from 3 V to 7 V. 7 V ÷ 330 Ω ≈ 21 mA, just past the 20 mA the simulator allows before it warns.' },
+            { text: 'The LED goes out, because 9 V is too much for it.', why: 'Too much voltage on the *loop* doesn’t switch the LED off; it pushes more current through it.' },
+          ],
+          tryIt: 'Set **Resistor R1** to **330 Ω**, slide **Supply voltage** to **9 V**, and read **Current through R1**. The LED gets a warning tag over 20 mA.',
         },
         {
           type: 'walkthrough',
@@ -134,14 +159,14 @@ const lesson: Lesson = {
           type: 'callout',
           tone: 'tip',
           title: 'Not sure? Use the bag or a meter',
-          text: 'Colours are hard to tell apart under yellow light. Keep resistors in their labelled bags, and on Day 4 you’ll learn to measure them with a multimeter.',
+          text: 'Colours are hard to tell apart under yellow light. Keep resistors in their labelled bags, and if you have a multimeter, set it to Ω and measure them with the power off.',
         },
       ],
     },
   ],
   lab: {
     title: 'Pick the resistor',
-    intro: 'Change the supply voltage and the resistor and watch the meters. The voltage across R1 divided by its resistance always equals the current: Ohm’s law, live.',
+    intro: 'Change the supply voltage and the resistor and watch the meters. Predict each reading first. The voltage across R1 divided by its resistance always equals the current: Ohm’s law, live.',
     circuit: {
       ground: 'gnd',
       components: [
@@ -154,9 +179,9 @@ const lesson: Lesson = {
       width: 14,
       height: 9,
       parts: [
-        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'Supply', labelSide: 'left' },
+        { id: 'V1', from: { x: 2, y: 3 }, to: { x: 2, y: 6 }, label: 'V1', labelSide: 'left' },
         { id: 'R1', from: { x: 5, y: 1 }, to: { x: 8, y: 1 }, label: 'R1', labelSide: 'above' },
-        { id: 'D1', from: { x: 11, y: 3 }, to: { x: 11, y: 6 }, label: 'Red LED', labelSide: 'right' },
+        { id: 'D1', from: { x: 11, y: 3 }, to: { x: 11, y: 6 }, label: 'D1 (LED)', labelSide: 'right' },
       ],
       wires: [
         { id: 'w-v1-r1', points: [{ x: 2, y: 3 }, { x: 2, y: 1 }, { x: 5, y: 1 }], carries: { componentId: 'R1', sign: 1 } },
@@ -202,7 +227,7 @@ const lesson: Lesson = {
         id: 'nine-volt',
         prompt: 'Swap to a **9 V** battery. Keep the LED in the safe zone: **5–20 mA**.',
         hint: 'Slide the supply to 9 V. The resistor now has to take about 7 V. What does 330 Ω give? Then go one size up.',
-        success: '1 kΩ gives about 7 mA. With 330 Ω the LED would get about 21 mA, just over the limit. Same LED, bigger supply, bigger resistor.',
+        success: '1 kΩ gives about 7 mA. With 330 Ω the LED would get about 21 mA, just over its 20 mA rating, and the simulator warns. Same LED, bigger supply, bigger resistor.',
         check: (r) => between(r.components.V1?.voltage, 8.99, 9.01) && r.components.D1?.status === 'ok' && between(r.components.D1.current, 5 * mA, 20 * mA),
       },
       {
@@ -240,8 +265,8 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'Your calculation says 300 Ω. Your kit has 220 Ω and 330 Ω. Which should you use?',
       options: [
-        { text: '330 Ω, because rounding up gives slightly less current, which is always safe.', correct: true, why: 'Right. 330 Ω gives about 9 mA instead of 10 mA. The LED is a touch dimmer and perfectly happy.' },
         { text: '220 Ω, because it’s the most common LED resistor.', why: 'It would give about 14 mA, which happens to be fine here. But rounding down means *more* current than you planned. Make rounding up your habit; it matters when the margin is small.' },
+        { text: '330 Ω, because rounding up gives slightly less current, which is always safe.', correct: true, why: '330 Ω gives about 9 mA instead of 10 mA. The LED is a touch dimmer and perfectly happy.' },
         { text: 'Either; the LED doesn’t care about current.', why: 'It cares a lot. An LED’s life and brightness depend directly on its current.' },
         { text: 'Neither. You must buy a 300 Ω resistor.', why: 'Resistors only come in standard values. Engineers always pick the nearest safe standard value.' },
       ],
@@ -251,9 +276,9 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'A 4-band resistor reads **red, red, brown, gold**. What is its value?',
       options: [
-        { text: '220 Ω', correct: true, why: 'Red = 2, red = 2, brown = × 10. So 22 × 10 = 220 Ω, ±5 % (gold).' },
         { text: '22 Ω', why: 'Brown as a multiplier means × 10 (add one zero), not × 1. 22 Ω would be red, red, black.' },
         { text: '2.2 kΩ', why: 'That would need a red multiplier (× 100): red, red, red.' },
+        { text: '220 Ω', correct: true, why: 'Red = 2, red = 2, brown = × 10. So 22 × 10 = 220 Ω, ±5 % (gold).' },
         { text: '221 Ω', why: 'On a 4-band resistor only the first two bands are digits. The third is the multiplier.' },
       ],
     },
@@ -283,10 +308,10 @@ const lesson: Lesson = {
       type: 'choice',
       prompt: 'You turn the supply down from 5 V to 1.5 V, keeping the red LED and a 220 Ω resistor. What happens?',
       options: [
-        { text: 'The LED goes dark, because 1.5 V is below its forward voltage, so almost no current flows.', correct: true, why: 'Correct. An LED needs about its forward voltage before current really flows. Below that it is practically off.' },
         { text: 'It glows at about 30 % brightness, because 1.5 is 30 % of 5.', why: 'An LED isn’t a resistor, so current isn’t proportional to voltage. Below Vf it is essentially off.' },
         { text: 'It burns out, because the resistor no longer limits anything.', why: 'Less voltage means less current, never more. Nothing is at risk.' },
         { text: 'Current flows, (1.5 V ÷ 220 Ω) ≈ 6.8 mA.', why: 'That would be true for a resistor on its own. The LED takes its share first, and at 1.5 V it won’t open up.' },
+        { text: 'The LED goes dark, because 1.5 V is below its forward voltage, so almost no current flows.', correct: true, why: 'An LED needs about its forward voltage before current really flows. Below that it is practically off.' },
       ],
     },
   ],
@@ -299,6 +324,9 @@ const lesson: Lesson = {
       '9 V battery and snap connector',
     ],
     steps: [
+      BREADBOARD,
+      LED_WAY,
+      NO_METER,
       'Tip the resistors out of their bags and read each colour code before checking the label. Write down what you read.',
       'Build yesterday’s circuit (5V → resistor → LED long leg; LED short leg → GND) with the **330 Ω** resistor. Compare brightness with 220 Ω.',
       'Unplug the Uno. Swap the resistor for **1 kΩ**.',
