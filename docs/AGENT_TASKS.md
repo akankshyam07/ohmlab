@@ -26,11 +26,18 @@ The Product Manager (the main session) coordinates, owns `docs/PRD.md`, `ARCHITE
 
 | Workstream | State |
 |---|---|
-| Contracts, tokens, PRD, architecture, reference analysis | Done (PM) |
-| Solver | Dispatched |
-| Circuit view | Dispatched |
-| Shell + design system | Dispatched |
-| Lab, quiz, progress | Dispatched |
-| Content | Dispatched |
-| CI, README, test plan | PM, in parallel |
-| Integration, E2E, review | After workstreams land |
+| Contracts, tokens, PRD, architecture, reference analysis, feature spec, roadmap, CI, README | Done (PM) |
+| Solver | Done: 43 tests, LED Vf calibrated per colour |
+| Circuit view | Done: 13 tests, visual check on desktop + mobile |
+| Shell + design system | Done: 22 tests, visual check |
+| Lab, quiz, progress | Done: 59 tests (parser word-prefix fix by PM) |
+| Content | Done: 6 lessons, 46 tests incl. reachability and wire-direction checks |
+| Integration | Done: typecheck clean, 191 unit tests, production build, E2E smoke on desktop + mobile |
+| E2E journeys (QA) | In progress |
+| Critical user review | In progress |
+
+## Handoff notes
+
+- USER_JOURNEYS.md was written by the Content Developer, not the PM.
+- The Lab marks a `lab` step when a lesson with a lab is shown, so mastery counts it.
+- E2E uses port 4791 because 4173 is often taken on dev machines.
