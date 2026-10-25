@@ -339,6 +339,20 @@ const lesson: Lesson = {
       'Experiments (unplug before each change): flip the LED (long leg in **e13**, short leg in **e12**); swap 220 Ω for 1 kΩ, then 10 kΩ, in the same holes (work out the current first). Compare with what the lab showed you.',
       'Not lighting? Check the LED isn’t backwards, that its legs aren’t in the same column (that shorts it out), and that the Uno’s jumpers are in 5V and GND.',
     ],
+    // One entry per step: the breadboard parts that step places or talks about.
+    stepParts: [
+      [],
+      ['D1'],
+      [],
+      [],
+      ['w-5v', 'w-gnd'],
+      ['D1'],
+      ['R1'],
+      ['w-plus', 'w-minus'],
+      ['w-plus', 'R1', 'D1', 'w-minus'],
+      ['D1', 'R1'],
+      ['D1', 'w-5v', 'w-gnd'],
+    ],
     safety: [
       'Never connect an LED to 5V and GND **without a resistor**. The burn-out in the lab is real.',
       'Never connect 5V straight to GND with a wire. That is a short circuit; the Uno’s USB fuse will cut out, and you can damage the board or your computer’s port.',

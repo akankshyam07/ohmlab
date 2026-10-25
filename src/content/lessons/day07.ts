@@ -55,7 +55,7 @@ const lesson: Lesson = {
       blocks: [
         {
           type: 'text',
-          text: 'Combine P = V × I with Ohm’s law (V = I × R) and you get two more forms. Use whichever matches the numbers you have.',
+          text: 'Combine P = V × I with Ohm’s law (V = I × R) and you get two more **power formulas**. Use whichever matches the numbers you have.',
         },
         {
           type: 'table',
@@ -216,17 +216,17 @@ const lesson: Lesson = {
     {
       id: 'p-5v-100',
       type: 'numeric',
-      prompt: 'A 100 Ω resistor is connected across 5 V. How much power does it dissipate, in watts?',
+      prompt: 'A 100 Ω resistor is connected across 5 V. Pick the power formula that fits: how much power does it dissipate, in watts?',
       answer: 0.25,
       tolerance: 0.03,
       unit: 'W',
       hint: 'You know V and R, so use P = V² ÷ R.',
-      explanation: 'P = 5 × 5 ÷ 100 = **0.25 W**. Exactly the rating of a kit resistor, so it would run hot. The half rule says use something bigger.',
+      explanation: 'P = V² ÷ R = 5 × 5 ÷ 100 = **0.25 W**. That is a kit resistor’s whole ¼ W, so it would run hot: pick a bigger resistor.',
     },
     {
       id: 'p-20ma-220',
       type: 'numeric',
-      prompt: '20 mA flows through a 220 Ω resistor. How much power is that, in milliwatts?',
+      prompt: '20 mA flows through a 220 Ω resistor. Pick the power formula that fits: how much power is that, in milliwatts?',
       answer: 88,
       tolerance: 0.03,
       unit: 'mW',
@@ -291,6 +291,16 @@ const lesson: Lesson = {
       'Plug in for one minute (25 mW). Unplug, then touch the resistor lightly: it is barely warm, if at all.',
       'Swap in the 220 Ω resistor, in the same holes (about 0.114 W). Plug in for one minute, unplug, and touch it briefly and carefully: noticeably warm.',
       'Calculate what a 220 Ω would make on 9 V (0.37 W). Don’t build it: the lab already showed you.',
+    ],
+    // One entry per step: the breadboard parts that step places or talks about.
+    stepParts: [
+      [],
+      [],
+      ['w-5v', 'w-gnd'],
+      ['R1', 'w-plus', 'w-minus'],
+      ['R1'],
+      ['R1'],
+      [],
     ],
     safety: [
       'Touch resistors only after unplugging, and only briefly. A resistor near its rating can be hot enough to burn.',

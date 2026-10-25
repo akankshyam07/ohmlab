@@ -296,7 +296,7 @@ const lesson: Lesson = {
     {
       id: 'r-from-vi',
       type: 'numeric',
-      prompt: 'A resistor has 4.5 V across it and 2 mA flowing through it. What is its resistance, in kΩ?',
+      prompt: 'Use Ohm’s law: a resistor has 4.5 V across it and 2 mA flowing through it. What is its resistance, in kΩ?',
       answer: 2.25,
       tolerance: 0.03,
       unit: 'kΩ',
@@ -333,6 +333,18 @@ const lesson: Lesson = {
       'Unplug the Uno. Swap R1 for **1 kΩ**, in the same holes (c8 to c12).',
       'Pull the Uno’s two jumpers out of the rails. Push the 9 V battery snap’s **red** lead into the top **+** rail and its **black** lead into the top **−** rail. Everything else stays where it is. Never connect the Uno at the same time.',
       'The LED lights at about 7 mA. Disconnect the battery when you’re done, because the snap clips can short against other metal.',
+    ],
+    // One entry per step: the breadboard parts that step places or talks about.
+    stepParts: [
+      [],
+      ['D1'],
+      [],
+      [],
+      ['w-5v', 'w-gnd'],
+      ['R1', 'D1', 'w-plus', 'w-minus'],
+      ['R1'],
+      ['w-5v', 'w-gnd'],
+      ['D1'],
     ],
     safety: [
       'Never use the 220 Ω or 330 Ω resistor with an LED on 9 V: the current goes over 20 mA. Calculate first.',

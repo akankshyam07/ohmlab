@@ -418,6 +418,16 @@ describe('breadboards', () => {
         expect(named.length, 'steps name holes like **c12**').toBeGreaterThan(0)
         for (const h of named) expect(parseHole(h), h).not.toBeNull()
       })
+
+      it('stepParts: one entry per step, real part ids, every part placed by some step, and "after step N" points at a building step', () => {
+        const { steps, stepParts } = lesson.realBuild!
+        expect(stepParts?.length, 'stepParts entries').toBe(steps.length)
+        const ids = board!.parts.map((p) => p.id)
+        for (const id of stepParts!.flat()) expect(ids, id).toContain(id)
+        for (const id of ids) expect(stepParts!.flat(), `${id} named by a step`).toContain(id)
+        // "The diagram shows it after step N" must point at a step that places parts.
+        for (const m of steps.join(' ').matchAll(/\bafter step (\d+)/g)) expect(stepParts![Number(m[1]) - 1]?.length, m[0]).toBeGreaterThan(0)
+      })
     })
   }
 })
