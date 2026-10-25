@@ -36,11 +36,13 @@ export const meter = (page: Page, label: string) =>
 export const challenge = (page: Page, prompt: RegExp): Locator =>
   lab(page).locator('.lab-challenge').filter({ hasText: prompt })
 
+/** Done in the tray list; a just-solved challenge's success text shows only in the tray's live line. */
 export async function expectChallengeDone(page: Page, prompt: RegExp, success: RegExp) {
-  const ch = challenge(page, prompt)
-  await expect(ch).toContainText('(done)')
-  await expect(ch.locator('.lab-challenge-success')).toHaveText(success)
+  await expect(challenge(page, prompt)).toContainText('(done)')
+  await expect(lab(page).locator('.lab-tray-flash')).toContainText(success)
 }
+
+export const trayCount = (page: Page) => lab(page).locator('.lab-tray-count')
 
 export async function pick(page: Page, group: string, option: string) {
   await lab(page).getByRole('group', { name: group }).getByRole('radio', { name: option, exact: true }).check()
@@ -95,8 +97,11 @@ export async function completeDay1(page: Page) {
     await expect(lab(page).locator(`[data-part="${id}"] .cv-halo`)).toHaveCount(1)
   }
 
-  // Lab: starts at 1 kΩ, ~3 mA. Choose 220 Ω → light-safely completes.
+  // Lab: starts at 1 kΩ, ~3 mA, nothing completed on load and only the first challenge unlocked.
   await expect(lab(page).getByRole('button', { name: 'Resistor R1, 1 kΩ' })).toBeVisible()
+  await expect(trayCount(page)).toHaveText('Challenges 0 / 4')
+  await expect(challenge(page, /break it!/)).toContainText('Up next')
+  // Choose 220 Ω → light-safely completes.
   await expect.poll(async () => parseSI(await meter(page, 'Current through the loop').innerText())).toBeLessThan(0.004)
   await pick(page, 'Resistor R1', '220 Ω')
   await expect(lab(page).getByRole('button', { name: 'Resistor R1, 220 Ω' })).toBeVisible()
@@ -108,9 +113,9 @@ export async function completeDay1(page: Page) {
   // Click the LED on the diagram to flip it: dark, 0 mA.
   await lab(page).getByRole('button', { name: /^LED D1 \(red\)/ }).click()
   await expect(lab(page).getByRole('button', { name: 'LED D1 (red), off' })).toBeVisible()
-  // Reversed current must be < 1 µA (FEATURE_SPEC F1 AC2). Exact "0" display is tracked as BUG-1 in bugs.spec.ts.
-  expect(parseSI(await meter(page, 'Current through the loop').innerText())).toBeLessThan(1e-6)
-  await expectChallengeDone(page, /backwards/, /^Dark, and the meter reads 0/)
+  // The success text promises "the meter reads 0" (was BUG-1: "0.005 nA").
+  await expect(meter(page, 'Current through the loop')).toHaveText('0 A')
+  await expectChallengeDone(page, /backwards/, /Dark, and the meter reads 0/)
   const flipButton = lab(page).getByRole('button', { name: /Flip the LED/ })
   await expect(flipButton).toHaveAttribute('aria-pressed', 'true')
   await flipButton.click()
@@ -121,7 +126,7 @@ export async function completeDay1(page: Page) {
   await expect(lab(page).getByRole('button', { name: 'LED D1 (red), burnt out' })).toBeVisible()
   await expect(lab(page).locator('[data-part="D1"]')).toContainText('BURNT')
   await expect(lab(page).getByRole('alert')).toContainText('D1 burnt out.')
-  await expectChallengeDone(page, /break it!/, /^Pop\./)
+  await expectChallengeDone(page, /break it!/, /Pop\./)
 
   // Reset restores 1 kΩ, red, not flipped.
   await lab(page).getByRole('button', { name: 'Reset circuit' }).click()
@@ -130,11 +135,12 @@ export async function completeDay1(page: Page) {
   await expect(flipButton).toHaveAttribute('aria-pressed', 'false')
   await expect(lab(page).getByRole('alert')).toHaveCount(0)
 
-  // Blue LED + 220 Ω (clicking the resistor cycles 1 kΩ → 10 kΩ → 0 Ω → 220 Ω).
+  // Blue LED + 220 Ω (clicking the resistor cycles 1 kΩ → 10 kΩ → 220 Ω; "No resistor" is skipped).
   await pick(page, 'LED colour', 'Blue')
-  for (let i = 0; i < 3; i++) await lab(page).getByRole('button', { name: /^Resistor R1,/ }).click()
+  for (let i = 0; i < 2; i++) await lab(page).getByRole('button', { name: /^Resistor R1,/ }).click()
   await expect(lab(page).getByRole('button', { name: 'Resistor R1, 220 Ω' })).toBeVisible()
   await expectChallengeDone(page, /blue/, /a blue LED gets about 9 mA/)
+  await expect(trayCount(page)).toHaveText('Challenges 4 / 4')
 
   // Remaining sections, then the quiz.
   await page.getByRole('button', { name: 'Next', exact: true }).click()
@@ -142,11 +148,13 @@ export async function completeDay1(page: Page) {
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page).toHaveURL(/#\/lesson\/first-led\/quiz$/)
   await answerDay1Quiz(page)
+  expect(await page.locator('.toast').count()).toBeLessThanOrEqual(2)
 
   // Build step, then Next leaves the lesson.
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await expect(page).toHaveURL(/#\/lesson\/first-led\/build$/)
   await expect(page.getByRole('note').filter({ hasText: 'without a resistor' })).toBeVisible()
+  await expect(page.locator('.build').getByRole('group', { name: 'To complete this lesson' })).toContainText('Lesson complete')
   await expect(page.getByRole('img', { name: 'Mastery 100 %' })).toBeVisible()
 
   // The last step's Next goes to the next available lesson (FEATURE_SPEC F4 AC4).

@@ -1,12 +1,20 @@
-import { expect, lab, meter, test } from './fixtures.ts'
+import { expect, test } from './fixtures.ts'
 
-// Minimal repros for app bugs found by the journeys. Each is test.fixme until fixed; remove fixme to verify a fix.
+// Regressions for app bugs found by the journeys.
 
-// BUG-1 (S3): with the LED reversed the current meter reads "0.005 nA" (5 pA solver leakage) while the
-// "Flip it" success text says "the meter reads 0". formatSI only rounds to "0" below 1e-12, and the Lab
-// meter does not apply the view's 10 µA "no current" threshold. Suspect src/features/lab/Lab.tsx (meter value).
-test('BUG-1: reversed LED meter reads exactly 0', async ({ page }) => {
-  await page.goto('./#/lesson/first-led')
-  await lab(page).getByRole('button', { name: 'Flip the LED' }).click()
-  await expect(meter(page, 'Current through the loop')).toHaveText('0 A')
+// REVIEW #17: leaving the quiz mid-way (lesson Next/Back) must not restart it. Quiz place lives in
+// sessionStorage, so the lesson Next stays enabled (only de-emphasised) and learners can peek ahead.
+test('quiz resumes where you left it after leaving the step', async ({ page }) => {
+  await page.goto('./#/lesson/first-led/quiz')
+  const quiz = page.getByRole('region', { name: 'Quiz' })
+  await expect(quiz).toContainText('Question 1 of 6')
+  await quiz.getByRole('radio').first().check()
+  await quiz.getByRole('button', { name: 'Check answer' }).click()
+  await quiz.getByRole('button', { name: 'Next question' }).click()
+  await expect(quiz).toContainText('Question 2 of 6')
+
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page).toHaveURL(/\/build$/)
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Quiz' })).toContainText('Question 2 of 6')
 })
