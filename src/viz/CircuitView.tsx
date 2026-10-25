@@ -1,20 +1,14 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from 'react'
 import type { Component, ComponentResult, LedColor } from '../sim/types'
 import { formatSI } from '../ui/format'
-import { flowSpeed, partLabel, partValue } from './describe'
+import { flowSpeed, LED_COLORS, partLabel, partValue } from './describe'
+import { placeLabels, type Box } from './place'
 import type { CircuitLayout, CircuitViewProps, PartLayout, Point, ProbePoint, WireLayout } from './types'
 import './CircuitView.css'
 
-export { flowSpeed, partLabel } from './describe'
+export { flowSpeed, LED_COLORS, partLabel } from './describe'
+export { placeLabels, type Box } from './place'
 
-/** The only raw colours in the view: LED tints. */
-const LED_COLORS: Record<LedColor, string> = {
-  red: '#ff4d5e',
-  yellow: '#ffd23f',
-  green: '#3dff8a',
-  blue: '#4d8bff',
-  white: '#f2f5ff',
-}
 
 const G = 40 // px per grid unit
 const BODY = 64 // 1.6 units
@@ -89,7 +83,7 @@ interface Frame {
   away: 1 | -1
 }
 
-function frameOf(pl: PartLayout): Frame {
+function frameOf(pl: PartLayout, sideOverride?: Side): Frame {
   const a = toPx(pl.from)
   const b = toPx(pl.to)
   const dx = b.x - a.x
@@ -97,7 +91,7 @@ function frameOf(pl: PartLayout): Frame {
   const len = Math.hypot(dx, dy) || 1
   const cos = dx / len
   const sin = dy / len
-  const side: Side = pl.labelSide ?? (Math.abs(dx) >= Math.abs(dy) ? 'above' : 'right')
+  const side: Side = sideOverride ?? pl.labelSide ?? (Math.abs(dx) >= Math.abs(dy) ? 'above' : 'right')
   const n = NORMALS[side]
   // local +y in world coordinates is (-sin, cos)
   const away = -sin * n.x + cos * n.y > 0 ? -1 : 1
@@ -116,28 +110,37 @@ function arrow(x0: number, y0: number, x1: number, y1: number) {
   return `M${x0} ${y0}L${x1} ${y1}M${p1[0]} ${p1[1]}L${x1} ${y1}L${p2[0]} ${p2[1]}`
 }
 
-type Tone = 'danger' | 'warn' | 'power'
+type Tone = 'danger' | 'warn' | 'power' | 'note'
 interface Tag {
   text: string
   tone: Tone
 }
 
-function labelAnchor(f: Frame, k: Sizes) {
+/** Where a part's label goes: a side of the part, slid `shift` px along the part's axis. */
+interface Placement {
+  side: Side
+  shift: number
+}
+
+function labelAnchor(f: Frame, k: Sizes, shift = 0) {
   const off = 36
   const step = 22 * k.tag
+  const mx = f.mid.x + shift * f.cos
+  const my = f.mid.y + shift * f.sin
   switch (f.side) {
     case 'above':
-      return { x: f.mid.x, y: f.mid.y - off, anchor: 'middle' as const, step: -step }
+      return { x: mx, y: my - off, anchor: 'middle' as const, step: -step }
     case 'below':
-      return { x: f.mid.x, y: f.mid.y + off + 12 * k.label, anchor: 'middle' as const, step }
+      return { x: mx, y: my + off + 12 * k.label, anchor: 'middle' as const, step }
     case 'left':
-      return { x: f.mid.x - off, y: f.mid.y + 5 * k.label, anchor: 'end' as const, step }
+      return { x: mx - off, y: my + 5 * k.label, anchor: 'end' as const, step }
     case 'right':
-      return { x: f.mid.x + off, y: f.mid.y + 5 * k.label, anchor: 'start' as const, step }
+      return { x: mx + off, y: my + 5 * k.label, anchor: 'start' as const, step }
   }
 }
 
-const tagWidth = (text: string, k: number) => (text.length * 7.4 + 14) * k
+/** Pill width: uppercase status tags are letter-spaced; the lowercase note is not. */
+const tagWidth = (text: string, k: number) => (text.length * (text === text.toUpperCase() ? 7.4 : 6.7) + 14) * k
 
 function TagPill({ x, y, anchor, tag, k }: { x: number; y: number; anchor: 'start' | 'middle' | 'end'; tag: Tag; k: number }) {
   const w = tagWidth(tag.text, k)
@@ -163,7 +166,13 @@ const isWarm = (comp: Component, res?: ComponentResult) =>
 /** Status pills shown under a part's label. */
 function partTags(comp: Component, res?: ComponentResult): Tag[] {
   const status = res?.status
-  if (status === 'burnt') return [{ text: comp.kind === 'vsource' ? 'SHORTED' : 'BURNT', tone: 'danger' }]
+  if (status === 'burnt')
+    return comp.kind === 'vsource'
+      ? [{ text: 'SHORTED', tone: 'danger' }]
+      : [
+          { text: 'BURNT', tone: 'danger' },
+          { text: 'circuit open after failure', tone: 'note' },
+        ]
   if (comp.kind === 'resistor') {
     if (status === 'overpower') return [{ text: 'HOT', tone: 'power' }]
     if (isWarm(comp, res)) return [{ text: 'WARM', tone: 'power' }]
@@ -183,24 +192,89 @@ const showsValue = (name: string, value: string) => !name.toLowerCase().includes
  * reserved vertically, but tag width only counts while the tag shows: reserving the widest tag
  * ("TOO MUCH CURRENT") for every LED squeezed the drawing to a sliver on phones.
  */
-function labelBox(pl: PartLayout, comp: Component, res: ComponentResult | undefined, k: Sizes) {
-  const f = frameOf(pl)
-  const la = labelAnchor(f, k)
-  const tagW = Math.max(0, ...partTags(comp, res).map((t) => tagWidth(t.text, k.tag)))
+function labelBox(pl: PartLayout, comp: Component, res: ComponentResult | undefined, k: Sizes, place?: Placement): Box {
+  const f = frameOf(pl, place?.side)
+  const la = labelAnchor(f, k, place?.shift)
+  const tags = partTags(comp, res)
+  const tagW = Math.max(0, ...tags.map((t) => tagWidth(t.text, k.tag)))
   const name = pl.label ?? comp.id
   const value = partValue(comp)
   // Reserve 6 characters for the value so swapping 220 Ω → 10 kΩ or red → yellow doesn't rescale the frame.
   const chars = name.length + (showsValue(name, value) ? 3 + Math.max(value.length, 6) : 0)
   const w = Math.max(chars * CHAR_W * k.label, tagW)
   const x0 = la.anchor === 'start' ? la.x : la.anchor === 'end' ? la.x - w : la.x - w / 2
-  const rows = comp.kind === 'switch' ? 0 : 1
+  // One tag row is always reserved (except for switches) so a tag appearing doesn't rescale the frame.
+  const rows = comp.kind === 'switch' ? tags.length : Math.max(1, tags.length)
   const y0 = Math.min(la.y - 12 * k.label, la.y + la.step * rows - 12 * k.tag)
   const y1 = Math.max(la.y + 4 * k.label, la.y + la.step * rows + 5 * k.tag)
   return { x0, x1: x0 + w, y0, y1 }
 }
 
+const OPPOSITE: Record<Side, Side> = { above: 'below', below: 'above', left: 'right', right: 'left' }
+
+/** Preferred side first, then the opposite side, then both slid along the part. */
+function candidatePlacements(pl: PartLayout): Placement[] {
+  const f = frameOf(pl)
+  const o = OPPOSITE[f.side]
+  const n = Math.max(24, f.len * 0.4)
+  return [
+    { side: f.side, shift: 0 },
+    { side: o, shift: 0 },
+    { side: f.side, shift: n },
+    { side: f.side, shift: -n },
+    { side: o, shift: n },
+    { side: o, shift: -n },
+  ]
+}
+
+function boundsOf(points: Point[]): Box {
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
+}
+
+/** Rough box of a part's symbol body, which labels must not cover. */
+function bodyBox(pl: PartLayout): Box {
+  const f = frameOf(pl)
+  const c = f.len / 2
+  const h = Math.min(BODY, f.len) / 2
+  return boundsOf([world(f, c - h, -18), world(f, c + h, -18), world(f, c - h, 18), world(f, c + h, 18)])
+}
+
+const probeNameBox = (pr: ProbePoint, k: Sizes): Box => {
+  const p = toPx(pr.at)
+  return { x0: p.x + 12, y0: p.y - 10 - 12 * k.probe, x1: p.x + 12 + (pr.label ?? pr.node).length * 7.5 * k.probe, y1: p.y - 6 }
+}
+
+/** Label placement for every drawn part, avoiding other labels, part bodies and probe names. */
+function placeAll(comps: Map<string, Component>, results: Record<string, ComponentResult>, layout: CircuitLayout, k: Sizes) {
+  const drawn = layout.parts.filter((pl) => comps.has(pl.id))
+  const options = drawn.map(candidatePlacements)
+  const boxes = drawn.map((pl, i) => options[i].map((o) => labelBox(pl, comps.get(pl.id)!, results[pl.id], k, o)))
+  // Wires count as thin boxes: a label moves off a wire when it can, and crossing one costs little otherwise.
+  const wireBoxes = layout.wires.flatMap((w) =>
+    w.points.slice(1).map((p, i) => {
+      const b = boundsOf([toPx(w.points[i]), toPx(p)])
+      return { x0: b.x0 - 3, y0: b.y0 - 3, x1: b.x1 + 3, y1: b.y1 + 3 }
+    }),
+  )
+  const probeDots = (layout.probes ?? []).map((pr) => {
+    const p = toPx(pr.at)
+    return { x0: p.x - 10, y0: p.y - 10, x1: p.x + 10, y1: p.y + 10 }
+  })
+  const obstacles = [...drawn.map(bodyBox), ...probeDots, ...(layout.probes ?? []).map((pr) => probeNameBox(pr, k)), ...wireBoxes]
+  const chosen = placeLabels(boxes, obstacles)
+  return new Map(drawn.map((pl, i) => [pl.id, options[i][chosen[i]]]))
+}
+
 /** Bounding box of everything drawn (parts, wires, probes, labels) plus MARGIN. */
-function contentBox(comps: Map<string, Component>, results: Record<string, ComponentResult>, layout: CircuitLayout, k: Sizes) {
+function contentBox(
+  comps: Map<string, Component>,
+  results: Record<string, ComponentResult>,
+  layout: CircuitLayout,
+  k: Sizes,
+  place: Map<string, Placement>,
+) {
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
   const add = (x: number, y: number) => {
     x0 = Math.min(x0, x)
@@ -218,7 +292,7 @@ function contentBox(comps: Map<string, Component>, results: Record<string, Compo
       const p = world(f, lx, ly)
       add(p.x, p.y)
     }
-    const b = labelBox(pl, comp, results[pl.id], k)
+    const b = labelBox(pl, comp, results[pl.id], k, place.get(pl.id))
     add(b.x0, b.y0)
     add(b.x1, b.y1)
   }
@@ -233,37 +307,45 @@ function contentBox(comps: Map<string, Component>, results: Record<string, Compo
 
 /**
  * Text sizes depend on the rendered scale, and the viewBox (hence the scale) depends on the label
- * sizes. With the svg's CSS width fixed, iterate to the fixed point; it converges while labels
- * take less than the full width, and MAX_TEXT_SCALE bounds it otherwise.
+ * sizes. With the svg's CSS box fixed, iterate to the fixed point; it converges while labels
+ * take less than the full box, and MAX_TEXT_SCALE bounds it otherwise. The scale is the one
+ * `preserveAspectRatio="meet"` renders at: limited by width, or by height when the container
+ * gives the svg a fixed height (the Lab stage). With `height: auto` the measured height follows
+ * the viewBox's aspect, so the width limit decides.
  */
-function fitView(comps: Map<string, Component>, results: Record<string, ComponentResult>, layout: CircuitLayout, widthPx: number) {
+function fitView(comps: Map<string, Component>, results: Record<string, ComponentResult>, layout: CircuitLayout, widthPx: number, heightPx = 0) {
   let k = sizesAt(1)
-  let box = contentBox(comps, results, layout, k)
-  if (!(widthPx > 0)) return { box, k }
+  let place = placeAll(comps, results, layout, k)
+  let box = contentBox(comps, results, layout, k, place)
+  if (!(widthPx > 0)) return { box, k, place }
   let scale = 1
   for (let i = 0; i < 12; i++) {
-    const next = widthPx / box.w
+    const next = Math.min(widthPx / box.w, heightPx > 0 ? heightPx / box.h : Infinity)
     if (Math.abs(next - scale) < 1e-3 * scale) break
     scale = next
     k = sizesAt(scale)
-    box = contentBox(comps, results, layout, k)
+    place = placeAll(comps, results, layout, k)
+    box = contentBox(comps, results, layout, k, place)
   }
-  return { box, k }
+  return { box, k, place }
 }
 
-/** Rendered CSS width of an element, kept current with a ResizeObserver (0 where unsupported). */
-function useWidth<T extends Element>() {
+/** Rendered CSS size of an element, kept current with a ResizeObserver (0 where unsupported). */
+function useSize<T extends Element>() {
   const ref = useRef<T>(null)
-  const [width, setWidth] = useState(0)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    setWidth(Math.round(el.getBoundingClientRect().width))
-    const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)))
+    const set = (w: number, h: number) =>
+      setSize((s) => (s.width === Math.round(w) && s.height === Math.round(h || 0) ? s : { width: Math.round(w), height: Math.round(h || 0) }))
+    const r = el.getBoundingClientRect()
+    set(r.width, r.height)
+    const ro = new ResizeObserver(([entry]) => set(entry.contentRect.width, entry.contentRect.height))
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  return [ref, width] as const
+  return [ref, size] as const
 }
 
 interface PartProps {
@@ -274,10 +356,11 @@ interface PartProps {
   highlighted: boolean
   onPartClick?: (id: string) => void
   k: Sizes
+  place?: Placement
 }
 
-function Part({ comp, pl, res, uid, highlighted, onPartClick, k }: PartProps) {
-  const f = frameOf(pl)
+function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartProps) {
+  const f = frameOf(pl, place?.side)
   const L = f.len
   const c = L / 2
   const h = Math.min(BODY, L) / 2
@@ -398,7 +481,7 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k }: PartProps) {
     }
   }
 
-  const la = labelAnchor(f, k)
+  const la = labelAnchor(f, k, place?.shift)
   const name = pl.label ?? comp.id
   const value = partValue(comp)
   const box = { x: c - h - 12, y: -28, w: 2 * h + 24, h: 56 }
@@ -463,11 +546,17 @@ function wireFlow(w: WireLayout, results: Record<string, ComponentResult>): Flow
   return speed > 0 ? { current, speed } : null
 }
 
-/** Gap between static chevrons: denser for more current, so reduced motion still shows "how much". */
-const chevronSpacing = (speed: number) => Math.min(240, Math.max(48, (120 * 90) / speed))
+/**
+ * Static chevrons (reduced motion, showFlow=false, or after a failure) encode |I| without motion:
+ * more current packs them closer and draws them brighter. `speed` is flowSpeed(|I|).
+ */
+export function chevronLook(speed: number): { spacing: number; opacity: number } {
+  const t = Math.max(0, Math.min(1, (speed - 8) / (240 - 8)))
+  return { spacing: Math.min(240, Math.max(40, (120 * 90) / Math.max(speed, 1))), opacity: Number((0.3 + 0.7 * t).toFixed(3)) }
+}
 
-function Chevrons({ points, forward, speed }: { points: Point[]; forward: boolean; speed: number }) {
-  const spacing = chevronSpacing(speed)
+function Chevrons({ points, forward, speed, dimmed }: { points: Point[]; forward: boolean; speed: number; dimmed: boolean }) {
+  const { spacing, opacity } = chevronLook(speed)
   const marks: ReactNode[] = []
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i]
@@ -481,7 +570,8 @@ function Chevrons({ points, forward, speed }: { points: Point[]; forward: boolea
       marks.push(
         <path
           key={`${i}-${k}`}
-          className="cv-chevron"
+          className={`cv-chevron${dimmed ? ' is-dimmed' : ''}`}
+          style={dimmed ? undefined : { opacity }}
           d="M-4 -5L2 0L-4 5"
           transform={`translate(${a.x + (b.x - a.x) * t} ${a.y + (b.y - a.y) * t}) rotate(${deg})`}
         />,
@@ -591,13 +681,15 @@ function Probe({
 export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, highlight, showFlow = true }: CircuitViewProps) {
   const uid = 'cv' + useId().replace(/[^a-zA-Z0-9]/g, '')
   const reduced = useReducedMotion()
-  const animate = showFlow && !reduced
   const [activeProbe, setActiveProbe] = useState<number | null>(null)
 
-  const [svgRef, widthPx] = useWidth<SVGSVGElement>()
+  const [svgRef, size] = useSize<SVGSVGElement>()
   const comps = useMemo(() => new Map(circuit.components.map((c) => [c.id, c])), [circuit])
   const results = result.components ?? {}
-  const { box, k } = useMemo(() => fitView(comps, results, layout, widthPx), [comps, results, layout, widthPx])
+  // A burnt part fails open in real life: no current moves anywhere, whatever the meters say about the instant of failure.
+  const failed = Object.values(results).some((r) => r.status === 'burnt')
+  const animate = showFlow && !reduced && !failed
+  const { box, k, place } = useMemo(() => fitView(comps, results, layout, size.width, size.height), [comps, results, layout, size])
   const hl = new Set(highlight ?? [])
   const toPoints = (list: Point[]) => list.map(toPx)
   const svgPoints = (list: Point[]) => toPoints(list).map((p) => `${p.x},${p.y}`).join(' ')
@@ -643,7 +735,7 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
             return (
               <g key={w.id} data-wire={w.id}>
                 <polyline className="cv-wire" points={p} />
-                {flow && <polyline className="cv-live" points={p} />}
+                {flow && <polyline className={`cv-live${failed ? ' is-dimmed' : ''}`} points={p} />}
                 {flow && animate && (
                   <polyline
                     className="cv-flow"
@@ -655,7 +747,7 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
                     }}
                   />
                 )}
-                {flow && !animate && <Chevrons points={toPoints(w.points)} forward={flow.current > 0} speed={flow.speed} />}
+                {flow && !animate && <Chevrons points={toPoints(w.points)} forward={flow.current > 0} speed={flow.speed} dimmed={failed} />}
               </g>
             )
           })}
@@ -665,7 +757,7 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
           {layout.parts.map((pl) => {
             const comp = comps.get(pl.id)
             if (!comp) return null
-            return <Part key={pl.id} comp={comp} pl={pl} res={results[pl.id]} uid={uid} highlighted={hl.has(pl.id)} onPartClick={onPartClick} k={k} />
+            return <Part key={pl.id} comp={comp} pl={pl} res={results[pl.id]} uid={uid} highlighted={hl.has(pl.id)} onPartClick={onPartClick} k={k} place={place.get(pl.id)} />
           })}
         </g>
 

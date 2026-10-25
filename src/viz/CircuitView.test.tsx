@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Circuit, ComponentResult, SolveResult } from '../sim/types'
-import { CircuitView, flowSpeed, MIN_HIT_PX, MIN_TEXT_PX, partLabel, textScale } from './CircuitView'
+import { chevronLook, CircuitView, flowSpeed, MIN_HIT_PX, MIN_TEXT_PX, partLabel, placeLabels, textScale } from './CircuitView'
 import type { CircuitLayout } from './types'
 
 const circuit: Circuit = {
@@ -212,10 +212,137 @@ describe('textScale', () => {
 describe('partLabel', () => {
   it('describes LED states', () => {
     const led = circuit.components[3]
-    expect(partLabel(led, comp(0, { status: 'off', brightness: 0 }))).toBe('LED D1 (red), off')
+    expect(partLabel(led, comp(0, { status: 'off', brightness: 0 }))).toBe('LED D1 (red), off, no current')
+    expect(partLabel(led, comp(0, { status: 'off', brightness: 0, voltage: -5 }))).toBe('LED D1 (red), off, blocking')
+    // N5: a diode bypassed by a closed switch has ~0 V across it: no current, but not "blocking".
+    expect(partLabel(circuit.components[4], comp(0, { status: 'off', voltage: 0 }))).toBe('Diode D2, no current')
+    expect(partLabel(circuit.components[4], comp(0, { status: 'off', voltage: 0.3 }))).toBe('Diode D2, no current')
+    expect(partLabel(circuit.components[4], comp(0, { status: 'off', voltage: -4.3 }))).toBe('Diode D2, blocking')
     expect(partLabel(led, comp(0.05, { status: 'overcurrent', brightness: 1 }))).toBe('LED D1 (red), too much current, 50 mA')
     expect(partLabel(led, comp(0, { status: 'overvoltage', brightness: 0 }))).toBe('LED D1 (red), reverse voltage too high')
     expect(partLabel(circuit.components[4], comp(0, { status: 'overvoltage' }))).toBe('Diode D2, reverse voltage too high')
     expect(partLabel(circuit.components[0], comp(10, { status: 'burnt' }))).toBe('Battery B1, 5 V, shorted')
+  })
+})
+
+const stubResizeObserver = () => {
+  let fire: (w: number, h?: number) => void = () => {}
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(cb: ResizeObserverCallback) {
+        fire = (w, h) => cb([{ contentRect: { width: w, height: h ?? 0 } } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
+  return (w: number, h?: number) => act(() => fire(w, h))
+}
+
+describe('placeLabels', () => {
+  const box = (x0: number, y0: number, x1: number, y1: number) => ({ x0, y0, x1, y1 })
+
+  it('keeps the first free candidate and moves a later label that would collide', () => {
+    const first = [box(0, 0, 50, 10), box(0, 20, 50, 30)]
+    const second = [box(40, 5, 90, 15), box(40, 40, 90, 50), box(60, 0, 110, 10)]
+    expect(placeLabels([first, second])).toEqual([0, 1])
+    expect(placeLabels([second, first])).toEqual([0, 1])
+  })
+
+  it('avoids obstacles and falls back to the least overlap', () => {
+    const obstacle = box(0, 0, 100, 100)
+    expect(placeLabels([[box(10, 10, 20, 20), box(110, 0, 130, 10)]], [obstacle])).toEqual([1])
+    // Every candidate collides: take the one overlapping least (only 5 × 10 of the third).
+    expect(placeLabels([[box(10, 10, 60, 20), box(50, 50, 90, 90), box(95, 0, 145, 10)]], [obstacle])).toEqual([2])
+    expect(placeLabels([[]])).toEqual([0])
+  })
+})
+
+describe('CircuitView label collisions', () => {
+  const stacked: Circuit = {
+    ground: 'gnd',
+    components: [
+      { kind: 'resistor', id: 'R1', a: 'a', b: 'b', ohms: 220 },
+      { kind: 'resistor', id: 'R2', a: 'c', b: 'd', ohms: 1000 },
+    ],
+  }
+  const stackedLayout: CircuitLayout = {
+    width: 3,
+    height: 1,
+    parts: [
+      { id: 'R1', from: { x: 0, y: 0 }, to: { x: 3, y: 0 } },
+      { id: 'R2', from: { x: 0, y: 1 }, to: { x: 3, y: 1 } },
+    ],
+    wires: [],
+  }
+  const res: SolveResult = { ok: true, nodeVoltages: {}, components: { R1: comp(0), R2: comp(0) } }
+
+  it('moves a label that would sit on another part to the opposite side', () => {
+    const { container } = render(<CircuitView circuit={stacked} layout={stackedLayout} result={res} ariaLabel="x" />)
+    const y = (id: string) => Number(container.querySelector(`[data-part="${id}"] .cv-label`)!.getAttribute('y'))
+    expect(y('R1')).toBeLessThan(0) // above R1, as asked
+    expect(y('R2')).toBeGreaterThan(40) // "above R2" would cover R1, so it goes below
+  })
+})
+
+describe('CircuitView after a failure', () => {
+  it('stops all flow, dims static chevrons and explains the open circuit', () => {
+    const { container } = view({ result: result(0.4, { status: 'burnt', brightness: 1 }) })
+    expect(container.querySelectorAll('.cv-flow')).toHaveLength(0)
+    const chevrons = container.querySelectorAll('.cv-chevron')
+    expect(chevrons.length).toBeGreaterThan(0)
+    for (const c of chevrons) expect(c).toHaveClass('is-dimmed')
+    expect(screen.getByText('circuit open after failure').closest('[data-part="D1"]')).not.toBeNull()
+  })
+
+  it('shows no failure note while everything is intact', () => {
+    view()
+    expect(screen.queryByText('circuit open after failure')).toBeNull()
+  })
+})
+
+describe('static chevrons encode current', () => {
+  it('pack closer and glow brighter as current grows', () => {
+    const looks = [1e-4, 2e-3, 0.02, 0.3].map((i) => chevronLook(flowSpeed(i)))
+    for (let i = 1; i < looks.length; i++) {
+      expect(looks[i].spacing).toBeLessThan(looks[i - 1].spacing)
+      expect(looks[i].opacity).toBeGreaterThan(looks[i - 1].opacity)
+    }
+    expect(looks[0].opacity).toBeGreaterThanOrEqual(0.3)
+    expect(looks[3].opacity).toBeLessThanOrEqual(1)
+  })
+
+  it('draws more, brighter chevrons for a bigger current without motion', () => {
+    const longWire: CircuitLayout = { ...layout, wires: [{ id: 'w1', points: [{ x: 0, y: 8 }, { x: 20, y: 8 }], carries: { componentId: 'B1', sign: 1 } }] }
+    const marks = (i: number) => {
+      const { container, unmount } = view({ layout: longWire, result: result(i), showFlow: false })
+      const list = [...container.querySelectorAll<SVGElement>('[data-wire="w1"] .cv-chevron')]
+      const out = { n: list.length, opacity: Number(list[0].style.opacity) }
+      unmount()
+      return out
+    }
+    const small = marks(1e-4)
+    const big = marks(0.3)
+    expect(big.n).toBeGreaterThan(small.n)
+    expect(big.opacity).toBeGreaterThan(small.opacity)
+  })
+})
+
+describe('CircuitView in a short container', () => {
+  it('fits by height and still keeps labels ≥ the minimum size', () => {
+    const resize = stubResizeObserver()
+    try {
+      const { container } = view({ onPartClick: () => {} })
+      const svg = container.querySelector('svg')!
+      resize(900, 160)
+      const [, , vbW, vbH] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+      const scale = Math.min(900 / vbW, 160 / vbH)
+      expect(scale).toBeCloseTo(160 / vbH) // height is the binding limit
+      const value = container.querySelector('[data-part="R1"] .cv-label-value') as SVGElement
+      expect(parseFloat(value.style.fontSize) * scale).toBeGreaterThanOrEqual(MIN_TEXT_PX - 0.05)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

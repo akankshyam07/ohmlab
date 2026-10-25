@@ -1,5 +1,14 @@
-import type { Component, ComponentResult } from '../sim/types'
+import type { Component, ComponentResult, LedColor } from '../sim/types'
 import { formatSI } from '../ui/format'
+
+/** The only raw colours in the schematic: LED tints (the breadboard view uses them for lenses too). */
+export const LED_COLORS: Record<LedColor, string> = {
+  red: '#ff4d5e',
+  yellow: '#ffd23f',
+  green: '#3dff8a',
+  blue: '#4d8bff',
+  white: '#f2f5ff',
+}
 
 /** Below this the view treats a part as carrying no current (no flow, LED "off"). */
 export const FLOW_THRESHOLD = 1e-5
@@ -42,7 +51,7 @@ export function partLabel(c: Component, r?: ComponentResult): string {
       if (r.status === 'overcurrent') return `${base}, too much current, ${amps}`
       if (r.status === 'overvoltage') return `${base}, reverse voltage too high`
       if ((r.brightness ?? 0) > 0.01 && r.status !== 'off') return `${base}, lit, ${amps}`
-      return `${base}, off`
+      return `${base}, off, ${idleReason(r)}`
     }
     case 'diode': {
       const base = `Diode ${c.id}`
@@ -50,12 +59,18 @@ export function partLabel(c: Component, r?: ComponentResult): string {
       if (r.status === 'burnt') return `${base}, burnt out`
       if (r.status === 'overcurrent') return `${base}, too much current, ${amps}`
       if (r.status === 'overvoltage') return `${base}, reverse voltage too high`
-      return Math.abs(r.current) >= FLOW_THRESHOLD && r.status !== 'off' ? `${base}, conducting, ${amps}` : `${base}, blocking`
+      return Math.abs(r.current) >= FLOW_THRESHOLD && r.status !== 'off' ? `${base}, conducting, ${amps}` : `${base}, ${idleReason(r)}`
     }
     case 'switch':
       return `Switch ${c.id}, ${c.closed ? 'closed' : 'open'}`
   }
 }
+
+/**
+ * Why an LED or diode carries no current, from its actual bias: reverse-biased parts are blocking;
+ * forward-biased below threshold or with ~0 V across (e.g. bypassed by a closed switch) just have no current.
+ */
+const idleReason = (r: ComponentResult) => (r.voltage < -0.1 ? 'blocking' : 'no current')
 
 // Anchors (|I| in amps → speed in px/s), interpolated in log10(|I|).
 const SPEED_ANCHORS: [number, number][] = [

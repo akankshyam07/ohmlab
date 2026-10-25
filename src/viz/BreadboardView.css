@@ -1,0 +1,201 @@
+/* BreadboardView: an illustrated breadboard on the dark bench. The panel and UI accents use theme
+   tokens; the board, parts and wires use physical colours (set here or inline) because they depict real things. */
+
+.bb {
+  --bb-face-top: #f6f3ec;
+  --bb-face-bottom: #e1dccf;
+  --bb-edge: #b3ad9f;
+  --bb-hole: #34312b;
+  --bb-print: #77736a;
+  --bb-red: #d8343f;
+  --bb-blue: #2c63cf;
+  --bb-pcb: #0f6b78;
+  --bb-pcb-dark: #0b4f5a;
+  --bb-lead: #c9ced5;
+  --bb-lead-edge: #6f757e;
+
+  margin: 0;
+  position: relative;
+  background:
+    radial-gradient(120% 100% at 50% 30%, var(--surface-2), var(--surface-1) 60%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+
+.bb-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.bb-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+.bb-hint {
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-align: right;
+}
+.bb-hint span { color: var(--brand-strong); }
+
+/* Board */
+.bb-board-shadow { fill: #000; opacity: 0.5; filter: blur(7px); }
+.bb-board-edge { fill: var(--bb-edge); }
+.bb-board-face { fill: var(--bb-face-bottom); }
+.bb-board-gloss {
+  fill: var(--bb-face-top);
+  opacity: 0.85;
+  mask-image: linear-gradient(#000, transparent);
+}
+.bb-channel {
+  fill: color-mix(in srgb, var(--bb-edge) 55%, var(--bb-face-bottom));
+  stroke: color-mix(in srgb, var(--bb-edge) 70%, #000);
+  stroke-opacity: 0.25;
+}
+.bb-rail-line { stroke-width: 2.2; stroke-linecap: round; }
+.bb-rail-line--pos { stroke: var(--bb-red); }
+.bb-rail-line--neg { stroke: var(--bb-blue); }
+.bb-hole { fill: var(--bb-hole); }
+.bb-hole-lip { fill: #fff; opacity: 0.75; }
+
+.bb-print text {
+  fill: var(--bb-print);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.bb-print text.is-used { fill: #2b2924; font-weight: 700; }
+.bb-colnum { letter-spacing: -0.04em; }
+.bb-rail-sign { font-weight: 700; }
+.bb-print .bb-rail-sign--pos { fill: var(--bb-red); }
+.bb-print .bb-rail-sign--neg { fill: var(--bb-blue); }
+
+/* Uno header strip (stylised: no logo or brand marks) */
+.bb-pcb { fill: var(--bb-pcb); stroke: var(--bb-pcb-dark); stroke-width: 1.5; }
+.bb-pcb-gloss { fill: #fff; opacity: 0.07; }
+.bb-usb { stroke: #5c626a; stroke-width: 1; }
+.bb-dcjack { fill: #1b1c1f; stroke: #000; }
+.bb-mount { fill: var(--bb-pcb-dark); stroke: #d9c27a; stroke-width: 2; }
+.bb-header { fill: #17181b; stroke: #000; stroke-width: 1; }
+.bb-socket { fill: #000; stroke: #3a3c42; stroke-width: 1; }
+.bb-silk text {
+  fill: #eef6f7;
+  font-weight: 600;
+  dominant-baseline: central;
+}
+.bb-silk-group text { font-weight: 700; letter-spacing: 0.08em; opacity: 0.8; }
+
+/* 9 V battery */
+.bb-bat-band { fill: #c46a1f; opacity: 0.92; }
+.bb-bat-volts {
+  fill: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.bb-bat-sign,
+.bb-bat-type {
+  fill: #d9dbe0;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.bb-bat-type { letter-spacing: 0.12em; opacity: 0.7; }
+.bb-snap { fill: #141518; stroke: #000; }
+.bb-snap-gloss { fill: #fff; opacity: 0.12; }
+.bb-bat-lead,
+.bb-bat-lead-edge { fill: none; stroke-linecap: round; }
+.bb-bat-lead-edge { stroke: #000; stroke-width: 6.4; opacity: 0.6; }
+.bb-bat-lead { stroke-width: 4.6; }
+.bb-bat-lead--pos { stroke: #e5383b; }
+.bb-bat-lead--neg { stroke: #34363b; }
+
+/* Parts */
+.bb-shadow { fill: #000; opacity: 0.32; }
+.bb-lead,
+.bb-lead-edge { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bb-lead-edge { stroke: var(--bb-lead-edge); stroke-width: 3.4; }
+.bb-lead { stroke: var(--bb-lead); stroke-width: 2; }
+.bb-legend-ring { fill: #1f1d1a; }
+.bb-legend-tip { fill: var(--bb-lead); stroke: var(--bb-lead-edge); stroke-width: 0.8; }
+
+.bb-res-body { fill: #dcc597; }
+.bb-diode-body { fill: #232428; }
+.bb-diode-band { fill: #c9ced6; }
+
+.bb-lens-body { opacity: 0.94; stroke: color-mix(in srgb, currentColor 55%, #000); stroke-width: 1; }
+.bb-flange { stroke: color-mix(in srgb, currentColor 50%, #000); stroke-width: 1; }
+.bb-frame { fill: #000; opacity: 0.28; }
+.bb-bond { fill: none; stroke: #000; stroke-width: 0.8; opacity: 0.35; }
+.bb-glare { fill: #fff; opacity: 0.7; }
+.bb-glare--soft { opacity: 0.35; }
+
+.bb-wire,
+.bb-wire-shadow,
+.bb-wire-shine { fill: none; stroke-linecap: round; }
+.bb-wire-shadow { stroke: #000; stroke-width: 5; opacity: 0.4; }
+.bb-wire-shine { stroke: #fff; stroke-width: 1.3; opacity: 0.4; }
+
+/* Interaction */
+.bb-part { cursor: help; }
+.bb-part:focus { outline: none; }
+.bb-hit { fill: transparent; }
+.bb-focus {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+.bb-part:focus-visible .bb-focus { opacity: 1; }
+.bb-part.is-active:not(:focus-visible) .bb-focus { opacity: 0.5; stroke-dasharray: 4 4; }
+
+.bb-halo {
+  fill: color-mix(in srgb, var(--brand) 22%, transparent);
+  stroke: var(--brand);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px var(--brand));
+  pointer-events: none;
+}
+.bb-halo--wire { fill: none; stroke-width: 13; stroke-linecap: round; opacity: 0.55; }
+
+.bb-groups rect {
+  fill: color-mix(in srgb, var(--brand) 22%, transparent);
+  stroke: var(--brand);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.bb-ids rect { fill: var(--surface-3); stroke: var(--border-strong); stroke-width: 1; opacity: 0.94; }
+.bb-ids text {
+  fill: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.bb-ids .is-highlighted rect { fill: var(--brand); stroke: var(--brand-strong); }
+.bb-ids .is-highlighted text { fill: var(--brand-ink); }
+
+.bb-tip rect { fill: var(--surface-3); stroke: var(--brand); stroke-width: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5)); }
+.bb-tip text { text-anchor: middle; dominant-baseline: central; }
+.bb-tip-title { fill: var(--text); font-family: var(--font-display); font-weight: 600; }
+.bb-tip-detail { fill: var(--text-muted); font-family: var(--font-mono); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-part.is-highlighted .bb-halo { animation: bb-pulse 1.6s ease-in-out infinite alternate; }
+}
+@keyframes bb-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}

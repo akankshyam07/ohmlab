@@ -72,6 +72,10 @@
   stroke-linejoin: round;
 }
 
+/* After a failure the circuit is open: chevrons stay to show where current was going, but dim. */
+.cv-chevron.is-dimmed { stroke: var(--sig-ground); opacity: 0.55; }
+.cv-live.is-dimmed { stroke: var(--sig-ground); opacity: 0.2; }
+
 .cv-dot {
   fill: var(--text-muted);
   stroke: var(--surface-1);
@@ -206,6 +210,8 @@
 .cv-tag--warn text { fill: var(--warn); }
 .cv-tag--power rect { fill: color-mix(in srgb, var(--sig-power) 16%, var(--surface-1)); stroke: var(--sig-power); }
 .cv-tag--power text { fill: var(--sig-power); }
+.cv-tag--note rect { fill: color-mix(in srgb, var(--surface-1) 85%, transparent); stroke: none; }
+.cv-tag--note text { fill: var(--text-muted); font-weight: 400; letter-spacing: 0; }
 
 /* Interaction */
 .cv-part:focus,

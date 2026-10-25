@@ -1,11 +1,13 @@
-// Visual check for CircuitView: `npx vite src/viz/demo --port 5199`. Not part of the app bundle.
+// Visual check for CircuitView and BreadboardView: `npx vite src/viz/demo --port 5199`. Not part of the app bundle.
 import { StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../../index.css'
+import { lessons } from '../../content'
 import { solveDC } from '../../sim/solver'
 import type { Circuit } from '../../sim/types'
+import { BreadboardView, layoutProblems } from '../BreadboardView'
 import { CircuitView } from '../CircuitView'
-import type { CircuitLayout } from '../types'
+import type { BreadboardLayout, CircuitLayout } from '../types'
 
 const ledCircuit = (ohms: number, volts: number): Circuit => ({
   ground: 'gnd',
@@ -98,6 +100,34 @@ const lessonLayout: CircuitLayout = {
   probes: [{ node: 'mid', at: { x: 11, y: 2 }, label: 'LED +' }],
 }
 
+const unoLed: BreadboardLayout = {
+  supply: 'uno',
+  parts: [
+    { kind: 'wire', id: 'W1', from: 'uno:5V', to: 'T+1', color: 'red' },
+    { kind: 'wire', id: 'W2', from: 'uno:GND', to: 'T-2', color: 'black' },
+    { kind: 'wire', id: 'W3', from: 'T+6', to: 'a6', color: 'red' },
+    { kind: 'resistor', id: 'R1', from: 'b6', to: 'b10', ohms: 220 },
+    { kind: 'led', id: 'D1', anode: 'e10', cathode: 'e11', color: 'red' },
+    { kind: 'wire', id: 'W4', from: 'a11', to: 'T-11', color: 'black' },
+  ],
+}
+
+const batteryLed: BreadboardLayout = {
+  supply: 'battery9v',
+  parts: [
+    { kind: 'wire', id: 'W1', from: 'bat:+', to: 'T+1', color: 'red' },
+    { kind: 'wire', id: 'W2', from: 'bat:-', to: 'T-2', color: 'black' },
+    { kind: 'wire', id: 'W3', from: 'T+6', to: 'a6', color: 'red' },
+    { kind: 'resistor', id: 'R1', from: 'b6', to: 'b10', ohms: 470 },
+    { kind: 'diode', id: 'D2', anode: 'c10', cathode: 'c14' },
+    { kind: 'led', id: 'D1', anode: 'e14', cathode: 'e15', color: 'green' },
+    { kind: 'wire', id: 'W4', from: 'a15', to: 'T-15', color: 'black' },
+    { kind: 'wire', id: 'W5', from: 'j20', to: 'B-20', color: 'blue' },
+    { kind: 'resistor', id: 'R2', from: 'g20', to: 'g26', ohms: 4700 },
+    { kind: 'wire', id: 'W6', from: 'f26', to: 'e26', color: 'yellow' },
+  ],
+}
+
 const click = (id: string) => console.log('clicked', id)
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
@@ -109,7 +139,32 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/** `?content`: every lesson's build breadboard, to eyeball the real layouts. */
+function ContentBoards() {
+  return (
+    <main style={{ maxWidth: 1180, margin: '0 auto', padding: 'var(--sp-5) var(--sp-4)', display: 'grid', gap: 'var(--sp-6)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 520px), 1fr))' }}>
+      <style>{'.lab-probe { display: grid } .lab-probe .cv, .lab-probe .cv-svg { height: 100% }'}</style>
+      {lessons.map((l) => {
+        const layout = l.realBuild?.breadboard
+        if (!layout) return null
+        const problems = layoutProblems(layout)
+        return (
+          <Card key={l.id} title={`Day ${l.day} · ${problems.length ? problems.join('; ') : 'ok'}`}>
+            <BreadboardView layout={layout} ariaLabel={`Day ${l.day} build`} />
+            {l.lab && (
+              <div className="lab-probe" style={{ height: 230 }}>
+                <CircuitView circuit={l.lab.circuit} layout={l.lab.layout} result={solveDC(l.lab.circuit)} ariaLabel={`Day ${l.day} lab`} />
+              </div>
+            )}
+          </Card>
+        )
+      })}
+    </main>
+  )
+}
+
 function Demo() {
+  if (new URLSearchParams(location.search).has('content')) return <ContentBoards />
   return (
     <main
       style={{
@@ -121,6 +176,12 @@ function Demo() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
       }}
     >
+      <Card title="Breadboard · Uno 5 V, 220 Ω, red LED (R1 highlighted)">
+        <BreadboardView layout={unoLed} ariaLabel="Breadboard: Uno 5 V through 220 Ω to a red LED" highlight={['R1']} />
+      </Card>
+      <Card title="Breadboard · 9 V battery, 470 Ω, diode, green LED">
+        <BreadboardView layout={batteryLed} ariaLabel="Breadboard: 9 V battery, resistor, diode and green LED" />
+      </Card>
       <Card title="1 · 5 V, 220 Ω, red LED">
         <CircuitView circuit={c1} layout={ledLayout} result={solveDC(c1)} ariaLabel="Battery, resistor and red LED in series" onPartClick={click} />
       </Card>
