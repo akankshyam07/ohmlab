@@ -39,6 +39,8 @@ export interface ProgressApi {
   /** Quiz best ≥ 0.8 and every lab challenge done. */
   isComplete: (lesson: Lesson) => boolean
   streak: () => number
+  /** Event-based achievements the store can't infer (e.g. 'magic-smoke' when a part burns out in a lab). No-op if already unlocked. */
+  unlock: (achievementId: string) => void
   /** Achievements unlocked since the last call to dismissUnlocked(); the shell shows these as toasts. */
   recentlyUnlocked: Achievement[]
   dismissUnlocked: () => void

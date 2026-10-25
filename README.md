@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# Ohmlab
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Learn electronics by experimenting. Ohmlab is an interactive course that starts at "what is voltage?" Every lesson has a live circuit you can poke, break and fix, solved by a real circuit simulator, so the numbers you see are the numbers a real circuit would give.
 
-Currently, two official plugins are available:
+## Quick start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm ci
+npm run dev        # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+
+| Script | What it does |
+|---|---|
+| `npm run dev` | Dev server with hot reload |
+| `npm test` | Unit and component tests (Vitest) |
+| `npm run build` | Typecheck and production build into `dist/` |
+| `npm run e2e` | Builds, serves the production preview, runs Playwright on desktop and mobile Chromium |
+| `npm run preview` | Serve `dist/` locally |
+
+First E2E run on a new machine: `npx playwright install chromium`.
+
+## Project layout
+
+```
+src/
+  sim/        DC circuit solver (modified nodal analysis + diode model)
+  viz/        SVG schematic with live current flow
+  features/   Lab (interactive circuit + challenges) and Quiz
+  progress/   Progress, mastery, streaks, achievements (browser storage)
+  content/    Lessons and the 100-day curriculum map
+  app/        Shell, routing, pages
+  ui/         Shared UI primitives and formatting
+  styles/     Design tokens
+docs/         PRD, specs, architecture, design system, test plan, roadmap
+e2e/          Playwright tests
+```
+
+Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit, and [docs/SIMULATION_SPEC.md](docs/SIMULATION_SPEC.md) for what the simulator does and doesn't model.
+
+## Adding a lesson
+
+1. Create `src/content/lessons/dayNN.ts` exporting a `Lesson` (schema in `src/content/types.ts`).
+2. Add it to `lessons` in `src/content/index.ts` and set `lessonId` on its day in `src/content/curriculum.ts`.
+3. Run `npm test`. The content tests check the schema, that the layout matches the circuit, and that every lab challenge is reachable.
+
+## Deploying to GitHub Pages
+
+1. Push this folder to a GitHub repository.
+2. In the repo, go to **Settings → Pages → Build and deployment** and set Source to **GitHub Actions**.
+3. Every push to `main` runs `.github/workflows/deploy.yml`: tests, build with `BASE_PATH=/<repo>/`, E2E, then deploy. The site appears at `https://<user>.github.io/<repo>/`.
+
+Routing uses the URL hash (`#/lesson/first-led`), so deep links work on Pages without a 404 fallback.
+
+## Progress and privacy
+
+Progress is stored only in your browser (`localStorage`). There are no accounts and no tracking.
