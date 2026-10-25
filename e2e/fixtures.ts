@@ -125,7 +125,7 @@ export async function completeDay1(page: Page) {
   await pick(page, 'Resistor R1', 'No resistor (0 Ω, sim only)')
   await expect(lab(page).getByRole('button', { name: 'LED D1 (red), burnt out' })).toBeVisible()
   await expect(lab(page).locator('[data-part="D1"]')).toContainText('BURNT')
-  await expect(lab(page).getByRole('alert')).toContainText('D1 burnt out.')
+  await expect(lab(page).getByRole('alert')).toContainText('D1 burnt out: the circuit is now open (0 A).')
   await expectChallengeDone(page, /break it!/, /Pop\./)
 
   // Reset restores 1 kΩ, red, not flipped.
