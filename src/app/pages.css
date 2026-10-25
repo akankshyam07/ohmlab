@@ -1,0 +1,256 @@
+/* Achievements, Settings, 404. */
+
+.page-narrow {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.page-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-6);
+}
+
+.page-head h1 {
+  font-size: var(--fs-3xl);
+  letter-spacing: -0.03em;
+}
+
+.page-head p:not(.eyebrow) {
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+
+/* ---------- Achievements ---------- */
+
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ach-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  color: var(--text-muted);
+}
+
+.ach-card h2 {
+  font-size: var(--fs-lg);
+  color: var(--text-muted);
+}
+
+.ach-card[data-unlocked] {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+}
+
+.ach-card[data-unlocked] h2 {
+  color: var(--text);
+}
+
+.ach-card[data-unlocked]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(14rem 8rem at 20% 0%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.ach-icon-lg {
+  width: 52px;
+  height: 52px;
+  font-size: var(--fs-xl);
+  margin-bottom: var(--sp-2);
+}
+
+.ach-status {
+  margin-top: auto;
+  padding-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.ach-card[data-unlocked] .ach-status {
+  color: var(--ok);
+}
+
+/* ---------- Settings ---------- */
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+}
+
+.setting + .setting {
+  margin-top: var(--sp-4);
+}
+
+.setting h2 {
+  font-size: var(--fs-xl);
+}
+
+.setting-help {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.setting-status:empty {
+  display: none;
+}
+
+.setting-status {
+  color: var(--ok);
+  font-size: var(--fs-sm);
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.switch-track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
+}
+
+.switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition:
+    transform var(--dur-med) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out);
+}
+
+.switch input:checked + .switch-track {
+  background: color-mix(in srgb, var(--sig-current) 30%, var(--surface-3));
+  border-color: var(--sig-current);
+  box-shadow: var(--glow-current);
+}
+
+.switch input:checked + .switch-track::after {
+  transform: translateX(18px);
+  background: var(--sig-current);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 3px;
+}
+
+/* ---------- Confirm dialog ---------- */
+
+.confirm {
+  width: min(440px, calc(100vw - 2 * var(--sp-4)));
+  padding: var(--sp-5);
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.confirm::backdrop {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.confirm[open] {
+  animation: confirm-in var(--dur-med) var(--ease-out);
+}
+
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.confirm h2 {
+  font-size: var(--fs-xl);
+}
+
+.confirm p {
+  margin-top: var(--sp-2);
+  color: var(--text-muted);
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+/* ---------- 404 ---------- */
+
+.notfound {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-top: var(--sp-7);
+  text-align: center;
+}
+
+.notfound h1 {
+  font-size: var(--fs-3xl);
+}
+
+.notfound p:not(.eyebrow) {
+  color: var(--text-muted);
+  margin-bottom: var(--sp-3);
+}
+
+.notfound-trace {
+  width: min(320px, 100%);
+  margin-bottom: var(--sp-4);
+  fill: none;
+  stroke: var(--sig-ground);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notfound-trace circle {
+  stroke: var(--sig-power);
+  filter: drop-shadow(0 0 6px var(--sig-power));
+}
