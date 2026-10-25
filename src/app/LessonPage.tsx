@@ -118,16 +118,32 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
     return 'done'
   }
 
+  // Where the learner has asked to go, which can run ahead of `index` while the exit animation plays.
+  const targetIndex = useRef<number | null>(null)
+  useEffect(() => {
+    targetIndex.current = null
+  }, [index])
+
   const goTo = (i: number) => {
-    if (leaving || i === index) return
+    if (i === (targetIndex.current ?? index)) return
+    targetIndex.current = i
     attemptsOnArrival.current = lp?.quizAttempts ?? 0
-    const go = () => window.location.assign(href('lesson', lesson.id, steps[i].id))
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true) return go()
+    const go = () => {
+      pendingGo.current = undefined
+      window.location.assign(href('lesson', lesson.id, steps[i].id))
+    }
+    // A second request during the exit cuts it short: a click is never dropped.
+    if (leaving || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true)) return go()
     pendingGo.current = go
     setLeavingFrom(step.id)
+    // animationend never fires in a hidden tab or a display:none card; don't strand the learner.
+    window.setTimeout(() => {
+      if (pendingGo.current === go) go()
+    }, 400)
   }
   const onNext = () => {
-    if (!isLast) goTo(index + 1)
+    const from = targetIndex.current ?? index
+    if (from < steps.length - 1) goTo(from + 1)
     else window.location.assign(following ? href('lesson', following.id) : href())
   }
 

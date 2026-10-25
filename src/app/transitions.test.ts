@@ -18,7 +18,7 @@ describe('withViewTransition', () => {
     const finished = new Promise<void>((resolve) => (finish = resolve))
     document.startViewTransition = ((cb: () => void) => {
       cb()
-      return { finished } as ViewTransition
+      return { finished, ready: Promise.resolve(), updateCallbackDone: Promise.resolve(), skipTransition: () => {} } as unknown as ViewTransition
     }) as Document['startViewTransition']
     const update = vi.fn()
     const after = vi.fn()

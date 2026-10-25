@@ -20,7 +20,12 @@ export function withViewTransition(update: () => void, kind?: NavKind) {
   const root = document.documentElement
   if (kind) root.dataset.nav = kind
   else delete root.dataset.nav
+  // A newer navigation wins: finish the old transition now. Its promises reject when skipped ("Transition was
+  // skipped"), which is expected here, so they're caught rather than surfacing as unhandled errors.
+  running?.skipTransition()
   const transition = document.startViewTransition(() => flushSync(update))
+  transition.ready.catch(() => {})
+  transition.updateCallbackDone.catch(() => {})
   running = transition
   const done = () => {
     if (running !== transition) return

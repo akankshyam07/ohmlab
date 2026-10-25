@@ -228,6 +228,8 @@ for (const [name, path] of [
 }
 
 test('J7: every route renders with no console errors', async ({ page }) => {
+  // ~36 step changes, each with a short exit/enter transition.
+  test.setTimeout(90_000)
   await page.goto('./')
   const lessonHrefs = await page
     .getByRole('link', { name: /^Day \d+: / })

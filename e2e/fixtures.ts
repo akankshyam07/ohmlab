@@ -143,9 +143,12 @@ export async function completeDay1(page: Page) {
   await expect(trayCount(page)).toHaveText('Challenges 4 / 4')
 
   // Remaining sections, then the quiz.
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  // Visit each step (wait for it to load): rapid repeated Next presses intentionally skip ahead.
+  for (let i = 0; i < 3; i++) {
+    const before = page.url()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(page).not.toHaveURL(before)
+  }
   await expect(page).toHaveURL(/#\/lesson\/first-led\/quiz$/)
   await answerDay1Quiz(page)
   expect(await page.locator('.toast').count()).toBeLessThanOrEqual(2)

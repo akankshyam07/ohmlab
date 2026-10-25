@@ -5,6 +5,8 @@ const base = process.env.BASE_PATH ?? '/'
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // Each worker is a full Chromium; more than a few starves the animated pages on a busy dev machine.
+  workers: process.env.CI ? undefined : 3,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
   use: {
