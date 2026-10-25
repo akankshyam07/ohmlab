@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ProgressProvider, useProgress } from './progress/store'
 import { Home } from './app/Home'
 import { LessonPage } from './app/LessonPage'
 import { AchievementsPage, NotFound, SettingsPage } from './app/pages'
-import { href, useRoute, type Route } from './app/router'
+import { href, navKind, useRoute, type Route } from './app/router'
+import { afterViewTransition } from './app/transitions'
 import { SettingsProvider } from './app/settings'
 import { Icon, LogoMark, type IconName } from './ui/primitives'
 import './app/shell.css'
@@ -28,14 +29,23 @@ function Shell() {
   const route = useRoute()
   const main = useRef<HTMLElement>(null)
   const routeKey = JSON.stringify(route)
-  const previousKey = useRef(routeKey)
+  const previous = useRef(route)
 
-  useEffect(() => {
-    if (previousKey.current === routeKey) return
-    previousKey.current = routeKey
-    window.scrollTo(0, 0)
-    const target = document.querySelector<HTMLElement>('[data-autofocus]') ?? main.current
-    target?.focus({ preventScroll: true })
+  // A layout effect, so it runs inside the view transition's update (the new page is captured already at the top).
+  // A new page starts at the top. A new lesson step keeps the scroll position, and only when its heading is out of
+  // view does the page then glide to it.
+  useLayoutEffect(() => {
+    const from = previous.current
+    previous.current = route
+    if (JSON.stringify(from) === routeKey) return
+    const heading = document.querySelector<HTMLElement>('[data-autofocus]')
+    if (navKind(from, route) === 'page') {
+      window.scrollTo(0, 0)
+      ;(heading ?? main.current)?.focus({ preventScroll: true })
+      return
+    }
+    heading?.focus({ preventScroll: true })
+    if (heading) afterViewTransition(() => revealHeading(heading))
   }, [routeKey])
 
   return (
@@ -89,6 +99,15 @@ function Shell() {
       <Toasts />
     </div>
   )
+}
+
+/** Scroll a step heading into view (below the bar, and the mini-stage on phones) if it isn't already. */
+function revealHeading(heading: HTMLElement) {
+  const covered = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0
+  const { top, bottom } = heading.getBoundingClientRect()
+  if (top >= covered && bottom <= window.innerHeight) return
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  heading.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
 }
 
 const TOAST_MS = 5000

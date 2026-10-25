@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import './ui.css'
 
 /** The Ohmlab mark: a resistor zig-zag that reads as a waveform. */
@@ -76,6 +76,12 @@ export function ProgressRing({
   children?: ReactNode
 }) {
   const pct = Math.round(Math.min(1, Math.max(0, value)) * 100)
+  // Drawn from 0 on mount, then to each new value: the stroke transition animates the fill (instant under reduced motion).
+  const [drawn, setDrawn] = useState(0)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setDrawn(pct))
+    return () => cancelAnimationFrame(frame)
+  }, [pct])
   const r = 15.5
   const circumference = 2 * Math.PI * r
   return (
@@ -89,7 +95,7 @@ export function ProgressRing({
           cy="18"
           r={r}
           strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - pct / 100)}
+          strokeDashoffset={circumference * (1 - drawn / 100)}
         />
       </svg>
       <span className="ring-label" aria-hidden="true">

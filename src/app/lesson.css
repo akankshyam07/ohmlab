@@ -201,8 +201,32 @@
   display: none;
 }
 
-.stage-sim > * {
+.stage-sim > *,
+.stage-wiring > * {
   height: 100%;
+}
+
+/* Wiring / Simulator: both views share one cell and crossfade; the hidden one leaves the a11y tree (aria-hidden,
+   inert) at once and stops painting (visibility) once faded. */
+.lesson-stage-lab {
+  display: grid;
+}
+
+.lesson-stage-lab > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+  min-height: 0;
+  transition:
+    opacity var(--dur-tween) var(--ease-out),
+    visibility 0s;
+}
+
+.lesson-stage-lab > [aria-hidden='true'] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--dur-tween) var(--ease-out),
+    visibility 0s linear var(--dur-tween);
 }
 
 /* ---------- Build step: the stage shows the wiring diagram, with the simulator a toggle away ---------- */
@@ -327,6 +351,7 @@
 /* ---------- Step navigation ---------- */
 
 .steps-nav ol {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
@@ -392,6 +417,34 @@
   box-shadow: 0 0 18px color-mix(in srgb, var(--brand) 28%, transparent);
 }
 
+/* The current-step pill glides from chip to chip (`.steps-glider`, placed by LessonPage). Once it is placed, the
+   current chip itself goes clear so the glider is what shows; without it (before layout) the chip draws itself. */
+.steps-nav .steps-glider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--brand) 28%, transparent);
+  pointer-events: none;
+  transition:
+    transform var(--dur-tween) var(--ease-spring),
+    width var(--dur-tween) var(--ease-spring);
+}
+
+.steps-nav li:not(.steps-glider) {
+  position: relative;
+  z-index: 1;
+}
+
+.steps-nav ol[data-glide] .step-btn[aria-current='step'] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 .steps-meter {
   height: 2px;
   margin-top: var(--sp-3);
@@ -416,7 +469,19 @@
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
   box-shadow: var(--shadow-panel);
-  animation: step-in var(--dur-slow) var(--ease-out);
+  animation: step-in var(--dur-tween) var(--ease-out);
+}
+
+/* Step change: the card leaves (fade, 8 px up), then the new one arrives (fade, 8 px from below). */
+.step[data-leaving] {
+  animation: step-out calc(var(--dur-tween) * 0.4) ease-in forwards;
+}
+
+@keyframes step-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes step-in {
@@ -1292,7 +1357,11 @@
 
   /* Keep focused/scrolled-to content out from under the pinned stage. */
   :root:has(.lesson-stage:not([data-collapsed])) {
-    scroll-padding-top: calc(var(--bar-h) + 45svh + var(--sp-3));
+    scroll-padding-top: calc(64px + 45svh + var(--sp-3)); /* literal: --bar-h lives on .lesson, not :root */
+  }
+
+  :root:has(.lesson-stage[data-collapsed]) {
+    scroll-padding-top: calc(64px + 44px + var(--sp-3));
   }
 
   .blk-predict-try-icon .icon {

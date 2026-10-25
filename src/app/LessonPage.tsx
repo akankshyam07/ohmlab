@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getLesson, lessons } from '../content'
 import type { Lesson } from '../content/types'
 import { Lab } from '../features/lab/Lab'
@@ -22,6 +22,11 @@ export function LessonPage({ id, step }: { id: string; step?: string }) {
 
 type StepState = 'done' | 'seen' | 'unseen'
 
+// The lab re-renders only when its own props change, not on every step change, so a step change stays well inside one
+// frame. Hence one shared empty highlight, never a fresh [].
+const StageLab = memo(Lab)
+const NO_HIGHLIGHT: string[] = []
+
 const STEP_STATE_TEXT: Record<StepState, string> = { done: 'Done', seen: 'Seen', unseen: 'Not seen yet' }
 
 function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string }) {
@@ -31,7 +36,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   const index = Math.max(0, steps.findIndex((s) => s.id === stepParam))
   const step = steps[index]
   const [walkHighlight, setWalkHighlight] = useState<{ stepId: string; ids: string[] }>({ stepId: '', ids: [] })
-  const highlight = walkHighlight.stepId === step.id ? walkHighlight.ids : []
+  const highlight = walkHighlight.stepId === step.id ? walkHighlight.ids : NO_HIGHLIGHT
   const lp = progress.lessons[lesson.id]
   const following = nextLesson(lessons, lesson)
   const isLast = index === steps.length - 1
@@ -52,10 +57,43 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   const stepList = useRef<HTMLOListElement>(null)
   useEffect(() => {
     const list = stepList.current
-    const current = list?.querySelector<HTMLElement>('[aria-current="step"]')
+    // The chip's <li>: positioned, so its offsets are relative to the (positioned) list.
+    const current = list?.querySelector('[aria-current="step"]')?.closest('li')
     if (list && current && list.scrollWidth > list.clientWidth)
-      list.scrollLeft = current.offsetLeft - list.offsetLeft - (list.clientWidth - current.offsetWidth) / 2
+      list.scrollLeft = current.offsetLeft - (list.clientWidth - current.offsetWidth) / 2
   }, [index])
+
+  // The current-step pill glides to the new chip (CSS transition on transform and width). Placed without motion on
+  // first layout and on resize, when chips reflow.
+  const glider = useRef<HTMLLIElement>(null)
+  useLayoutEffect(() => {
+    const list = stepList.current
+    const pill = glider.current
+    if (!list || !pill) return
+    const place = (animate: boolean) => {
+      const current = list.querySelector('[aria-current="step"]')?.closest('li')
+      if (!current) return
+      if (!animate) pill.style.transition = 'none'
+      pill.style.transform = `translate(${current.offsetLeft}px, ${current.offsetTop}px)`
+      pill.style.width = `${current.offsetWidth}px`
+      pill.style.height = `${current.offsetHeight}px`
+      list.dataset.glide = ''
+      if (!animate) {
+        void pill.offsetWidth
+        pill.style.transition = ''
+      }
+    }
+    place(list.dataset.glide !== undefined)
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => place(false))
+    ro.observe(list)
+    return () => ro.disconnect()
+  }, [index])
+
+  // Step change: the card plays its exit (CSS `step-out`), then the route changes and the new card enters.
+  const [leavingFrom, setLeavingFrom] = useState<string | null>(null)
+  const leaving = leavingFrom === step.id
+  const pendingGo = useRef<() => void>(undefined)
 
   const highlightParts = (ids: string[]) => {
     setWalkHighlight({ stepId: step.id, ids })
@@ -81,8 +119,12 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   }
 
   const goTo = (i: number) => {
+    if (leaving || i === index) return
     attemptsOnArrival.current = lp?.quizAttempts ?? 0
-    window.location.assign(href('lesson', lesson.id, steps[i].id))
+    const go = () => window.location.assign(href('lesson', lesson.id, steps[i].id))
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? true) return go()
+    pendingGo.current = go
+    setLeavingFrom(step.id)
   }
   const onNext = () => {
     if (!isLast) goTo(index + 1)
@@ -121,6 +163,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
         <div className="lesson-panel">
           <nav className="steps-nav" aria-label="Lesson steps">
             <ol ref={stepList}>
+              <li ref={glider} className="steps-glider" aria-hidden="true" />
               {steps.map((s, i) => {
                 const state = stateOf(s.id)
                 return (
@@ -155,7 +198,18 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
             </div>
           </nav>
 
-          <article className="step" key={step.id} aria-labelledby="step-title">
+          <article
+            className="step"
+            key={step.id}
+            aria-labelledby="step-title"
+            data-leaving={leaving || undefined}
+            onAnimationEnd={(e) => {
+              if (e.animationName !== 'step-out' || e.target !== e.currentTarget) return
+              const go = pendingGo.current
+              pendingGo.current = undefined
+              go?.()
+            }}
+          >
             <p className="step-count mono">
               Step {index + 1} of {steps.length}
             </p>
@@ -246,28 +300,30 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
               </button>
             </div>
             <div className="lesson-stage-lab" id="lesson-stage-lab">
-              {showWiring && build?.breadboard && (
-                <WiringFigure
-                  layout={build.breadboard}
-                  title={lesson.title}
-                  highlight={buildStep === null ? [] : partsForStep(build, buildStep)}
-                >
-                  {/* A visual echo of the current step under the board; the step list carries it for screen readers. */}
-                  {buildStep !== null && (
-                    <p className="wiring-step" aria-hidden="true">
-                      <span className="wiring-step-num mono">
-                        Step {buildStep + 1} of {build.steps.length}
-                      </span>
-                      <span className="wiring-step-text">
-                        <RichText text={build.steps[buildStep]} />
-                      </span>
-                    </p>
-                  )}
-                </WiringFigure>
+              {wiringStage && build?.breadboard && (
+                <div className="stage-wiring" aria-hidden={!showWiring || undefined} inert={!showWiring}>
+                  <WiringFigure
+                    layout={build.breadboard}
+                    title={lesson.title}
+                    highlight={buildStep === null ? [] : partsForStep(build, buildStep)}
+                  >
+                    {/* A visual echo of the current step under the board; the step list carries it for screen readers. */}
+                    {buildStep !== null && (
+                      <p className="wiring-step" aria-hidden="true">
+                        <span className="wiring-step-num mono">
+                          Step {buildStep + 1} of {build.steps.length}
+                        </span>
+                        <span className="wiring-step-text">
+                          <RichText text={build.steps[buildStep]} />
+                        </span>
+                      </p>
+                    )}
+                  </WiringFigure>
+                </div>
               )}
-              {/* Hidden, not unmounted, behind the wiring view: the lab keeps its state. */}
-              <div className="stage-sim" hidden={showWiring}>
-                <Lab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
+              {/* Behind the wiring view the lab stays mounted, so it keeps its state. */}
+              <div className="stage-sim" aria-hidden={showWiring || undefined} inert={showWiring}>
+                <StageLab lessonId={lesson.id} lab={lesson.lab} highlight={highlight} showFlow={animateFlow} />
               </div>
             </div>
           </div>

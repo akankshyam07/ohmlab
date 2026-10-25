@@ -98,6 +98,14 @@
   text-align: left;
 }
 
+/*
+ * No backdrop blur on the home page: a blurred panel over the drifting waves is re-blurred every frame (the idle
+ * home page dropped to 30 fps at 1280 px). The panels stay translucent over the static grid instead.
+ */
+.home .panel {
+  backdrop-filter: none;
+}
+
 .hero-waves {
   position: absolute;
   inset: -10% -20% auto;
@@ -108,10 +116,26 @@
   mask-image: radial-gradient(closest-side, black 40%, transparent);
 }
 
+/* One wave period is 600 (current) or 900 (voltage) of the 2400 viewBox units: -25 % and -37.5 % loop seamlessly. */
+.wave-layer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 200%;
+  height: 100%;
+  will-change: transform;
+}
+
+.wave-layer-current {
+  animation: wave-drift 18s linear infinite;
+}
+
+.wave-layer-voltage {
+  animation: wave-drift-slow 26s linear infinite;
+}
+
 .wave {
   fill: none;
   stroke-width: 1.5;
-  animation: wave-drift 18s linear infinite;
 }
 
 .wave-current {
@@ -120,18 +144,17 @@
 
 .wave-voltage {
   stroke: color-mix(in srgb, var(--sig-voltage) 22%, transparent);
-  animation: wave-drift-slow 26s linear infinite;
-}
-
-@keyframes wave-drift-slow {
-  to {
-    transform: translateX(-900px);
-  }
 }
 
 @keyframes wave-drift {
   to {
-    transform: translateX(-600px);
+    transform: translateX(-25%);
+  }
+}
+
+@keyframes wave-drift-slow {
+  to {
+    transform: translateX(-37.5%);
   }
 }
 
@@ -668,5 +691,52 @@
 
   .days {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- First-load intro (once per session, `.home[data-intro]`) ---------- */
+
+/* Phases rise in one after another, their day ticks pop up left to right, day tiles follow and mastery bars grow. */
+@media (prefers-reduced-motion: no-preference) {
+  .home[data-intro] .phase {
+    animation: intro-rise var(--dur-tween) var(--ease-out) both;
+    animation-delay: calc(var(--phase, 0) * 70ms);
+  }
+
+  .home[data-intro] .phase-ticks span {
+    transform-origin: bottom;
+    animation: intro-tick var(--dur-tween) var(--ease-spring) both;
+    animation-delay: calc(var(--phase, 0) * 70ms + 160ms + var(--i, 0) * 10ms);
+  }
+
+  .home[data-intro] .day {
+    animation: intro-rise var(--dur-tween) var(--ease-out) both;
+    animation-delay: calc(var(--phase, 0) * 70ms + 120ms + var(--i, 0) * 45ms);
+  }
+
+  .home[data-intro] .day-bar span {
+    transform-origin: left;
+    animation: intro-grow var(--dur-intro) var(--ease-out) both;
+    animation-delay: calc(var(--phase, 0) * 70ms + 260ms + var(--i, 0) * 45ms);
+  }
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes intro-tick {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+}
+
+@keyframes intro-grow {
+  from {
+    transform: scaleX(0);
   }
 }

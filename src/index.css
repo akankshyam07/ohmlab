@@ -110,12 +110,46 @@ summary:focus-visible,
   box-shadow: var(--glow-brand);
 }
 
+/* ---------- View transitions: page changes only (src/app/transitions.ts) ---------- */
+
+/* A fade-through: the old page out, then the new one in. The top bar is its own group, so it only crossfades what
+   differs (the current nav item) instead of blinking. */
+:root[data-nav='page'] .topbar {
+  view-transition-name: topbar;
+}
+
+::view-transition-group(*) {
+  animation-duration: var(--dur-tween);
+  animation-timing-function: var(--ease-out);
+}
+
+:root[data-nav='page']::view-transition-old(root) {
+  animation: vt-fade-out calc(var(--dur-tween) * 0.4) ease-in both;
+}
+
+:root[data-nav='page']::view-transition-new(root) {
+  animation: vt-fade-in calc(var(--dur-tween) * 0.6) var(--ease-out) calc(var(--dur-tween) * 0.4) both;
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* Safety net: no looping or entrance motion when the system asks for reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }

@@ -182,7 +182,7 @@
   stroke: var(--brand);
   stroke-linecap: round;
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--brand) 70%, transparent));
-  transition: stroke-dashoffset var(--dur-slow) var(--ease-out);
+  transition: stroke-dashoffset var(--dur-intro) var(--ease-out);
 }
 
 .ring-value[data-complete] {

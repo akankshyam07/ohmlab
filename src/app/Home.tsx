@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { getLesson, lessons, phases } from '../content'
 import type { Phase } from '../content/types'
 import { achievements } from '../progress/achievements'
@@ -9,15 +9,36 @@ import { HeroBench } from './HeroBench'
 import { href } from './router'
 import './home.css'
 
+const INTRO_KEY = 'ohmlab.intro'
+// The first-load intro plays once per browser session (and once per page load when storage is blocked).
+let introPending = (() => {
+  try {
+    return !sessionStorage.getItem(INTRO_KEY)
+  } catch {
+    return true
+  }
+})()
+
+const vars = (v: Record<string, number>) => v as CSSProperties
+
 export function Home() {
   const { progress, mastery, isComplete, streak } = useProgress()
+  const [intro] = useState(() => introPending)
+  useEffect(() => {
+    introPending = false
+    try {
+      sessionStorage.setItem(INTRO_KEY, '1')
+    } catch {
+      // Storage blocked: the module flag still stops a replay until the next load.
+    }
+  }, [])
   const target = continueTarget(lessons, progress, isComplete)
   const completed = lessons.filter(isComplete).length
   const avgMastery = lessons.length ? lessons.reduce((sum, l) => sum + mastery(l), 0) / lessons.length : 0
   const days = streak()
 
   return (
-    <div className="home">
+    <div className="home" data-intro={intro || undefined}>
       <section className="hero" aria-labelledby="home-title">
         <HeroWaves />
         <div className="hero-copy">
@@ -83,8 +104,8 @@ export function Home() {
           <h2 id="map-title">The 100-day map</h2>
           <p>Seven phases from “what is a volt?” to building your own projects. Lit days are ready to play.</p>
         </div>
-        {phases.map((phase) => (
-          <PhaseCard key={phase.n} phase={phase} />
+        {phases.map((phase, i) => (
+          <PhaseCard key={phase.n} phase={phase} index={i} />
         ))}
       </section>
 
@@ -93,13 +114,18 @@ export function Home() {
   )
 }
 
-function PhaseCard({ phase }: { phase: Phase }) {
+function PhaseCard({ phase, index }: { phase: Phase; index: number }) {
   const { progress, mastery, isComplete } = useProgress()
   const live = phase.days.filter((d) => d.lessonId && getLesson(d.lessonId))
   const [open, setOpen] = useState(live.length > 0)
   const listId = `phase-${phase.n}-days`
   return (
-    <section className="phase panel" aria-labelledby={`phase-${phase.n}-title`} data-live={live.length > 0 || undefined}>
+    <section
+      className="phase panel"
+      aria-labelledby={`phase-${phase.n}-title`}
+      data-live={live.length > 0 || undefined}
+      style={vars({ '--phase': index })}
+    >
       <header className="phase-head">
         <span className="phase-index mono" aria-hidden="true">
           P{phase.n}
@@ -126,22 +152,23 @@ function PhaseCard({ phase }: { phase: Phase }) {
         </div>
       </header>
       <div className="phase-ticks" aria-hidden="true">
-        {phase.days.map((d) => {
+        {phase.days.map((d, i) => {
           const lesson = d.lessonId ? getLesson(d.lessonId) : undefined
           return (
             <span
               key={d.day}
+              style={vars({ '--i': i })}
               data-state={lesson ? (isComplete(lesson) ? 'complete' : 'live') : 'soon'}
             />
           )
         })}
       </div>
       <ol className="days" id={listId} hidden={!open}>
-        {phase.days.map((d) => {
+        {phase.days.map((d, i) => {
           const lesson = d.lessonId ? getLesson(d.lessonId) : undefined
           if (!lesson)
             return (
-              <li key={d.day} className="day day-soon">
+              <li key={d.day} className="day day-soon" style={vars({ '--i': i })}>
                 <span className="day-num mono">Day {d.day}</span>
                 <span className="day-title">{d.title}</span>
                 <span className="day-state">Coming soon</span>
@@ -155,6 +182,7 @@ function PhaseCard({ phase }: { phase: Phase }) {
             <li key={d.day}>
               <a
                 className="day day-live"
+                style={vars({ '--i': i })}
                 data-state={state}
                 href={href('lesson', lesson.id)}
                 aria-label={`Day ${lesson.day}: ${lesson.title}`}
@@ -219,17 +247,26 @@ function AchievementsPreview() {
   )
 }
 
+/**
+ * Two drifting sine waves behind the hero. Each wave is its own <svg>, twice the hero's width, moved with a CSS
+ * transform on the element itself: the compositor slides a cached layer, so nothing repaints per frame (moving the
+ * paths inside one SVG repainted it, and the blurred panels above it, every frame).
+ */
 function HeroWaves() {
   return (
-    <svg className="hero-waves" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true">
-      <path
-        className="wave wave-current"
-        d="M0 200 C100 120 200 120 300 200 S500 280 600 200 S800 120 900 200 S1100 280 1200 200 S1400 120 1500 200 S1700 280 1800 200 S2000 120 2100 200 S2300 280 2400 200"
-      />
-      <path
-        className="wave wave-voltage"
-        d="M0 230 C150 150 300 150 450 230 S750 310 900 230 S1200 150 1350 230 S1650 310 1800 230 S2100 150 2250 230 S2550 310 2700 230"
-      />
-    </svg>
+    <div className="hero-waves" aria-hidden="true">
+      <svg className="wave-layer wave-layer-current" viewBox="0 0 2400 400" preserveAspectRatio="none">
+        <path
+          className="wave wave-current"
+          d="M0 200 C100 120 200 120 300 200 S500 280 600 200 S800 120 900 200 S1100 280 1200 200 S1400 120 1500 200 S1700 280 1800 200 S2000 120 2100 200 S2300 280 2400 200"
+        />
+      </svg>
+      <svg className="wave-layer wave-layer-voltage" viewBox="0 0 2400 400" preserveAspectRatio="none">
+        <path
+          className="wave wave-voltage"
+          d="M0 230 C150 150 300 150 450 230 S750 310 900 230 S1200 150 1350 230 S1650 310 1800 230 S2100 150 2250 230 S2550 310 2700 230"
+        />
+      </svg>
+    </div>
   )
 }
