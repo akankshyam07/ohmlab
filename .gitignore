@@ -27,4 +27,5 @@ dist-ssr
 test-results
 playwright-report
 
-.claude
+.claude/*
+!.claude/skills/
