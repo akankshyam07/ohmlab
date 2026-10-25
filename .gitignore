@@ -32,3 +32,4 @@ playwright-report
 
 # Isometric bench concept build (npx vite build src/viz/iso/concept ...)
 dist-concept
+dist-preview

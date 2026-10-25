@@ -103,6 +103,30 @@ function useSize<T extends HTMLElement>() {
   return [ref, size] as const
 }
 
+/**
+ * The vertical slice of `ref` that's on screen, in 10 % steps. A stage can be taller than what's visible (a sticky
+ * column before it sticks), and framing the bench in the whole box would leave it half below the fold.
+ */
+function useVisibleBand(ref: React.RefObject<HTMLElement | null>, h: number) {
+  const [band, setBand] = useState<{ top: number; height: number } | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !h || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        const visible = e.intersectionRect.height
+        const next =
+          !e.isIntersecting || visible >= h * 0.95 ? null : { top: Math.round(e.intersectionRect.top - e.boundingClientRect.top), height: Math.round(visible) }
+        setBand((b) => (b?.top === next?.top && b?.height === next?.height ? b : next))
+      },
+      { threshold: Array.from({ length: 11 }, (_, i) => i / 10) },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [ref, h])
+  return band
+}
+
 const stateOf = (r?: ComponentResult): PartState => (r ? { status: r.status, brightness: r.status === 'burnt' ? 0 : (r.brightness ?? 0) } : {})
 
 /** Short text tag for a state colour alone can't carry. */
@@ -210,6 +234,14 @@ export function IsoBench({
   const motion = animate && !reduced
   const [stageRef, size] = useSize<HTMLDivElement>()
   const { w: W, h: H } = size
+  const band = useVisibleBand(stageRef, H)
+  // Frame within the visible band (at least 280 px tall, so a sliver of stage doesn't shrink the bench to nothing).
+  const bandH = band ? Math.max(band.height, Math.min(H, 280)) : H
+  const bandTop = band ? Math.min(band.top, H - bandH) : 0
+  const frameInBand = (r: Rect, margin: number): Zoom => {
+    const z = frameRect(r, W, bandH, margin)
+    return { ...z, ty: z.ty + bandTop }
+  }
   const pal = readPalette()
 
   /* ---------------- intro: once, when the bench first scrolls into view */
@@ -407,13 +439,13 @@ export function IsoBench({
   const cur = partsFor(shown)
   const focusKey = (focus ?? []).join(' ')
   // The whole bench, as large as the stage allows (the drawing's own padding is the margin).
-  const fitZoom = W && H ? frameRect(base.content, W, H, Math.min(padding, 0.06)) : { s: 1, tx: 0, ty: 0 }
+  const fitZoom = W && H ? frameInBand(base.content, Math.min(padding, 0.06)) : { s: 1, tx: 0, ty: 0 }
   const target = useMemo((): Zoom => {
     if (!W || !H) return fitZoom
     const frame = (ids: string[]) => {
       const pts = ids.flatMap((id) => cur.byId.get(id)?.outline ?? [])
       if (!pts.length) return null
-      const z = frameRect(atLeast(rectOf(pts), 230), W, H, 0.14)
+      const z = frameInBand(atLeast(rectOf(pts), 230), 0.14)
       return clampZoom(z, base.content, W, H, fitZoom.s, fitZoom.s * MAX_ZOOM)
     }
     if (focus?.length) {
@@ -429,7 +461,7 @@ export function IsoBench({
     return fitZoom
     // fitZoom derives from W, H, VBH.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [W, H, VBH, focusKey, shown, cur, base, layout])
+  }, [W, H, VBH, bandH, bandTop, focusKey, shown, cur, base, layout])
 
   const [userZoom, setUserZoom] = useState<Zoom | null>(null)
   useEffect(() => setUserZoom(null), [focusKey, shown, W, H])
