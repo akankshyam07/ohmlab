@@ -92,19 +92,17 @@ function Shell() {
 }
 
 const TOAST_MS = 5000
-const MAX_TOASTS = 2
 
 /**
- * Achievement toasts: at most two at once (a third and later fold into a "+N more" summary), auto-dismissed
- * after 5 s unless hovered or focused. Phones get one compact banner over the top bar, never over the stage.
+ * Achievement toasts: one compact banner over the top bar ("Unlocked: Title +N more"), never over lesson
+ * content. Auto-dismissed (all of them) after 5 s unless hovered or focused; Dismiss shows the next one.
  */
 function Toasts() {
   const { recentlyUnlocked, dismissUnlocked } = useProgress()
   const [dismissed, setDismissed] = useState<string[]>([])
   const [paused, setPaused] = useState(false)
   const queue = recentlyUnlocked.filter((a) => !dismissed.includes(a.id))
-  const shown = queue.length > MAX_TOASTS ? queue.slice(0, MAX_TOASTS - 1) : queue
-  const folded = queue.slice(shown.length)
+  const first = queue[0]
 
   const dismissAll = useCallback(() => {
     dismissUnlocked()
@@ -113,10 +111,10 @@ function Toasts() {
   }, [dismissUnlocked])
 
   // A removed toast never fires blur/mouseleave, so dismissing also resumes the timer.
-  const dismiss = (ids: string[]) => {
+  const dismiss = (id: string) => {
     setPaused(false)
-    if (ids.length >= queue.length) dismissAll()
-    else setDismissed((d) => [...d, ...ids])
+    if (queue.length <= 1) dismissAll()
+    else setDismissed((d) => [...d, id])
   }
 
   useEffect(() => {
@@ -135,42 +133,19 @@ function Toasts() {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      {shown.map((a) => (
-        <div key={a.id} className="toast panel">
+      {first && (
+        <div key={first.id} className="toast panel">
           <span className="toast-icon" aria-hidden="true">
-            {a.icon}
+            {first.icon}
           </span>
           <div className="toast-text">
-            <p className="toast-kicker">Achievement unlocked</p>
             <p className="toast-title">
-              {a.title}
+              {first.title}
               {queue.length > 1 && <span className="toast-more mono"> +{queue.length - 1} more</span>}
             </p>
-            <p className="toast-desc">{a.description}</p>
+            <p className="sr-only">{first.description}</p>
           </div>
-          <button type="button" className="toast-close" aria-label="Dismiss" onClick={() => dismiss([a.id])}>
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-      ))}
-      {folded.length > 0 && (
-        <div className="toast toast-summary panel">
-          <span className="toast-icon" aria-hidden="true">
-            <Icon name="trophy" size={22} />
-          </span>
-          <div className="toast-text">
-            <p className="toast-kicker">Achievements unlocked</p>
-            <p className="toast-title">{folded.length} more</p>
-            <p className="toast-desc">
-              {folded.map((a) => a.title).join(', ')}. <a href={href('achievements')}>See all</a>
-            </p>
-          </div>
-          <button
-            type="button"
-            className="toast-close"
-            aria-label="Dismiss"
-            onClick={() => dismiss(folded.map((a) => a.id))}
-          >
+          <button type="button" className="toast-close" aria-label="Dismiss" onClick={() => dismiss(first.id)}>
             <Icon name="close" size={18} />
           </button>
         </div>

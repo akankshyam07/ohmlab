@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Block } from '../content/types'
 import { BlockView } from './blocks'
 
@@ -15,6 +15,8 @@ const predict: Block = {
 }
 
 describe('BlockView', () => {
+  beforeEach(() => localStorage.clear())
+
   it('renders walkthrough step text with bold words as one text container', () => {
     const block: Block = {
       type: 'walkthrough',
@@ -33,30 +35,45 @@ describe('BlockView', () => {
     expect(onHighlight).toHaveBeenCalledWith(['V1'])
   })
 
-  it('predict: needs a guess, then reveals its why, the answer and what to try', () => {
+  it('predict: needs a guess, sends the learner to the lab, then reveals on request', () => {
     render(<BlockView block={predict} onHighlight={() => {}} />)
     expect(screen.getByText('Predict first')).toBeInTheDocument()
     const lock = screen.getByRole('button', { name: 'Lock in my guess' })
     expect(lock).toBeDisabled()
-    expect(screen.queryByText(/Less resistance/)).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('radio', { name: 'It drops.' }))
     fireEvent.click(lock)
 
+    // Locked, but the lab answers first.
+    expect(screen.getByText(/read the current meter/)).toBeInTheDocument()
+    expect(screen.queryByText(/More resistance would drop it/)).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'It drops.' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Lock in my guess' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show the answer' }))
     expect(screen.getByText(/More resistance would drop it/)).toBeInTheDocument()
     expect(screen.getByText(/a wrong guess is how the idea sticks/)).toBeInTheDocument()
     expect(screen.getByText('The answer:').parentElement).toHaveTextContent('The answer: It rises.')
-    expect(screen.getByText(/read the current meter/)).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'It drops.' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Lock in my guess' })).not.toBeInTheDocument()
   })
 
-  it('predict: a right guess is confirmed without repeating the answer', () => {
-    render(<BlockView block={predict} onHighlight={() => {}} />)
+  it('predict: a right guess is confirmed without repeating the answer, and is kept after a reload', () => {
+    const { unmount } = render(<BlockView block={predict} onHighlight={() => {}} />)
     fireEvent.click(screen.getByRole('radio', { name: 'It rises.' }))
     fireEvent.click(screen.getByRole('button', { name: 'Lock in my guess' }))
+    unmount()
+
+    render(<BlockView block={predict} onHighlight={() => {}} />)
+    expect(screen.getByRole('radio', { name: 'It rises.' })).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Show the answer' }))
     expect(screen.getByText('Good call.')).toBeInTheDocument()
     expect(screen.getByText(/Less resistance lets more current/)).toBeInTheDocument()
     expect(screen.queryByText('The answer:')).not.toBeInTheDocument()
+  })
+
+  it('table: every cell carries its column name for the phone card layout', () => {
+    const block: Block = { type: 'table', head: ['Divider', 'Sag'], rows: [['1 kΩ / 1 kΩ', 'about 5 %']] }
+    render(<BlockView block={block} onHighlight={() => {}} />)
+    expect(screen.getByRole('cell', { name: 'about 5 %' })).toHaveAttribute('data-label', 'Sag')
+    expect(screen.getByRole('columnheader', { name: 'Divider' })).toBeInTheDocument()
   })
 })

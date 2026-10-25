@@ -40,6 +40,7 @@ vi.mock('../progress/store', () => ({
 }))
 
 vi.mock('../features/lab/Lab', () => ({ Lab: () => <section aria-label="Circuit lab" /> }))
+vi.mock('../viz/BreadboardView', () => ({ BreadboardView: () => null }))
 vi.mock('../features/quiz/Quiz', () => ({ Quiz: () => <section aria-label="Quiz" /> }))
 
 const renderStep = (step?: string) =>
@@ -70,6 +71,13 @@ describe('LessonPage', () => {
     expect(screen.getByRole('button', { name: 'Show circuit' })).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(screen.getByRole('button', { name: 'Go to challenges' }))
     expect(screen.getByRole('button', { name: 'Hide circuit' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('says which part of mastery is missing, and the quiz offers "Skip quiz" instead of a second Next', () => {
+    renderStep('quiz')
+    expect(screen.getByText('steps read 0 / 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Skip quiz' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
   })
 
   it('build step: safety, a tick-off parts list, numbered steps and the checklist again', () => {

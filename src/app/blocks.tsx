@@ -39,21 +39,22 @@ export function BlockView({ block, onHighlight }: { block: Block; onHighlight: (
     case 'table':
       return (
         <div className="blk-table" role="region" aria-label="Table" tabIndex={0}>
-          <table>
-            <thead>
-              <tr>
+          {/* Explicit roles keep table semantics when phones restyle the rows as cards (display: block). */}
+          <table role="table">
+            <thead role="rowgroup">
+              <tr role="row">
                 {block.head.map((h, i) => (
-                  <th key={i} scope="col">
+                  <th key={i} scope="col" role="columnheader">
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {block.rows.map((row, r) => (
-                <tr key={r}>
+                <tr key={r} role="row">
                   {row.map((cell, c) => (
-                    <td key={c}>
+                    <td key={c} role="cell" data-label={block.head[c]}>
                       <RichText text={cell} />
                     </td>
                   ))}
@@ -108,20 +109,54 @@ function WalkthroughView({ block, onHighlight }: { block: Walkthrough; onHighlig
 /** Strip trailing sentence punctuation so an option can be quoted inside a sentence. */
 const unpunctuated = (text: string) => text.trim().replace(/[.!?…]+$/, '')
 
-/** Commit to a guess, then reveal why. Nothing is stored: predicting is practice, not a test. */
+interface PredictState {
+  locked: number
+  revealed: boolean
+}
+
+const predictKey = (id: string) => `ohmlab.predict.${id}`
+
+function loadPredict(id: string, options: number): PredictState | null {
+  try {
+    const x = JSON.parse(localStorage.getItem(predictKey(id)) ?? 'null') as PredictState | null
+    return x && Number.isInteger(x.locked) && x.locked >= 0 && x.locked < options && typeof x.revealed === 'boolean'
+      ? x
+      : null
+  } catch {
+    return null // blocked storage or bad JSON: ask again
+  }
+}
+
+function savePredict(id: string, state: PredictState) {
+  try {
+    localStorage.setItem(predictKey(id), JSON.stringify(state))
+  } catch {
+    // Storage blocked: the guess simply lasts for this visit.
+  }
+}
+
+/**
+ * Commit to a guess, test it in the lab, then reveal why. The answer stays hidden until the learner asks
+ * ("Show the answer"), so the lab gets to answer first. The guess is kept in this browser.
+ */
 function PredictView({ block }: { block: Predict }) {
   const id = useId()
-  const [choice, setChoice] = useState<number | null>(null)
-  const [locked, setLocked] = useState<number | null>(null)
-  const reveal = useRef<HTMLDivElement>(null)
-  const picked = locked === null ? undefined : block.options[locked]
+  const [saved, setSaved] = useState(() => loadPredict(block.id, block.options.length))
+  const [choice, setChoice] = useState<number | null>(saved?.locked ?? null)
+  const panel = useRef<HTMLDivElement>(null)
+  const picked = saved ? block.options[saved.locked] : undefined
+  const revealed = picked !== undefined && saved?.revealed
   const correct = block.options.find((o) => o.correct)
+
+  const update = (next: PredictState) => {
+    setSaved(next)
+    savePredict(block.id, next)
+    requestAnimationFrame(() => panel.current?.focus())
+  }
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (choice === null) return
-    setLocked(choice)
-    requestAnimationFrame(() => reveal.current?.focus())
+    if (choice !== null) update({ locked: choice, revealed: false })
   }
 
   return (
@@ -139,7 +174,9 @@ function PredictView({ block }: { block: Predict }) {
               <label
                 key={i}
                 className="blk-predict-option"
-                data-result={picked && (option.correct ? 'correct' : locked === i ? 'wrong' : undefined)}
+                data-result={
+                  revealed ? (option.correct ? 'correct' : saved?.locked === i ? 'wrong' : undefined) : undefined
+                }
               >
                 <input
                   type="radio"
@@ -160,8 +197,30 @@ function PredictView({ block }: { block: Predict }) {
           </button>
         )}
       </form>
-      {picked && (
-        <div className="blk-predict-reveal" ref={reveal} tabIndex={-1} data-correct={picked.correct || undefined}>
+      {picked && !revealed && (
+        <div className="blk-predict-reveal blk-predict-test" ref={panel} tabIndex={-1}>
+          <p className="blk-predict-verdict">Guess locked in. Now test it.</p>
+          <p className="blk-predict-try">
+            <span className="blk-predict-try-icon" aria-hidden="true">
+              <Icon name="left" size={18} />
+            </span>
+            <span>
+              <strong>Try it in the lab:</strong> <RichText text={block.tryIt} />
+            </span>
+          </p>
+          <p>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => saved && update({ ...saved, revealed: true })}
+            >
+              Show the answer
+            </button>
+          </p>
+        </div>
+      )}
+      {picked && revealed && (
+        <div className="blk-predict-reveal" ref={panel} tabIndex={-1} data-correct={picked.correct || undefined}>
           <p className="blk-predict-verdict">
             {picked.correct ? 'Good call.' : 'Not this time, and that’s fine: a wrong guess is how the idea sticks.'}
           </p>
@@ -173,14 +232,6 @@ function PredictView({ block }: { block: Predict }) {
               <strong>The answer:</strong> <RichText text={unpunctuated(correct.text)} />.
             </p>
           )}
-          <p className="blk-predict-try">
-            <span className="blk-predict-try-icon" aria-hidden="true">
-              <Icon name="left" size={18} />
-            </span>
-            <span>
-              <strong>Try it in the lab:</strong> <RichText text={block.tryIt} />
-            </span>
-          </p>
         </div>
       )}
     </section>

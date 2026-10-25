@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { getLesson, lessons } from '../content'
-import type { Lesson, RealBuild } from '../content/types'
+import type { Lesson } from '../content/types'
 import { Lab } from '../features/lab/Lab'
 import { Quiz } from '../features/quiz/Quiz'
 import { useProgress } from '../progress/store'
 import { Icon, ProgressRing } from '../ui/primitives'
-import { RichText } from '../ui/RichText'
 import { BlockView } from './blocks'
+import { BuildGuide } from './BuildGuide'
 import { lessonSteps, nextLesson } from './curriculum'
 import { NotFound } from './pages'
 import { href } from './router'
@@ -34,8 +34,10 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
   const lp = progress.lessons[lesson.id]
   const following = nextLesson(lessons, lesson)
   const isLast = index === steps.length - 1
+  // Mastery also weighs steps read, so a complete lesson can sit below 100 %: say which part is missing.
+  const unreadSteps = steps.filter((s) => !lp?.stepsSeen.includes(s.id)).length
   const [stageCollapsed, setStageCollapsed] = useState(false)
-  // The quiz keeps its own "Next question"; until it's finished on this visit, the lesson Next steps back visually.
+  // The quiz keeps its own "Next question"; until it's finished on this visit, the lesson button becomes a quiet "Skip quiz".
   const attemptsOnArrival = useRef(lp?.quizAttempts ?? 0)
   const quizInProgress = step.id === 'quiz' && (lp?.quizAttempts ?? 0) === attemptsOnArrival.current
 
@@ -97,7 +99,14 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
             <CompletionChecklist lesson={lesson} onJumpToChallenges={jumpToChallenges} />
           </div>
         </div>
-        <ProgressRing value={mastery(lesson)} size={68} />
+        <div className="lesson-mastery">
+          <ProgressRing value={mastery(lesson)} size={68} />
+          {unreadSteps > 0 && (
+            <p className="lesson-mastery-note mono">
+              steps read {steps.length - unreadSteps} / {steps.length}
+            </p>
+          )}
+        </div>
       </header>
 
       <div className="lesson-body">
@@ -185,7 +194,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
                 onClick={onNext}
                 aria-describedby={isLast ? 'next-caption' : undefined}
               >
-                Next
+                {quizInProgress ? 'Skip quiz' : 'Next'}
                 <Icon name="right" size={18} />
               </button>
             </div>
@@ -308,7 +317,7 @@ function StepContent({
   if (stepId === 'build' && lesson.realBuild)
     return (
       <div className="build">
-        <BuildGuide build={lesson.realBuild} />
+        <BuildGuide build={lesson.realBuild} title={lesson.title} />
         <CompletionChecklist lesson={lesson} onJumpToChallenges={onJumpToChallenges} />
       </div>
     )
@@ -320,67 +329,5 @@ function StepContent({
         <BlockView key={i} block={block} onHighlight={onHighlight} />
       ))}
     </div>
-  )
-}
-
-/** The real-kit build: safety first, a tick-off parts list (this visit only), then numbered steps. */
-function BuildGuide({ build }: { build: RealBuild }) {
-  const [have, setHave] = useState<string[]>([])
-  return (
-    <>
-      <p className="blk-text">Time to leave the simulator. Here is everything you need from your kit.</p>
-      {build.safety && build.safety.length > 0 && (
-        <aside className="blk-callout build-safety" data-tone="warn" role="note">
-          <p className="blk-callout-title">Before you plug anything in</p>
-          <ul>
-            {build.safety.map((s, i) => (
-              <li key={i}>
-                <RichText text={s} />
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )}
-      <fieldset className="build-parts">
-        <legend>
-          Parts{' '}
-          <span className="build-parts-count mono">
-            {have.length} / {build.parts.length} ready
-          </span>
-        </legend>
-        <ul>
-          {build.parts.map((p) => (
-            <li key={p}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={have.includes(p)}
-                  onChange={(e) => setHave((h) => (e.target.checked ? [...h, p] : h.filter((x) => x !== p)))}
-                />
-                <span className="build-check" aria-hidden="true">
-                  <Icon name="check" size={14} />
-                </span>
-                <span>
-                  <RichText text={p} />
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      </fieldset>
-      <h3>Steps</h3>
-      <ol className="build-steps">
-        {build.steps.map((s, i) => (
-          <li key={i}>
-            <span className="build-step-num mono" aria-hidden="true">
-              {i + 1}
-            </span>
-            <span>
-              <RichText text={s} />
-            </span>
-          </li>
-        ))}
-      </ol>
-    </>
   )
 }

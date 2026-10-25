@@ -37,6 +37,7 @@ const ICONS = {
   up: 'M5 15l7-7 7 7',
   down: 'M5 9l7 7 7-7',
   close: 'M6 6l12 12M18 6L6 18',
+  expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   bolt: 'M13 3L5 14h6l-1 7 8-11h-6l1-7z',
   flame: 'M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1.5 1 2 2 2 3 1-2 1-5 1-7z',
 } as const

@@ -16,6 +16,21 @@
   border-bottom: 1px solid var(--border);
 }
 
+.lesson-mastery {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.lesson-mastery-note {
+  max-width: 76px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  text-align: center;
+}
+
 .lesson-head-text {
   display: flex;
   flex-direction: column;
@@ -665,6 +680,166 @@
   font-weight: 600;
 }
 
+/* With a wiring diagram, each step is a button that highlights the parts it names. */
+.build-step {
+  display: flex;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: inherit;
+  font: inherit;
+  line-height: 1.65;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out),
+    background-color var(--dur-med) var(--ease-out);
+}
+
+.build-steps[data-interactive] {
+  gap: var(--sp-2);
+}
+
+.build-step:hover {
+  border-color: var(--border-strong);
+}
+
+.build-step[aria-current='step'] {
+  border-color: var(--sig-current);
+  background: color-mix(in srgb, var(--sig-current) 7%, var(--surface-1));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--sig-current) 22%, transparent);
+}
+
+.build-step[aria-current='step'] .build-step-num {
+  background: var(--sig-current);
+  color: var(--bg);
+}
+
+/* ---------- Wiring diagram ---------- */
+
+.wiring {
+  margin: var(--sp-5) 0 0;
+}
+
+.wiring-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.wiring figcaption {
+  display: flex;
+  flex-direction: column;
+}
+
+.wiring-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+}
+
+.wiring-hint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.wiring-expand {
+  min-height: 44px;
+}
+
+.wiring-board > * {
+  width: 100%;
+}
+
+.wiring-dialog {
+  width: min(1280px, calc(100vw - 2 * var(--sp-5)));
+  max-width: none;
+  height: min(860px, calc(100dvh - 2 * var(--sp-5)));
+  max-height: none;
+  padding: 0;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.wiring-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: confirm-in var(--dur-med) var(--ease-out);
+}
+
+.wiring-dialog::backdrop {
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.wiring-dialog-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.wiring-dialog-bar h2 {
+  font-size: var(--fs-lg);
+}
+
+.wiring-dialog-board {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  overflow: auto;
+}
+
+.wiring-dialog-board > * {
+  width: 100%;
+}
+
+@media (max-width: 639px) {
+  /* Full bleed: the board uses the whole phone width, edge to edge of the step card. */
+  .wiring-board {
+    margin-inline: calc(-1 * var(--sp-4));
+  }
+
+  .wiring-board > * {
+    border-radius: 0;
+    border-inline: 0;
+  }
+
+  .wiring-dialog {
+    width: 100vw;
+    height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* Portrait phone: draw the board about as tall as the screen allows and pan around it. */
+  .wiring-dialog-board {
+    place-items: start;
+    padding: var(--sp-3);
+  }
+
+  .wiring-dialog-board > * {
+    width: 940px;
+  }
+}
+
 /* ---------- Predict first ---------- */
 
 .blk-predict {
@@ -768,6 +943,10 @@
   animation: step-in var(--dur-slow) var(--ease-out);
 }
 
+.blk-predict-test {
+  border-left-color: var(--sig-current);
+}
+
 .blk-predict-reveal[data-correct] {
   border-left-color: var(--ok);
 }
@@ -810,6 +989,72 @@
     linear-gradient(270deg, var(--surface-2) 30%, transparent) right / 32px 100% no-repeat local,
     radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--bg) 90%, transparent), transparent) left / 14px 100% no-repeat scroll,
     radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--bg) 90%, transparent), transparent) right / 14px 100% no-repeat scroll;
+}
+
+/* Phones: each table row becomes a card of "column: value" lines, so nothing scrolls sideways or wraps mid-value. */
+@media (max-width: 639px) {
+  .blk-table {
+    overflow: visible;
+    border: 0;
+    background: none;
+  }
+
+  .blk-table table,
+  .blk-table tbody,
+  .blk-table tr,
+  .blk-table td {
+    display: block;
+    min-width: 0;
+  }
+
+  .blk-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .blk-table tbody {
+    display: grid;
+    gap: var(--sp-2);
+  }
+
+  .blk-table tr {
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+  }
+
+  .blk-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+    gap: var(--sp-3);
+    padding: var(--sp-1) 0;
+    border: 0;
+  }
+
+  .blk-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+  }
+
+  /* The first column names the row: it heads the card instead of being a label/value pair. */
+  .blk-table td:first-child {
+    display: block;
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-1);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+  }
+
+  .blk-table td:first-child::before {
+    content: none;
+  }
 }
 
 /* ---------- Phones and tablets: text first, the stage pinned under the top bar ---------- */
@@ -918,10 +1163,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .lesson-head .ring {
+  .lesson-mastery {
     position: absolute;
     top: 0;
     right: 0;
+    max-width: 64px;
+  }
+
+  .lesson-head .ring {
     width: 48px !important;
     height: 48px !important;
   }

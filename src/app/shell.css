@@ -171,48 +171,47 @@
 
 /* ---------- Toasts ---------- */
 
+/*
+ * One compact banner over the top bar (its right end on wide screens, the whole bar on phones), so an
+ * achievement never covers lesson content: not the stage, not Next, not Retry.
+ */
 .toasts {
   position: fixed;
-  right: var(--sp-5);
-  bottom: var(--sp-5);
+  top: 0;
+  right: max(var(--sp-5), calc((100vw - 1440px) / 2 + var(--sp-5)));
   z-index: 80;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  width: min(380px, calc(100vw - 2 * var(--sp-4)));
+  width: min(420px, calc(100vw - 2 * var(--sp-4)));
   pointer-events: none;
 }
 
 .toast {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-4);
+  height: 64px;
+  padding: 0 0 0 var(--sp-3);
   pointer-events: auto;
+  border-width: 0 1px 1px;
   border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   box-shadow:
     var(--shadow-panel),
     0 0 30px color-mix(in srgb, var(--brand) 30%, transparent);
   background: var(--surface-2);
-  animation: toast-in var(--dur-slow) var(--ease-out);
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.97);
-  }
+  animation: toast-drop var(--dur-slow) var(--ease-out);
 }
 
 .toast-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex: none;
   border-radius: var(--radius-md);
   background: var(--surface-3);
-  font-size: var(--fs-xl);
+  font-size: var(--fs-lg);
 }
 
 .toast-text {
@@ -220,21 +219,25 @@
   min-width: 0;
 }
 
-.toast-kicker {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--brand-strong);
-}
-
 .toast-title {
+  overflow: hidden;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: var(--fs-lg);
+  font-size: var(--fs-md);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.toast-desc {
+.toast-title::before {
+  content: 'Unlocked: ';
+  color: var(--brand-strong);
+  font-weight: 500;
+}
+
+.toast-more {
   color: var(--text-muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  font-weight: 400;
 }
 
 .toast-close {
@@ -242,7 +245,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0 0;
+  margin: 0 var(--sp-1) 0 0;
   flex: none;
   border: 0;
   border-radius: var(--radius-pill);
@@ -256,68 +259,17 @@
   background: var(--surface-3);
 }
 
-.toast-more {
-  display: none;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 400;
-}
-
-.toast-desc a {
-  color: var(--brand-strong);
-}
-
-/* Phones: one compact banner over the top bar, so it never covers the lesson's pinned stage. */
 @media (max-width: 639px) {
   .toasts {
-    top: 0;
     right: 0;
-    bottom: auto;
     left: 0;
     width: auto;
-    gap: 0;
   }
 
   .toast {
-    align-items: center;
     height: 60px;
-    padding: 0 0 0 var(--sp-3);
-    border-radius: 0;
     border-width: 0 0 1px;
-    animation-name: toast-drop;
-  }
-
-  .toast ~ .toast,
-  .toast-kicker,
-  .toast-desc {
-    display: none;
-  }
-
-  .toast-more {
-    display: inline;
-  }
-
-  .toast-icon {
-    width: 36px;
-    height: 36px;
-    font-size: var(--fs-lg);
-  }
-
-  .toast-title {
-    font-size: var(--fs-md);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .toast-title::before {
-    content: 'Unlocked: ';
-    color: var(--brand-strong);
-    font-weight: 500;
-  }
-
-  .toast-close {
-    margin: 0 var(--sp-1) 0 0;
+    border-radius: 0;
   }
 }
 
