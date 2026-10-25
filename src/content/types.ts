@@ -1,5 +1,5 @@
 import type { Circuit, SolveResult } from '../sim/types'
-import type { CircuitLayout } from '../viz/types'
+import type { BreadboardLayout, CircuitLayout } from '../viz/types'
 
 /** Inline text supports **bold**, *emphasis* and `code` (see src/ui/RichText.tsx). */
 export type RichString = string
@@ -118,6 +118,8 @@ export interface RealBuild {
   parts: string[]
   steps: RichString[]
   safety?: RichString[]
+  /** Illustrated wiring for the finished build; must connect the same way as the lab circuit. */
+  breadboard?: BreadboardLayout
 }
 
 export interface Lesson {

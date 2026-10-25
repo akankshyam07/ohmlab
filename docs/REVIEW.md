@@ -87,3 +87,63 @@ S1 = blocks learning or wrong physics · S2 = major friction or confusion · S3 
 3. **Make the simulator agree with the lessons (#2, #8, #10, #13, #14).** Use one 20 mA LED limit, add a reverse-voltage warning, open the circuit when a part burns, clamp values that are effectively zero, and add a visible "How the simulator works" note.
 4. **Add predict-then-check to every lab (#11)**, and fix the Day 1 click cycle so breaking the LED is deliberate (#6) and the Day 6 band so it matches the taught rule (#9).
 5. **Bridge to the kit (#12).** Add a breadboard diagram for each build and inline breadboard and multimeter primers until Days 3–4 ship. Also land the quick wins first: fix the walkthrough rendering (#3, about one line in blocks.tsx) and the double-period quiz copy (#15).
+
+## Second pass (2026-10-25)
+
+**Method:** Same as the first pass. I used headless Chromium against the running dev server (port 4794) at 1280×800 (also 1440×900, 1280×720 and 1024×768), 375×812 and 320×640, with touch emulation on phones. I walked Day 1 fully as a beginner on desktop and phone and took both quizzes with deliberate mistakes. I worked through Day 8 as an experienced learner, spot-checked Days 2, 5, 6 and 7, and repeated the keyboard and reduced-motion passes. Screenshots are in `/private/tmp/claude-501/-Users-smohanty-Desktop-Electronics/e636e1fe-371e-4e39-9b18-7a45d3e7cb5d/scratchpad/review/p2/` (named below without the folder).
+
+### Status of first-pass issues
+
+| # | Status | Evidence |
+|---|---|---|
+| 1 Quiz answer always first | **Fixed** | Day 1 Q1 order was C/B/D/A on the first attempt and C/D/A/B on retry, so options reshuffle each attempt. |
+| 2 Reverse LED on 9 V shown as safe | **Fixed** | D1 at −9.0 V reads "reverse voltage too high" with a banner, and the flip challenge now requires staying within 5 V (`d8-9v-flip.png`). |
+| 3 Walkthrough text fragmented | **Fixed** | A step with bold words renders as one paragraph, 77 px tall (`d1-walk3.png`). |
+| 4 Meters below the fold on desktop | **Partly fixed** | Day 1 meters now sit at y=722 of 800 (`d1-s1-fold.png`). But the stage now fits its content by shrinking the schematic. Day 5 and Day 8 schematics are drawn 158 px tall with 6–8 px labels at 1280×800 (`d8-9v-flip.png`). Day 2 meters start at y=828 before you scroll. See N1. |
+| 5 Phone: circuit far from the text | **Partly fixed** | The sticky mini-stage (365 px at 375 wide, 288 px at 320) keeps Day 1's circuit, meters and highlights visible (`ph375-walk2.png`). Labels are 13–15 px and tap targets are at least 43 px. New problems in N2 and N3. |
+| 6 Resistor click cycle burns the LED | **Fixed** | Clicking cycles 10 kΩ → 220 Ω → 1 kΩ; 0 Ω is never in the cycle. |
+| 7 Completion criteria invisible | **Fixed** | The header shows checklist chips, and after a 6/6 quiz the result says "complete the lab challenges: 0 / 4" (`header-complete.png`). |
+| 8 LED "ok" up to 25 mA | **Fixed** | 21.2 mA (330 Ω on 9 V, Days 2 and 8) shows "too much current" plus a banner. |
+| 9 Stiff-divider band contradicts the rule | **Fixed** | The band is now 2.35–2.65 V and the check uses the 10× rule; 1 kΩ / 1 kΩ (2.38 V) qualifies. |
+| 10 Burnt LED keeps conducting | **Partly fixed** | The banner now explains that the meters show the instant of failure and that a real LED goes open. But the current dots keep animating (7 running animations measured) and the meter still reads 730 mA (`d1-burn.png`). |
+| 11 No prediction mechanism | **Fixed** | 13 predict cards across the lessons; "Lock in my guess" reveals the answer and a "Try it in the lab" step (`d1-predict-locked.png`). See N7. |
+| 12 Text-only builds, missing primers | **Partly fixed** | Inline breadboard and multimeter primers were added (Days 1 and 6). There is still no breadboard diagram: the only graphic on the Build step is the 660×163 schematic. |
+| 13 Model limitations hidden | **Fixed** | An "About this simulator" list (steady DC, ideal battery, burnt behaviour, reverse breakdown, brightness), linked from every banner. |
+| 14 "0.005 nA" readings | **Fixed** | A flipped LED reads "0 A" and "−5 V". |
+| 15 Double period, "Right." after a wrong answer | **Fixed** | Both corrected in the Q1 feedback. |
+| 16 Stale verdict next to "Type a number" | **Fixed** | Only the note shows. |
+| 17 Quiz reset on navigation | **Fixed** | Left at Q2, came back to Q2. The lesson **Next** is still visible during the quiz (N9). |
+| 18 Failed quiz gives no review | **Partly fixed** | A ✓/✗ list of questions now appears (`quiz-result.png`), but with no links to the sections that teach them. |
+| 19 Toast pile-up | **Partly fixed** | Unlocks are grouped ("3 more…"), but two toasts still cover the lesson **Next** and part of **Retry** at 1280×800 for about 6 s (`complete-moment.png`). |
+| 20 Tab order | **Fixed** | The lesson content and **Next** now come before the lab (tab stops 6–14). |
+| 21 Label vocabulary | **Fixed on desktop** | Labels now read "V1 · 5 V", "D1 (LED)" and "S1 (load switch)", and Day 8 says "Closed (D2 skipped)". Labels collide on phones (N2). |
+| 22 Hero "None" | **Fixed** | Resistor power shows "—" (`hero-none.png`). |
+| 23 Phone tables | **Not fixed** | The Day 6 table is 448 px wide in a 307 px container, with its last column wrapping "about 5 / %" (`ph375-d6-table.png`). |
+| 24 Floating-node voltage | **Not fixed** | With D1 reversed, D2 still reads 942 mV at 0 A. |
+| 25 No near-limit cue | **Fixed** | At 245 mW (330 Ω on 9 V) the resistor shows a WARM tag (`d7-330-9v.png`). |
+| 26 "Divider current" label | **Fixed** | Now "Current from the supply (through R1)". |
+| 27 Lumpy controls | **Fixed** | Pill rows throughout. |
+| 28 No plain diode in Day 8 | **Fixed** | A 1N4007 (D3) was added: 0.70 V at 10.7 mA, against a hand calculation of 10.45 mA. |
+| 29 No magnitude cue under reduced motion | **Not re-checked** | No animations run under reduced motion (0 measured); I didn't verify whether there is now a magnitude cue. |
+
+### New issues introduced by the fixes
+
+| # | Sev | Where / repro | What happens | Fix |
+|---|---|---|---|---|
+| N1 | S2 | Desktop 1280×800. Open Day 8 or Day 5. Or open Day 1, choose "No resistor", then expand the challenge tray. | The stage fits everything into 704 px by shrinking the schematic to 158 px tall. Labels drop to 6–8 px, and the BURNT and REVERSE tags can't be read. In Day 1 the circuit shrinks from 250 to 158 px exactly when the burn happens. | Give the schematic a minimum height (about 260 px, with labels ≥ 11 px). Let the tray and banners scroll beneath it, or overlay banners on the schematic instead of stacking them. |
+| N2 | S2 | 375×812 and 320×640, Day 6 or Day 8. Scroll into the lesson text. | In the mini-stage, labels collide ("S2 · closed" on "D2 · red", "R1 · 10 kΩ" under "S1 (load switch)"), and "Reset circuit" sits on the drawing. Meters 4–5 are cut off at the right edge with no cue. At 320, both voltage meters truncate to "Voltage…" and can't be told apart (`ph375-diodes-leds-stage.png`, `ph320-voltage-divider-stage.png`). | Use per-lesson phone layouts, or hide secondary labels below 400 px. Wrap the meters in 2 rows, or pick the 2–3 key meters for the mini-stage. Never truncate meter names. Move Reset into the header row. |
+| N3 | S2 | 375×812, Day 1 "Why an LED needs a resistor". Scroll into the text, then tap 220 Ω or Flip in the mini-stage. | The challenge tray and its success text sit below the mini-stage's internal fold. Completing a challenge shows nothing there; only the first unlock produces a toast (`ph375-220-scrolled.png`). | Show a brief success chip in the mini-stage ("✓ Flip it, 2/4") that expands to the explanation. |
+| N4 | S3 | Phone mini-stage | Controls sit in a sideways swipe strip with no affordance. LED colour, Flip and No-resistor start off-screen (the colour group starts at x=640). | Add edge fades or arrows, or wrap the controls into 2 rows. |
+| N5 | S3 | Day 8, S2 closed | D3 is labelled "Diode D3, blocking" while it is bypassed and has 0 V across it. | Report "bypassed (no current)". |
+| N6 | S3 | Day 1 after completion | The header says "Lesson complete" while the mastery ring shows 79 %. | Explain the ring ("steps read 2/6") or drop step-seen from mastery once the lesson is complete. |
+| N7 | S3 | Predict cards | The answer is revealed before the learner tests it in the lab. The guess isn't kept after a reload. The premise "the lab starts with 1 kΩ" goes stale if the lab was already changed. | Reveal only after the lab reaches the tested state (or offer "Show me"). Persist the guess. Phrase the premise as an instruction ("Set R1 to 1 kΩ…"). |
+| N8 | S3 | Day 1, choose "No resistor" before the challenge unlocks | The burn doesn't count, and nothing explains why. The learner must burn it again later. | Show "Nice, but finish *Light it safely* first", or count it when the challenge unlocks. |
+| N9 | S3 | Quiz | The lesson-level **Next** remains active mid-quiz. | Hide or disable it until the quiz is finished. |
+
+### Updated verdict
+
+The fixes solved most of the real learning problems. The quiz can't be gamed, the simulator and the lessons now agree on 20 mA and 5 V reverse, completion is explicit, and predict cards turn the labs into experiments. Day 1 on a 1280×800 desktop and on a 375 px phone is now a good beginner experience.
+
+The cost is the layout: fitting everything into a fixed height shrinks the schematic until it can't be read on the busier labs (Days 5 and 8 on desktop, Days 6 and 8 on phones). The bridge to real hardware is still text only.
+
+Ohmlab clearly beats the reference on teaching. It doesn't yet beat it on delight, which needs a schematic that is always legible plus one illustrated breadboard view per build. The current S2 work is N1–N3.

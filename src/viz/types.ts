@@ -1,4 +1,4 @@
-import type { Circuit, NodeId, SolveResult } from '../sim/types'
+import type { Circuit, LedColor, NodeId, SolveResult } from '../sim/types'
 
 /** Grid units: 1 unit = 40 px at 100 % zoom. Parts span 3 units; wires use integer coordinates. */
 export interface Point {
@@ -44,6 +44,36 @@ export interface CircuitLayout {
   parts: PartLayout[]
   wires: WireLayout[]
   probes?: ProbePoint[]
+}
+
+/**
+ * A hole on a half-size breadboard (30 columns), or a pin off the board. Grammar:
+ * - 'a1'…'j30': terminal strip. In each column, a–e are connected, and f–j are connected (the centre gap splits them).
+ * - 'T+1'…'T+30', 'T-1'…'T-30': top power rails (+ and −). Each rail is one long connected strip.
+ * - 'B+1'…'B+30', 'B-1'…'B-30': bottom power rails.
+ * - 'uno:5V', 'uno:3V3', 'uno:GND', 'uno:VIN', 'uno:D2'…'uno:D13', 'uno:A0'…'uno:A5': Arduino Uno header pins.
+ * - 'bat:+', 'bat:-': a 9 V battery snap.
+ */
+export type Hole = string
+
+export type BreadboardPart =
+  | { kind: 'resistor'; id: string; from: Hole; to: Hole; ohms: number }
+  | { kind: 'led'; id: string; anode: Hole; cathode: Hole; color: LedColor }
+  | { kind: 'diode'; id: string; anode: Hole; cathode: Hole }
+  | { kind: 'wire'; id: string; from: Hole; to: Hole; color: 'red' | 'black' | 'yellow' | 'blue' | 'green' | 'orange' | 'white' }
+
+export interface BreadboardLayout {
+  /** Which off-board supply is drawn beside the breadboard. */
+  supply: 'uno' | 'battery9v'
+  /** Part ids match the lab circuit's component ids where the part is the same component (R1, D1…). */
+  parts: BreadboardPart[]
+}
+
+export interface BreadboardViewProps {
+  layout: BreadboardLayout
+  ariaLabel: string
+  /** Part ids to emphasise (e.g. the build step being read). */
+  highlight?: string[]
 }
 
 export interface CircuitViewProps {
