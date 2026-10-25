@@ -78,24 +78,119 @@ describe('CircuitView', () => {
   })
 
   it('animates faster for larger current', () => {
-    const duration = (i: number) => {
+    const velocity = (i: number) => {
       const { container, unmount } = view({ result: result(i) })
-      const d = Number(container.querySelector('[data-wire="w1"] .cv-flow')?.getAttribute('data-flow-duration'))
+      const v = Number(container.querySelector('[data-wire="w1"] .cv-flow')?.getAttribute('data-flow-velocity'))
       unmount()
-      return d
+      return v
     }
-    const slow = duration(1e-4)
-    const brisk = duration(0.02)
-    const fast = duration(0.3)
-    expect(slow).toBeGreaterThan(brisk)
-    expect(brisk).toBeGreaterThan(fast)
+    const slow = velocity(1e-4)
+    const brisk = velocity(0.02)
+    const fast = velocity(0.3)
+    expect(slow).toBeGreaterThan(0)
+    expect(slow).toBeLessThan(brisk)
+    expect(brisk).toBeLessThan(fast)
     expect(flowSpeed(5e-6)).toBe(0)
     expect(flowSpeed(-0.02)).toBe(flowSpeed(0.02))
   })
 
   it('reverses flow for negative current', () => {
     const { container } = view({ result: result(-0.02) })
-    expect((container.querySelector('.cv-flow') as SVGElement).style.animationDirection).toBe('reverse')
+    expect(Number(container.querySelector('.cv-flow')?.getAttribute('data-flow-velocity'))).toBeCloseTo(-flowSpeed(0.02), 1)
+  })
+
+  it('eases the flow speed toward a new current, frame by frame, on the same element', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    try {
+      const fresh = { ...layout }
+      const { container, rerender } = render(<CircuitView circuit={circuit} layout={fresh} result={result(0.02)} ariaLabel="c" />)
+      expect(container.querySelector('.cv--intro')).not.toBeNull()
+      expect(frames).toHaveLength(0) // no flow during the intro
+      act(() => vi.advanceTimersByTime(3000))
+      expect(container.querySelector('.cv--intro')).toBeNull()
+      let t = performance.now()
+      const flow = () => container.querySelector<SVGElement>('[data-wire="w1"] .cv-flow')!
+      /** Runs one 16 ms frame; returns how far the dashes moved in it. */
+      const step = () => {
+        const before = parseFloat(flow().style.strokeDashoffset || '0')
+        t += 16
+        act(() => frames.splice(0).forEach((f) => f(t)))
+        const moved = before - parseFloat(flow().style.strokeDashoffset)
+        return ((moved % 18) + 18) % 18
+      }
+      const first = step()
+      for (let n = 0; n < 60; n++) step()
+      const steady = step()
+      expect(first).toBeLessThan(steady * 0.3) // starts from rest
+      expect(steady).toBeCloseTo((flowSpeed(0.02) * 16) / 1000, 1)
+      const el = flow()
+      rerender(<CircuitView circuit={circuit} layout={fresh} result={result(0.3)} ariaLabel="c" />)
+      expect(flow()).toBe(el) // same element: no restart
+      const after = step()
+      expect(after).toBeGreaterThan(steady)
+      expect(after).toBeLessThan((flowSpeed(0.3) * 16) / 1000) // ramping, not jumping
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('plays the intro once per lab, then pulses clickable parts until one is clicked', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      localStorage.removeItem('ohmlab.cv.partClicked')
+      const fresh = { ...layout }
+      const first = render(<CircuitView circuit={circuit} layout={fresh} result={result(0.02)} ariaLabel="c" onPartClick={() => {}} />)
+      const fig = () => first.container.querySelector('figure')!
+      expect(fig()).toHaveClass('cv--intro')
+      act(() => vi.advanceTimersByTime(3000))
+      expect(fig()).toHaveClass('cv--hint')
+      fireEvent.click(screen.getByRole('button', { name: 'Resistor R1, 220 Ω' }))
+      expect(fig()).not.toHaveClass('cv--hint')
+      first.unmount()
+      const again = render(<CircuitView circuit={circuit} layout={fresh} result={result(0.02)} ariaLabel="c" onPartClick={() => {}} />)
+      expect(again.container.querySelector('figure')).not.toHaveClass('cv--intro')
+      again.unmount()
+      // Clicked once: a new lab's intro is not followed by the hint.
+      const other = render(<CircuitView circuit={circuit} layout={{ ...layout }} result={result(0.02)} ariaLabel="c" onPartClick={() => {}} />)
+      act(() => vi.advanceTimersByTime(3000))
+      expect(other.container.querySelector('figure')!.className).toBe('cv cv--motion')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('runs no intro, hint or flow loop under reduced motion', () => {
+    const raf = vi.fn()
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce'), addEventListener() {}, removeEventListener() {} }))
+    try {
+      const { container } = render(<CircuitView circuit={circuit} layout={{ ...layout }} result={result(0.02)} ariaLabel="c" onPartClick={() => {}} />)
+      expect(container.querySelector('figure')!.className).toBe('cv')
+      expect(container.querySelectorAll('.cv-flow')).toHaveLength(0)
+      expect(raf).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('marks part changes for CSS motion: a resistor pop, an LED flip, a value crossfade, a burn-out flash', () => {
+    const { container, rerender } = view()
+    const draw = (c: Circuit, l: CircuitLayout, r: SolveResult) => rerender(<CircuitView circuit={c} layout={l} result={r} ariaLabel="Test circuit" />)
+    expect(container.querySelector('.cv-body.is-pop, .cv-body.is-flip, .cv-label-ghost')).toBeNull()
+    const ohms = (o: number): Circuit => ({ ...circuit, components: circuit.components.map((c) => (c.id === 'R1' ? { ...c, ohms: o } : c)) as Circuit['components'] })
+    draw(ohms(1000), layout, result(0.0133))
+    expect(container.querySelector('[data-part="R1"] .cv-body.is-pop')).not.toBeNull()
+    expect(container.querySelector('[data-part="R1"] .cv-label-ghost')?.textContent).toContain('220 Ω')
+    expect(container.querySelector('[data-part="R1"] .cv-label-value.is-new')?.textContent).toBe('1 kΩ')
+    const flipped = { ...layout, parts: layout.parts.map((p) => (p.id === 'D1' ? { ...p, from: p.to, to: p.from } : p)) }
+    draw(ohms(1000), flipped, result(0.0133))
+    expect(container.querySelector('[data-part="D1"] .cv-body.is-flip')).not.toBeNull()
+    draw(ohms(1000), flipped, result(0.4, { status: 'burnt', brightness: 1 }))
+    expect(container.querySelector('[data-part="D1"] .cv-led-glow.is-burning')).not.toBeNull()
   })
 
   it('draws static chevrons instead of flow when showFlow is false', () => {

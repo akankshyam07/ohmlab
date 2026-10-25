@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import type { Component, ComponentResult, LedColor } from '../sim/types'
 import { formatSI } from '../ui/format'
 import { flowSpeed, LED_COLORS, partLabel, partValue } from './describe'
@@ -53,6 +53,39 @@ const sizesAt = (scale: number): Sizes => ({
 })
 
 const toPx = (p: Point) => ({ x: p.x * G, y: p.y * G })
+
+// Motion timings; they mirror --dur-intro and --dur-tween in tokens.css (both 0 under reduced motion, where none of this runs).
+const INTRO_MS = 900
+const TWEEN_MS = 320
+const PART_STAGGER_MS = 60
+const HINT_MS = 3 * 1100 + 100 // three .cv-hint pulses
+/** Flow speed eases toward a new target with this time constant: ~95 % of the change lands within 300 ms. */
+const FLOW_TAU_S = 0.1
+
+/** Labs whose intro already played this session: it plays on a lab's first mount only. */
+const introduced = new WeakSet<CircuitLayout>()
+const CLICKED_KEY = 'ohmlab.cv.partClicked'
+function everClicked() {
+  try {
+    return localStorage.getItem(CLICKED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function markClicked() {
+  try {
+    localStorage.setItem(CLICKED_KEY, '1')
+  } catch {
+    /* storage blocked: the hint just shows again next time */
+  }
+}
+
+/** How often `value` has changed since mount, and what it was before the last change. */
+function useChange<T>(value: T): { n: number; prev: T | undefined } {
+  const ref = useRef({ value, n: 0, prev: undefined as T | undefined })
+  if (!Object.is(ref.current.value, value)) ref.current = { value, n: ref.current.n + 1, prev: ref.current.value }
+  return ref.current
+}
 
 const REDUCED = '(prefers-reduced-motion: reduce)'
 function subscribeMotion(cb: () => void) {
@@ -357,9 +390,11 @@ interface PartProps {
   onPartClick?: (id: string) => void
   k: Sizes
   place?: Placement
+  /** Position in the intro's stagger. */
+  index: number
 }
 
-function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartProps) {
+function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place, index }: PartProps) {
   const f = frameOf(pl, place?.side)
   const L = f.len
   const c = L / 2
@@ -374,6 +409,12 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
   let body: ReactNode = null
   let extras: ReactNode = null
   const tags = partTags(comp, res)
+  // Changes that animate (CSS does the motion, under .cv--motion only): a new resistance pops the body,
+  // a flipped LED or diode turns end over end, a burn-out flashes, a new value crossfades in its label.
+  const pops = useChange(comp.kind === 'resistor' ? comp.ohms : 0).n
+  const flips = useChange(`${pl.from.x},${pl.from.y}>${pl.to.x},${pl.to.y}`).n
+  const burns = useChange(burnt).n
+  let bodyMotion = ''
 
   switch (comp.kind) {
     case 'resistor': {
@@ -385,6 +426,7 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
       const zig: [number, number][] = [[c - h, 0]]
       for (let k = 0; k < 6; k++) zig.push([c - h + step * (2 * k + 1), k % 2 ? 9 : -9])
       zig.push([c + h, 0])
+      if (pops > 0) bodyMotion = ' is-pop'
       const hot = status === 'overpower'
       const warm = isWarm(comp, res)
       if (hot) under = <polyline className="cv-hot-glow" points={pts(zig)} />
@@ -427,6 +469,7 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
       ])
       const crack = burnt ? <path className="cv-crack" d={`M${c - 7} ${-15}L${c - 1} ${-4}L${c - 8} ${3}L${c + 1} ${15}`} /> : null
       const state = burnt ? ' is-burnt' : reverseV ? ' is-warn' : ''
+      if (flips > 0) bodyMotion = ' is-flip'
       if (reverseV) under = <circle className="cv-warn-glow" cx={c} cy={0} r={22} />
       if (comp.kind === 'diode') {
         body = (
@@ -441,7 +484,14 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
         const b = burnt ? 0 : Math.max(0, Math.min(1, res?.brightness ?? 0))
         // Under reverse stress the outline turns --warn (from CSS), so only the fill keeps the LED's colour.
         const tint = burnt ? undefined : reverseV ? { fill: color, fillOpacity: 0.16 } : { fill: color, fillOpacity: 0.16 + 0.7 * b, stroke: color, color }
-        if (b > 0) under = <circle className="cv-led-glow" cx={c} cy={0} r={58} fill={`url(#${uid}-led-${comp.color})`} opacity={b} />
+        // The glow stays mounted so brightness glides (CSS transition); a burn-out flashes it, then it fades to dark.
+        if (!burnt || burns > 0)
+          under = (
+            <>
+              {under}
+              <circle className={`cv-led-glow${burnt ? ' is-burning' : ''}`} cx={c} cy={0} r={58} fill={`url(#${uid}-led-${comp.color})`} style={{ opacity: b }} />
+            </>
+          )
         body = (
           <>
             <polygon className={`cv-sym cv-led${state}${b > 0.05 ? ' is-lit' : ''}`} points={tri} style={tint} />
@@ -469,10 +519,13 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
     }
     case 'switch': {
       span = [c - 22, c + 22]
-      const tip: [number, number] = comp.closed ? [c + 22, 0] : [c - 22 + 44 * Math.cos(0.55), s * 44 * Math.sin(0.55)]
+      // The lever pivots on the left contact; a CSS transition swings it between open and closed.
+      const swing = comp.closed ? 0 : s * 0.55 * (180 / Math.PI)
       body = (
         <>
-          <line className={`cv-sym cv-lever${comp.closed ? ' is-closed' : ' is-open'}`} x1={c - 22} y1={0} x2={tip[0]} y2={tip[1]} />
+          <g transform={`translate(${c - 22} 0)`}>
+            <line className={`cv-sym cv-lever${comp.closed ? ' is-closed' : ' is-open'}`} x1={0} y1={0} x2={44} y2={0} style={{ transform: `rotate(${swing}deg)` }} />
+          </g>
           <circle className="cv-contact" cx={c - 22} cy={0} r={4} />
           <circle className="cv-contact" cx={c + 22} cy={0} r={4} />
         </>
@@ -484,6 +537,7 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
   const la = labelAnchor(f, k, place?.shift)
   const name = pl.label ?? comp.id
   const value = partValue(comp)
+  const valueChange = useChange(value)
   const box = { x: c - h - 12, y: -28, w: 2 * h + 24, h: 56 }
   // Invisible touch target: at least MIN_HIT_PX square on screen, centred on the symbol.
   const hitW = Math.max(box.w, k.hit)
@@ -502,7 +556,7 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
     : {}
 
   return (
-    <g className={`cv-part cv-part--${comp.kind}${interactive ? ' is-interactive' : ''}`} data-part={comp.id} {...a11y}>
+    <g className={`cv-part cv-part--${comp.kind}${interactive ? ' is-interactive' : ''}`} data-part={comp.id} style={{ '--i': index } as CSSProperties} {...a11y}>
       <g transform={`translate(${f.ax} ${f.ay}) rotate(${f.angle})`}>
         {highlighted && <rect className="cv-halo" x={box.x} y={box.y} width={box.w} height={box.h} rx={14} />}
         {interactive && <rect className="cv-hit" x={c - hitW / 2} y={-hitH / 2} width={hitW} height={hitH} />}
@@ -510,16 +564,30 @@ function Part({ comp, pl, res, uid, highlighted, onPartClick, k, place }: PartPr
         <line className="cv-lead" x1={0} y1={0} x2={span[0]} y2={0} />
         <line className="cv-lead" x1={span[1]} y1={0} x2={L} y2={0} />
         {span[0] === span[1] && <line className="cv-lead" x1={0} y1={0} x2={L} y2={0} />}
-        {body}
+        {/* Pivot at the body's centre, so a pop scales and a flip turns about it (keyed: each change replays once). */}
+        <g transform={`translate(${c} 0)`}>
+          <g key={`${pops}-${flips}`} className={`cv-body${bodyMotion}`}>
+            <g transform={`translate(${-c} 0)`}>{body}</g>
+          </g>
+        </g>
         {interactive && <rect className="cv-ring" x={box.x} y={box.y} width={box.w} height={box.h} rx={14} />}
       </g>
       {extras}
+      {valueChange.n > 0 && valueChange.prev !== undefined && showsValue(name, valueChange.prev) && (
+        // The old value fading out where it stood (same text, only the value visible) while the new one fades in.
+        <text key={valueChange.n} className="cv-label cv-label-ghost" aria-hidden="true" x={la.x} y={la.y} textAnchor={la.anchor} style={{ fontSize: NAME_FS * k.label }}>
+          <tspan visibility="hidden">{name} · </tspan>
+          <tspan className="cv-label-value" style={{ fontSize: VALUE_FS * k.label }}>
+            {valueChange.prev}
+          </tspan>
+        </text>
+      )}
       <text className="cv-label" x={la.x} y={la.y} textAnchor={la.anchor} style={{ fontSize: NAME_FS * k.label }}>
         <tspan className="cv-label-id">{name}</tspan>
         {showsValue(name, value) && (
           <>
             <tspan className="cv-label-sep"> · </tspan>
-            <tspan className="cv-label-value" style={{ fontSize: VALUE_FS * k.label }}>
+            <tspan key={valueChange.n} className={`cv-label-value${valueChange.n > 0 ? ' is-new' : ''}`} style={{ fontSize: VALUE_FS * k.label }}>
               {value}
             </tspan>
           </>
@@ -678,6 +746,39 @@ function Probe({
   )
 }
 
+/**
+ * Moves each .cv-flow dash pattern at its data-flow-velocity (signed px/s) by writing stroke-dashoffset every
+ * frame. A rAF loop rather than a CSS animation, so a new current eases the speed in place instead of
+ * restarting the animation (which stutters).
+ */
+function useFlowMotion(svgRef: { current: SVGSVGElement | null }, on: boolean) {
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!on || !svg || typeof requestAnimationFrame !== 'function') return
+    const state = new WeakMap<Element, { offset: number; v: number }>()
+    let last = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
+      last = now
+      const ease = 1 - Math.exp(-dt / FLOW_TAU_S)
+      for (const el of svg.querySelectorAll<SVGElement>('.cv-flow')) {
+        const target = Number(el.dataset.flowVelocity) || 0
+        let st = state.get(el)
+        if (!st) state.set(el, (st = { offset: 0, v: 0 }))
+        st.v += (target - st.v) * ease
+        st.offset = (st.offset - st.v * dt) % DASH
+        el.style.strokeDashoffset = st.offset.toFixed(2)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [svgRef, on])
+}
+
+type Phase = 'intro' | 'hint' | 'idle'
+
 export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, highlight, showFlow = true }: CircuitViewProps) {
   const uid = 'cv' + useId().replace(/[^a-zA-Z0-9]/g, '')
   const reduced = useReducedMotion()
@@ -689,6 +790,29 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
   // A burnt part fails open in real life: no current moves anywhere, whatever the meters say about the instant of failure.
   const failed = Object.values(results).some((r) => r.status === 'burnt')
   const animate = showFlow && !reduced && !failed
+
+  // First mount of a lab: wires draw on, parts pop in, then flow starts; then clickable parts pulse a few times.
+  const [phase, setPhase] = useState<Phase>(() => (!getReduced() && !introduced.has(layout) ? 'intro' : 'idle'))
+  const drawnParts = layout.parts.filter((pl) => comps.has(pl.id)).length
+  useEffect(() => {
+    if (phase === 'idle') return
+    if (phase === 'intro') introduced.add(layout)
+    const ms = phase === 'intro' ? INTRO_MS * 0.55 + drawnParts * PART_STAGGER_MS + TWEEN_MS + 50 : HINT_MS
+    const next: Phase = phase === 'intro' && onPartClick && !everClicked() && !getReduced() ? 'hint' : 'idle'
+    const t = setTimeout(() => setPhase(next), ms)
+    return () => clearTimeout(t)
+  }, [phase])
+  useEffect(() => {
+    if (reduced) setPhase('idle')
+  }, [reduced])
+  const clickPart = onPartClick
+    ? (id: string) => {
+        markClicked()
+        setPhase((p) => (p === 'hint' ? 'idle' : p))
+        onPartClick(id)
+      }
+    : undefined
+  useFlowMotion(svgRef, animate && phase !== 'intro')
   const { box, k, place } = useMemo(() => fitView(comps, results, layout, size.width, size.height), [comps, results, layout, size])
   const hl = new Set(highlight ?? [])
   const toPoints = (list: Point[]) => list.map(toPx)
@@ -702,7 +826,7 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
     .join(' ')
 
   return (
-    <figure className={`cv${reduced ? '' : ' cv--motion'}`} aria-label={ariaLabel}>
+    <figure className={`cv${reduced ? '' : ' cv--motion'}${phase === 'intro' ? ' cv--intro' : phase === 'hint' ? ' cv--hint' : ''}`} aria-label={ariaLabel}>
       <svg ref={svgRef} className="cv-svg" viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id={`${uid}-minor`} width={G} height={G} x={0} y={0} patternUnits="userSpaceOnUse">
@@ -729,24 +853,16 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
         <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={`url(#${uid}-vignette)`} />
 
         <g className="cv-wires">
-          {layout.wires.map((w) => {
+          {layout.wires.map((w, i, all) => {
             const flow = wireFlow(w, results)
             const p = svgPoints(w.points)
+            // --i: this wire's place in the intro's draw-on stagger (0–1); pathLength=1 lets CSS dash the whole wire.
+            const order = { '--i': all.length > 1 ? i / (all.length - 1) : 0 } as CSSProperties
             return (
               <g key={w.id} data-wire={w.id}>
-                <polyline className="cv-wire" points={p} />
-                {flow && <polyline className={`cv-live${failed ? ' is-dimmed' : ''}`} points={p} />}
-                {flow && animate && (
-                  <polyline
-                    className="cv-flow"
-                    points={p}
-                    data-flow-duration={(DASH / flow.speed).toFixed(4)}
-                    style={{
-                      animationDuration: `${(DASH / flow.speed).toFixed(4)}s`,
-                      animationDirection: flow.current > 0 ? 'normal' : 'reverse',
-                    }}
-                  />
-                )}
+                <polyline className="cv-wire" points={p} pathLength={1} style={order} />
+                {flow && <polyline className={`cv-live${failed ? ' is-dimmed' : ''}`} points={p} pathLength={1} style={order} />}
+                {flow && animate && <polyline className="cv-flow" points={p} data-flow-velocity={(flow.current > 0 ? flow.speed : -flow.speed).toFixed(2)} />}
                 {flow && !animate && <Chevrons points={toPoints(w.points)} forward={flow.current > 0} speed={flow.speed} dimmed={failed} />}
               </g>
             )
@@ -754,10 +870,10 @@ export function CircuitView({ circuit, layout, result, ariaLabel, onPartClick, h
         </g>
 
         <g className="cv-parts">
-          {layout.parts.map((pl) => {
+          {layout.parts.map((pl, i) => {
             const comp = comps.get(pl.id)
             if (!comp) return null
-            return <Part key={pl.id} comp={comp} pl={pl} res={results[pl.id]} uid={uid} highlighted={hl.has(pl.id)} onPartClick={onPartClick} k={k} place={place.get(pl.id)} />
+            return <Part key={pl.id} comp={comp} pl={pl} res={results[pl.id]} uid={uid} highlighted={hl.has(pl.id)} onPartClick={clickPart} k={k} place={place.get(pl.id)} index={i} />
           })}
         </g>
 
