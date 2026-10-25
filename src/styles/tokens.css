@@ -1,0 +1,80 @@
+/* Ohmlab design tokens. Every colour, size and motion value in the app comes from here.
+   Direction: "night lab" — a dark oscilloscope-like bench where signals glow. See docs/DESIGN_SYSTEM.md. */
+
+:root {
+  /* Surfaces (dark, blue-black) */
+  --bg: #090d16;
+  --bg-grid: rgba(120, 150, 255, 0.06);
+  --surface-1: #0f1522;
+  --surface-2: #151d2e;
+  --surface-3: #1d2740;
+  --border: rgba(160, 180, 255, 0.14);
+  --border-strong: rgba(160, 180, 255, 0.28);
+
+  /* Text (all pass WCAG AA on --surface-1) */
+  --text: #e8ecf8;
+  --text-muted: #a5afc8;
+  --text-faint: #7d88a6;
+
+  /* Brand */
+  --brand: #a78bfa;
+  --brand-strong: #c4b5fd;
+  --brand-ink: #1a1033;
+
+  /* Signal colours: one meaning each, used consistently in diagrams, meters and text */
+  --sig-current: #38e1ff;
+  --sig-voltage: #ffc24b;
+  --sig-power: #ff7a6b;
+  --sig-resistance: #c9a6ff;
+  --sig-ground: #6f7b99;
+
+  /* Feedback */
+  --ok: #5ef2a0;
+  --warn: #ffc24b;
+  --danger: #ff6b7d;
+  --info: #38e1ff;
+
+  /* Type */
+  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+  --fs-3xl: clamp(2rem, 4vw, 3rem);
+
+  /* Space and shape */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 40px rgba(0, 0, 0, 0.45);
+  --glow-current: 0 0 12px rgba(56, 225, 255, 0.55);
+  --glow-brand: 0 0 0 3px rgba(167, 139, 250, 0.35);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-med: 220ms;
+  --dur-slow: 420ms;
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-med: 0ms;
+    --dur-slow: 0ms;
+  }
+}
