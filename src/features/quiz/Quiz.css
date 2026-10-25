@@ -216,6 +216,57 @@
   color: var(--ok);
 }
 
+/* What's left to finish the lesson, and the per-question review. */
+.quiz-todo {
+  display: grid;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.quiz-todo ul {
+  margin: 0;
+  padding-left: var(--sp-5);
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.quiz-todo-where {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.quiz-review {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-review li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-3);
+  align-items: baseline;
+  line-height: 1.5;
+}
+
+.quiz-review-mark {
+  font-weight: 700;
+}
+
+.quiz-review--right .quiz-review-mark {
+  color: var(--ok);
+}
+
+.quiz-review--missed .quiz-review-mark {
+  color: var(--danger);
+}
+
 @media (max-width: 480px) {
   .quiz {
     padding: var(--sp-4);

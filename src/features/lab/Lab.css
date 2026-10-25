@@ -1,7 +1,18 @@
+/*
+ * The lab fills its stage (height: 100%). The schematic is the only part that shrinks, so the header,
+ * meters and controls stay in view at 1280×800. In a short stage (the shell's `stage` size container,
+ * e.g. the phone mini-stage), lab-main is exactly one stage tall and lab-more (intro, challenges, about)
+ * scrolls below it. Without a definite stage height, everything falls back to normal flow.
+ */
 .lab {
-  display: grid;
-  gap: var(--sp-4);
-  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-4);
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -9,61 +20,71 @@
   color: var(--text);
   font-family: var(--font-body);
   min-width: 0;
+  scrollbar-width: thin;
 }
 
 .lab p {
   margin: 0;
 }
 
-.lab .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.lab-main,
+.lab-more {
+  display: contents;
+}
+
+.lab > *,
+.lab-main > *,
+.lab-more > * {
+  flex: none;
 }
 
 .lab-header {
-  display: grid;
-  gap: var(--sp-2);
+  order: -2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
 }
 
 .lab-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--fs-xl);
+  font-size: var(--fs-lg);
+  line-height: 1.2;
 }
 
 .lab-intro {
+  order: -1;
   color: var(--text-muted);
-  line-height: 1.55;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
 }
 
-.lab-stage {
-  background:
-    linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 20px 20px,
-    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px) 0 0 / 20px 20px,
-    var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--sp-3);
-  overflow-x: auto;
+/* The schematic takes whatever height is left, and the SVG scales to fit it (viewBox, meet). */
+.lab-main > .lab-stage {
+  flex: 1 1 auto;
+  min-height: 160px;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 
-.lab-stage svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin-inline: auto;
+.lab-stage .cv {
+  height: 100%;
+  min-height: 0;
+}
+
+.lab-stage .cv-svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* Banners */
 .lab-banner {
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--radius-sm);
   border-left: 3px solid;
   background: var(--surface-2);
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
 
@@ -83,16 +104,50 @@
   color: var(--warn);
 }
 
-/* Controls */
+.lab-link {
+  padding: 0;
+  font: inherit;
+  color: var(--brand-strong);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.lab-link:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-brand);
+}
+
+/* Only shown in a short stage, where banners collapse to one line. */
+.lab-banner-toggle {
+  display: none;
+  flex: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--brand-strong);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.lab-banner-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-brand);
+}
+
+/* Controls: one row-height pill style; wraps at desktop widths, scrolls sideways on phones. */
 .lab-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: var(--sp-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-2) var(--sp-4);
 }
 
 .lab-control {
   display: grid;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   margin: 0;
   padding: 0;
   border: 0;
@@ -101,24 +156,21 @@
 
 .lab-control-label {
   color: var(--text-muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   padding: 0;
 }
 
 .lab-segments {
   display: flex;
-  flex-wrap: wrap;
   gap: 2px;
   padding: 2px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
 }
 
 .lab-segment {
-  flex: 1 1 auto;
   position: relative;
-  min-width: 0;
 }
 
 .lab-segment input {
@@ -130,14 +182,15 @@
 }
 
 .lab-segment span {
-  display: block;
-  min-height: 36px;
-  padding: var(--sp-2) var(--sp-3);
-  text-align: center;
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 var(--sp-3);
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   color: var(--text-muted);
-  border-radius: calc(var(--radius-sm) - 2px);
+  border-radius: var(--radius-pill);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
@@ -158,16 +211,18 @@
 
 .lab-slider input[type='range'] {
   width: 100%;
+  min-width: 160px;
   min-height: 32px;
   accent-color: var(--brand);
 }
 
 .lab-toggle {
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto auto;
   align-items: center;
+  column-gap: var(--sp-2);
   position: relative;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 40px;
 }
 
 .lab-toggle input {
@@ -217,20 +272,33 @@
 .lab-toggle-state {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
+  white-space: nowrap;
 }
 
 .lab-flip,
 .lab-reset {
-  justify-self: start;
   min-height: 40px;
-  padding: var(--sp-2) var(--sp-4);
+  padding: 0 var(--sp-4);
+  white-space: nowrap;
   font: inherit;
+  font-size: var(--fs-sm);
   color: var(--text);
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out);
+}
+
+.lab-reset {
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  color: var(--text-muted);
+}
+
+.lab-reset-icon {
+  display: none;
+  font-size: var(--fs-md);
 }
 
 .lab-flip:hover,
@@ -248,22 +316,24 @@
   box-shadow: var(--glow-brand);
 }
 
-/* Meters */
+/* Meters: a compact strip right under the schematic. */
 .lab-meters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
-  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--sp-2);
 }
 
 .lab-meter {
   --meter: var(--text);
   display: grid;
-  gap: var(--sp-1);
-  padding: var(--sp-3) var(--sp-4);
+  align-content: space-between;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
   background: var(--bg);
   border: 1px solid var(--border);
   border-top: 2px solid var(--meter);
   border-radius: var(--radius-md);
+  min-width: 0;
 }
 
 .lab-meter--current {
@@ -281,29 +351,106 @@
 .lab-meter-label {
   color: var(--text-muted);
   font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  line-height: 1.3;
 }
 
 .lab-meter-value {
   font-family: var(--font-mono);
-  font-size: var(--fs-xl);
+  font-size: var(--fs-lg);
+  line-height: 1.2;
   color: var(--meter);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-/* Challenges */
-.lab-subtitle {
-  margin: 0 0 var(--sp-2);
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
+/* Challenge tray: one line when closed ("Challenges 1 / 4 · Next: …"), the full list when open. */
+.lab-tray {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.lab-tray-details {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.lab-tray-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-md);
+}
+
+.lab-tray-summary::-webkit-details-marker {
+  display: none;
+}
+
+.lab-tray-summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.lab-tray-details[open] > .lab-tray-summary::after {
+  transform: rotate(180deg);
+}
+
+.lab-tray-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-brand);
+}
+
+.lab-tray-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--brand-strong);
+  white-space: nowrap;
+}
+
+.lab-tray-next {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.lab-tray-details[open] .lab-tray-next {
+  display: none;
+}
+
+.lab-tray-next-label {
+  color: var(--text-muted);
+}
+
+.lab-tray-flash:empty {
+  display: none;
+}
+
+.lab-tray-flash {
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ok);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
 }
 
 .lab-challenge-list {
   display: grid;
   gap: var(--sp-2);
   margin: 0;
-  padding: 0;
+  padding: 0 var(--sp-2) var(--sp-2);
   list-style: none;
 }
 
@@ -311,20 +458,21 @@
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
 }
 
 .lab-challenge-check {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
 }
 
 .lab-challenge--done {
@@ -337,9 +485,24 @@
   color: var(--bg);
 }
 
+.lab-challenge--locked .lab-challenge-prompt {
+  color: var(--text-muted);
+}
+
+.lab-tag {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .lab-challenge-body {
   display: grid;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   min-width: 0;
   line-height: 1.5;
 }
@@ -356,53 +519,223 @@
 }
 
 .lab-hint p {
-  margin-top: var(--sp-2);
+  margin-top: var(--sp-1);
   color: var(--text-muted);
 }
 
-.lab-challenge--celebrate {
-  animation: lab-pop var(--dur-slow) var(--ease-out);
+/* About this simulator */
+.lab-about summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
-.lab-challenge--celebrate .lab-challenge-check {
-  animation: lab-glow calc(var(--dur-slow) * 3) var(--ease-out);
+.lab-about summary:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-brand);
+}
+
+.lab-about ul {
+  display: grid;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-5);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.lab-celebrate {
+  display: inline-block;
+  animation: lab-pop var(--dur-slow) var(--ease-out);
 }
 
 @keyframes lab-pop {
   0% {
-    transform: scale(1);
-  }
-  40% {
-    transform: scale(1.02);
+    transform: scale(0.98);
+    opacity: 0.4;
   }
   100% {
     transform: scale(1);
-  }
-}
-
-@keyframes lab-glow {
-  0% {
-    box-shadow: 0 0 0 0 var(--ok);
-  }
-  100% {
-    box-shadow: 0 0 0 12px transparent;
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lab-challenge--celebrate,
-  .lab-challenge--celebrate .lab-challenge-check {
+  .lab-celebrate {
     animation: none;
+  }
+}
+
+/* Short stage (phone mini-stage): schematic + meters + one sideways-scrolling row of controls fill it. */
+@container stage (max-height: 480px) {
+  .lab {
+    padding: var(--sp-2);
+    gap: var(--sp-2);
+    border-radius: var(--radius-md);
+  }
+
+  /* The step text already explains the lab. */
+  .lab-intro {
+    display: none;
+  }
+
+  /* Alerts become one-line chips; More expands them. */
+  .lab-banner {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-2);
+  }
+
+  .lab-banner[data-expanded] {
+    flex-wrap: wrap;
+  }
+
+  .lab-banner:not([data-expanded]) .lab-banner-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lab-banner:not([data-expanded]) .lab-link {
+    display: none;
+  }
+
+  .lab-banner-toggle {
+    display: inline;
+    margin-left: auto;
+  }
+
+  .lab-tray-next {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  .lab-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    /* At least one stage tall; grows (and the lab scrolls) only if an expanded alert needs the room. */
+    flex: none;
+    min-height: 100%;
+  }
+
+  .lab-more {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .lab-main > .lab-stage {
+    flex: 1 1 0;
+    min-height: 60px;
+  }
+
+  /* The stage bar above already names the lab: keep the heading for screen readers, float Reset on the schematic. */
+  .lab-main {
+    position: relative;
+  }
+
+  .lab-header {
+    position: absolute;
+    top: var(--sp-2);
+    right: var(--sp-2);
+    z-index: 1;
+  }
+
+  .lab-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .lab-meter-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    font-size: 11px;
+  }
+
+  .lab-meters {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(96px, 1fr);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .lab-meter-value {
+    font-size: var(--fs-md);
+  }
+
+  .lab-meter {
+    padding: 6px var(--sp-2);
+  }
+
+  .lab-reset {
+    min-height: 28px;
+    font-size: var(--fs-xs);
+    background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+  }
+
+  .lab-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .lab-control {
+    flex: none;
+  }
+}
+
+/* Very short stage (e.g. 320×640): one-line meter labels, icon-only Reset; legends for screen readers only. */
+@container stage (max-height: 280px) {
+  .lab-meters {
+    grid-auto-columns: minmax(80px, 1fr);
+  }
+
+  .lab-reset-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .lab-reset-icon {
+    display: inline;
+  }
+
+  .lab-meter-label {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  legend.lab-control-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 480px) {
   .lab {
-    padding: var(--sp-4);
-    border-radius: var(--radius-md);
-  }
-
-  .lab-stage {
     padding: var(--sp-2);
+    border-radius: var(--radius-md);
   }
 }

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ControlValue, Lab as LabData, LabControl, Readout } from '../../content/types'
 import { useProgress } from '../../progress/store'
+import { SIM_LIMITATIONS } from '../../sim/limitations'
 import { solveDC } from '../../sim/solver'
-import type { Circuit, Component, ComponentKind, SolveResult } from '../../sim/types'
+import type { Circuit, Component, ComponentKind, ComponentStatus, SolveResult } from '../../sim/types'
 import { formatSI } from '../../ui/format'
 import { RichText } from '../../ui/RichText'
 import type { CircuitLayout } from '../../viz/types'
@@ -76,6 +77,8 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
   const done = progress.lessons[lessonId]?.challengesDone ?? []
   // Challenges finished in an earlier visit show as done without the celebration.
   const [doneBefore, setDoneBefore] = useState(done)
+  const aboutRef = useRef<HTMLDetailsElement>(null)
+  const [bannersOpen, setBannersOpen] = useState(false)
 
   // A different lab (new lesson) starts fresh.
   if (source !== lab) {
@@ -87,10 +90,11 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
 
   const result = useMemo(() => solveDC(circuit), [circuit])
 
-  const burnt = Object.entries(result.components).filter(([, r]) => r.status === 'burnt')
-  const stressed = Object.entries(result.components).filter(
-    ([, r]) => r.status === 'overcurrent' || r.status === 'overpower',
-  )
+  const withStatus = (...statuses: ComponentStatus[]) =>
+    Object.entries(result.components).filter(([, r]) => statuses.includes(r.status))
+  const burnt = withStatus('burnt')
+  const stressed = withStatus('overcurrent', 'overpower')
+  const overvolted = withStatus('overvoltage')
   const isShort = !result.ok && /short/i.test(result.error ?? '')
 
   useEffect(() => {
@@ -98,22 +102,24 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
     if (burnt.length > 0) unlock('magic-smoke')
   }, [isShort, burnt.length, unlock])
 
-  const doneKey = done.join('|')
-  useEffect(() => {
-    const doneNow = doneKey.split('|')
-    const passed = lab.challenges.filter((ch) => !doneNow.includes(ch.id) && passes(ch.check, result, circuit))
-    for (const ch of passed) completeChallenge(lessonId, ch.id)
-  }, [result, circuit, lab, lessonId, doneKey, completeChallenge])
+  // Challenges unlock in order and only the learner's own moves complete them: each change is checked
+  // against the first unfinished challenge alone. So an accidental state can't tick off a challenge the
+  // learner hasn't reached, and one that just became active waits for the next move.
+  const active = lab.challenges.find((ch) => !done.includes(ch.id))
+  const change = (next: Circuit) => {
+    setCircuit(next)
+    if (active && passes(active.check, solveDC(next), next)) completeChallenge(lessonId, active.id)
+  }
 
   const componentOf = (id: string) => circuit.components.find((c) => c.id === id)
 
   const applyControl = (control: LabControl, value?: ControlValue) => {
     if (control.type === 'flip') {
       const [c, l] = flip(circuit, layout, control.componentId)
-      setCircuit(c)
+      change(c)
       setLayout(l)
     } else if (value !== undefined) {
-      setCircuit(setProp(circuit, control.componentId, control.prop, value))
+      change(setProp(circuit, control.componentId, control.prop, value))
     }
   }
 
@@ -124,141 +130,247 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
     if (control.type === 'slider') return
     const current = readProp(circuit, control.componentId, control.prop)
     if (control.type === 'toggle') return applyControl(control, !current)
-    const i = control.options.findIndex((o) => o.value === current)
-    applyControl(control, control.options[(i + 1) % control.options.length].value)
+    // Advance to the next option a click may land on; skipOnClick ones (e.g. "No resistor") need a deliberate choice.
+    const { options } = control
+    const i = options.findIndex((o) => o.value === current)
+    for (let step = 1; step <= options.length; step++) {
+      const option = options[(i + step + options.length) % options.length]
+      if (!option.skipOnClick) return applyControl(control, option.value)
+    }
   }
 
   const reset = () => {
-    setCircuit(clone(lab.circuit))
+    change(clone(lab.circuit))
     setLayout(clone(lab.layout))
   }
 
+  const showAbout = () => {
+    const about = aboutRef.current
+    if (!about) return
+    about.open = true
+    about.scrollIntoView?.({ block: 'nearest' }) // absent in jsdom
+    about.querySelector('summary')?.focus()
+  }
+  const aboutLink = (
+    <button type="button" className="lab-link" onClick={showAbout}>
+      How the simulator works
+    </button>
+  )
+
+  // In a short stage each banner is a one-line chip; "More" shows the full text (it is always in the DOM).
+  const banner = (key: string, tone: 'danger' | 'warn', alert: boolean, headline: string, text: ReactNode, link = true) => (
+    <div
+      key={key}
+      role={alert ? 'alert' : undefined}
+      aria-live={alert ? undefined : 'polite'}
+      className={`lab-banner lab-banner--${tone}`}
+      data-expanded={bannersOpen || undefined}
+    >
+      <span className="lab-banner-text">
+        <strong>{headline}</strong> {text}
+      </span>{' '}
+      {link && aboutLink}
+      <button
+        type="button"
+        className="lab-banner-toggle"
+        aria-expanded={bannersOpen}
+        onClick={() => setBannersOpen((open) => !open)}
+      >
+        {bannersOpen ? 'Less' : 'More'}
+      </button>
+    </div>
+  )
+
+  const doneCount = lab.challenges.filter((ch) => done.includes(ch.id)).length
+  const fresh = lab.challenges.filter((ch) => done.includes(ch.id) && !doneBefore.includes(ch.id))
+  const latest = fresh.at(-1)
+
   return (
     <section aria-label="Circuit lab" className="lab">
-      <header className="lab-header">
-        <h2 className="lab-title">{lab.title}</h2>
+      {/* lab-main is what must fit in the stage; lab-more scrolls below it on short (phone) stages. */}
+      <div className="lab-main">
+        <header className="lab-header">
+          <h2 className="lab-title">{lab.title}</h2>
+          <button type="button" className="lab-reset" onClick={reset}>
+            <span className="lab-reset-icon" aria-hidden="true">
+              ↺
+            </span>
+            <span className="lab-reset-text">Reset circuit</span>
+          </button>
+        </header>
+
+        <div className="lab-stage">
+          <CircuitView
+            circuit={circuit}
+            layout={layout}
+            result={result}
+            ariaLabel={`${lab.title}: circuit diagram`}
+            onPartClick={onPartClick}
+            highlight={highlight}
+            showFlow={showFlow}
+          />
+        </div>
+
+        {lab.readouts.length > 0 && (
+          <div className="lab-meters">
+            {lab.readouts.map((readout) => {
+              const r = result.ok ? result.components[readout.componentId] : undefined
+              const raw = r?.[readout.quantity]
+              // Direction is shown by the diagram; meters show magnitude except for voltage, whose sign beginners probe.
+              const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
+              const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
+              return (
+                <div
+                  key={`${readout.componentId}-${readout.quantity}`}
+                  role="status"
+                  className={`lab-meter lab-meter--${readout.quantity}`}
+                >
+                  <span className="lab-meter-label">{readout.label}</span>
+                  <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {!result.ok &&
+          banner('settle', 'danger', true, 'The circuit can’t settle.', (
+            <>
+              {result.error}
+              {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
+            </>
+          ), false)}
+        {burnt.map(([id]) => {
+          const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
+          return banner(id, 'danger', true, `${id} burnt out.`, (
+            <>
+              In real life this {kind} would be dead (maybe with a puff of smoke). That’s why we simulate first.
+              The meters show the current at the instant it failed; a real {kind} usually breaks open then, so the
+              current stops.
+            </>
+          ))
+        })}
+        {overvolted.map(([id, r]) =>
+          banner(
+            id,
+            'warn',
+            true,
+            `${id} is reverse-biased by ${Math.abs(r.voltage).toFixed(1)} V;`,
+            componentOf(id)?.kind === 'led'
+              ? 'most LEDs are rated for only 5 V in reverse and can be damaged.'
+              : 'that’s more than this diode is rated to block, and it can be damaged.',
+          ),
+        )}
+        {stressed.map(([id, r]) =>
+          banner(
+            id,
+            'warn',
+            false,
+            `${id} is under stress.`,
+            r.status === 'overpower'
+              ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
+              : componentOf(id)?.kind === 'led'
+                ? 'More than the 20 mA a typical LED is rated for. A real one would run hot and wear out quickly.'
+                : 'More current than it’s made for. A real part would run hot and wear out quickly.',
+          ),
+        )}
+
+        {lab.controls.length > 0 && (
+          <div className="lab-controls">
+            {lab.controls.map((control) => (
+              <Control
+                key={control.id}
+                control={control}
+                value={control.type === 'flip' ? undefined : readProp(circuit, control.componentId, control.prop)}
+                flipped={control.type === 'flip' && isFlipped(lab.circuit, circuit, control.componentId)}
+                onChange={(v) => applyControl(control, v)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="lab-more">
         <p className="lab-intro">
           <RichText text={lab.intro} />
         </p>
-      </header>
 
-      <div className="lab-stage">
-        <CircuitView
-          circuit={circuit}
-          layout={layout}
-          result={result}
-          ariaLabel={`${lab.title}: circuit diagram`}
-          onPartClick={onPartClick}
-          highlight={highlight}
-          showFlow={showFlow}
-        />
-      </div>
-
-      {!result.ok && (
-        <div role="alert" className="lab-banner lab-banner--danger">
-          <strong>The circuit can’t settle.</strong> {result.error}
-          {isShort && ' Current would rush straight through with nothing to limit it. Real batteries get hot and wires can melt.'}
-        </div>
-      )}
-      {burnt.map(([id]) => {
-        const kind = KIND_NAME[componentOf(id)?.kind ?? 'resistor']
-        return (
-          <div key={id} role="alert" className="lab-banner lab-banner--danger">
-            <strong>{id} burnt out.</strong> In real life this {kind} would be dead (maybe with a puff of
-            smoke). That’s why we simulate first.
-          </div>
-        )
-      })}
-      {stressed.map(([id, r]) => (
-        <div key={id} className="lab-banner lab-banner--warn" aria-live="polite">
-          <strong>{id} is under stress.</strong>{' '}
-          {r.status === 'overpower'
-            ? 'This resistor is turning more power into heat than it’s rated for. A real one would get very hot.'
-            : 'More current than it’s made for. A real part would run hot and wear out quickly.'}
-        </div>
-      ))}
-
-      {lab.controls.length > 0 && (
-        <div className="lab-controls">
-          {lab.controls.map((control) => (
-            <Control
-              key={control.id}
-              control={control}
-              value={control.type === 'flip' ? undefined : readProp(circuit, control.componentId, control.prop)}
-              flipped={
-                control.type === 'flip' &&
-                isFlipped(lab.circuit, circuit, control.componentId)
-              }
-              onChange={(v) => applyControl(control, v)}
-            />
-          ))}
-        </div>
-      )}
-
-      {lab.readouts.length > 0 && (
-        <div className="lab-meters">
-          {lab.readouts.map((readout) => {
-            const r = result.ok ? result.components[readout.componentId] : undefined
-            const raw = r?.[readout.quantity]
-            // Direction is shown by the diagram; meters show magnitude except for voltage, whose sign beginners probe.
-            const signed = raw === undefined ? undefined : readout.quantity === 'voltage' ? raw : Math.abs(raw)
-            const value = signed !== undefined && Math.abs(signed) < RESOLUTION[readout.quantity] ? 0 : signed
-            return (
-              <div
-                key={`${readout.componentId}-${readout.quantity}`}
-                role="status"
-                className={`lab-meter lab-meter--${readout.quantity}`}
-              >
-                <span className="lab-meter-label">{readout.label}</span>
-                <span className="lab-meter-value">{value === undefined ? '—' : formatSI(value, UNIT[readout.quantity])}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {lab.challenges.length > 0 && (
-        <div className="lab-challenges">
-          <h3 className="lab-subtitle">Challenges</h3>
-          <ol className="lab-challenge-list">
-            {lab.challenges.map((ch) => {
-              const isDone = done.includes(ch.id)
-              return (
-                <li
-                  key={ch.id}
-                  className={`lab-challenge ${isDone ? 'lab-challenge--done' : ''} ${isDone && !doneBefore.includes(ch.id) ? 'lab-challenge--celebrate' : ''}`}
-                >
-                  <span className="lab-challenge-check" aria-hidden="true">
-                    {isDone ? '✓' : ''}
-                  </span>
-                  <div className="lab-challenge-body">
-                    <p className="lab-challenge-prompt">
-                      <RichText text={ch.prompt} />
-                      {isDone && <span className="visually-hidden"> (done)</span>}
-                    </p>
-                    {isDone ? (
-                      <p className="lab-challenge-success" aria-live="polite">
-                        <RichText text={ch.success} />
-                      </p>
-                    ) : (
-                      <details className="lab-hint">
-                        <summary>Hint</summary>
-                        <p>
-                          <RichText text={ch.hint} />
+        {lab.challenges.length > 0 && (
+          <div className="lab-tray">
+            <details className="lab-tray-details">
+              <summary className="lab-tray-summary">
+                <span className="lab-tray-count">
+                  Challenges {doneCount} / {lab.challenges.length}
+                </span>
+                <span className="lab-tray-next">
+                  {active ? (
+                    <>
+                      <span className="lab-tray-next-label">Next: </span>
+                      <RichText text={active.prompt} />
+                    </>
+                  ) : (
+                    'All done!'
+                  )}
+                </span>
+              </summary>
+              <ol className="lab-challenge-list">
+                {lab.challenges.map((ch) => {
+                  const isDone = done.includes(ch.id)
+                  const isLocked = !isDone && ch !== active
+                  return (
+                    <li
+                      key={ch.id}
+                      className={`lab-challenge ${isDone ? 'lab-challenge--done' : ''} ${isLocked ? 'lab-challenge--locked' : ''}`}
+                    >
+                      <span className="lab-challenge-check" aria-hidden="true">
+                        {isDone ? '✓' : ''}
+                      </span>
+                      <div className="lab-challenge-body">
+                        <p className="lab-challenge-prompt">
+                          <RichText text={ch.prompt} />
+                          {isDone && <span className="sr-only"> (done)</span>}
+                          {isLocked && <span className="lab-tag">Up next</span>}
                         </p>
-                      </details>
-                    )}
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-        </div>
-      )}
+                        {isDone && ch !== latest && (
+                          <p className="lab-challenge-success">
+                            <RichText text={ch.success} />
+                          </p>
+                        )}
+                        {ch === active && (
+                          <details className="lab-hint">
+                            <summary>Hint</summary>
+                            <p>
+                              <RichText text={ch.hint} />
+                            </p>
+                          </details>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </details>
+            {/* The just-solved challenge's explanation stays visible while the tray is closed. */}
+            <p className="lab-tray-flash" aria-live="polite">
+              {latest && (
+                <span key={latest.id} className="lab-celebrate">
+                  <span aria-hidden="true">✓ </span>
+                  <RichText text={latest.success} />
+                </span>
+              )}
+            </p>
+          </div>
+        )}
 
-      <button type="button" className="lab-reset" onClick={reset}>
-        Reset circuit
-      </button>
+        <details className="lab-about" ref={aboutRef}>
+          <summary>About this simulator</summary>
+          <ul>
+            {SIM_LIMITATIONS.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      </div>
     </section>
   )
 }

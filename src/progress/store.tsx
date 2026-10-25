@@ -173,9 +173,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const actions = useMemo(() => {
-    const act = (change: (p: Progress) => Progress) => {
+    // One learner action = one settle and one commit, so every achievement it earns lands in a single update.
+    const act = (change: (p: Progress) => Progress, alsoUnlocked: Achievement[] = []) => {
       const { progress: next, unlocked } = settle(change(current.current), new Date())
-      commit(next, unlocked)
+      commit(next, [...alsoUnlocked, ...unlocked])
     }
     return {
       markStep: (lessonId: string, stepId: string) => act((p) => markStepIn(p, lessonId, stepId)),
@@ -185,11 +186,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       unlock: (achievementId: string) => {
         const achievement = achievements.find((a) => a.id === achievementId)
         if (!achievement || current.current.achievements[achievementId]) return
-        const p = current.current
-        commit(
-          { ...p, achievements: { ...p.achievements, [achievementId]: new Date().toISOString() } },
-          [achievement],
-        )
+        act((p) => ({ ...p, achievements: { ...p.achievements, [achievementId]: new Date().toISOString() } }), [
+          achievement,
+        ])
       },
       dismissUnlocked: () => setRecentlyUnlocked([]),
       reset: () => {

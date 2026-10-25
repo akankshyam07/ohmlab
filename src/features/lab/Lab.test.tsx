@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Lab as LabData } from '../../content/types'
 import { ProgressProvider } from '../../progress/store'
 import { STORAGE_KEY } from '../../progress/types'
+import { SIM_LIMITATIONS } from '../../sim/limitations'
 import { Lab } from './Lab'
 
 vi.mock('../../content', () => ({ lessons: [], getLesson: () => undefined, phases: [] }))
@@ -41,12 +42,23 @@ const lab: LabData = {
       componentId: 'R1',
       prop: 'ohms',
       options: [
-        { label: '0 Ω', value: 0 },
+        { label: '0 Ω', value: 0, skipOnClick: true },
         { label: '220 Ω', value: 220 },
         { label: '1 kΩ', value: 1000 },
       ],
     },
     { type: 'flip', id: 'flip', label: 'Flip LED', componentId: 'D1' },
+    {
+      type: 'choice',
+      id: 'supply',
+      label: 'Supply',
+      componentId: 'B1',
+      prop: 'volts',
+      options: [
+        { label: '5 V', value: 5 },
+        { label: '9 V', value: 9 },
+      ],
+    },
   ],
   readouts: [{ componentId: 'D1', quantity: 'current', label: 'LED current' }],
   challenges: [
@@ -56,6 +68,20 @@ const lab: LabData = {
       hint: 'A bigger resistor lets less current through.',
       success: 'Dimmer, and safer!',
       check: (r) => r.ok && r.components.D1.current > 0.0005 && r.components.D1.current < 0.005,
+    },
+    {
+      id: 'glow',
+      prompt: 'Keep the LED glowing.',
+      hint: 'Any current lights it.',
+      success: 'Still glowing.',
+      check: (r) => r.ok && r.components.D1.current > 0.0001,
+    },
+    {
+      id: 'flip',
+      prompt: 'Flip the LED so it blocks the current.',
+      hint: 'Press Flip LED.',
+      success: 'Blocked!',
+      check: (r) => r.ok && r.components.D1.voltage < -1,
     },
   ],
   clickControls: { R1: 'r', D1: 'flip' },
@@ -110,14 +136,21 @@ describe('Lab', () => {
     )
     setup()
     expect(screen.getByText('Dimmer, and safer!')).toBeInTheDocument()
-    expect(screen.queryByText('Hint')).not.toBeInTheDocument()
+    expect(screen.getByText('Challenges 1 / 3')).toBeInTheDocument()
+    expect(screen.getAllByText('Hint')).toHaveLength(1) // only the active challenge offers a hint
   })
 
-  it('clicking a part advances its control, and Reset circuit restores it', async () => {
+  it('clicking a part advances its control, skipping skipOnClick options, and Reset circuit restores it', async () => {
     const user = setup()
     await user.click(screen.getByRole('button', { name: /^Resistor R1, 220 Ω/ }))
     expect(screen.getByRole('radio', { name: '1 kΩ' })).toBeChecked()
     expect(screen.getByRole('button', { name: /^Resistor R1, 1 kΩ/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^Resistor R1, 1 kΩ/ }))
+    expect(screen.getByRole('radio', { name: '220 Ω' })).toBeChecked() // 0 Ω is skipped
+    await user.click(screen.getByRole('radio', { name: '0 Ω' }))
+    await user.click(screen.getByRole('button', { name: /^Resistor R1/ }))
+    expect(screen.getByRole('radio', { name: '220 Ω' })).toBeChecked() // from a skipped option, on to the next
+    await user.click(screen.getByRole('button', { name: /^Resistor R1, 220 Ω/ }))
 
     await user.click(screen.getByRole('button', { name: 'Reset circuit' }))
     expect(screen.getByRole('radio', { name: '220 Ω' })).toBeChecked()
@@ -142,6 +175,55 @@ describe('Lab', () => {
     await user.click(screen.getByRole('radio', { name: '0 Ω' }))
     const alerts = screen.getAllByRole('alert').map((a) => a.textContent).join(' ')
     expect(alerts).toMatch(/would be dead/)
+    expect(alerts).toMatch(/current at the instant it failed/)
+    const more = within(screen.getByRole('alert')).getByRole('button', { name: 'More' })
+    expect(more).toHaveAttribute('aria-expanded', 'false') // one-line chip in a short stage
+    await user.click(more)
+    expect(within(screen.getByRole('alert')).getByRole('button', { name: 'Less' })).toHaveAttribute('aria-expanded', 'true')
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).achievements['magic-smoke']).toBeTruthy()
+  })
+
+  it('unlocks challenges in order: a later one cannot complete early, nor on the state that finished the one before', async () => {
+    const user = setup()
+    const tray = screen.getByText(/^Challenges \d \/ 3$/)
+    expect(tray).toHaveTextContent('Challenges 0 / 3')
+    expect(screen.getAllByText('Up next')).toHaveLength(2)
+
+    await user.click(screen.getByRole('button', { name: /Flip LED/ })) // satisfies 'flip', which is locked
+    await user.click(screen.getByRole('button', { name: /Flip LED/ }))
+    expect(tray).toHaveTextContent('Challenges 0 / 3')
+
+    await user.click(screen.getByRole('radio', { name: '1 kΩ' })) // 'dim' passes; this state also satisfies 'glow'
+    expect(tray).toHaveTextContent('Challenges 1 / 3')
+    expect(screen.getByText('Dimmer, and safer!')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: '220 Ω' })) // the learner's next move completes 'glow'
+    expect(tray).toHaveTextContent('Challenges 2 / 3')
+    await user.click(screen.getByRole('button', { name: /Flip LED/ }))
+    expect(tray).toHaveTextContent('Challenges 3 / 3')
+    expect(screen.getByText('All done!')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).lessons.day01.challengesDone).toEqual(['dim', 'glow', 'flip'])
+  })
+
+  it('warns when a reversed LED sees more than its rated reverse voltage', async () => {
+    const user = setup()
+    await user.click(screen.getByRole('radio', { name: '9 V' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Flip LED/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^D1 is reverse-biased by \d+\.\d V; most LEDs are rated for only 5 V in reverse and can be damaged\./,
+    )
+    await user.click(screen.getByRole('radio', { name: '5 V' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('explains the simulator’s limits, linked from warnings', async () => {
+    const user = setup()
+    const about = screen.getByText('About this simulator').closest('details')!
+    expect(about).not.toHaveAttribute('open')
+    expect(about).toHaveTextContent(SIM_LIMITATIONS[0])
+    await user.click(screen.getByRole('radio', { name: '0 Ω' }))
+    await user.click(screen.getByRole('button', { name: 'How the simulator works' }))
+    expect(about).toHaveAttribute('open')
   })
 })

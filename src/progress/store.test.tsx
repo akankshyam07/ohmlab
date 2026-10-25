@@ -224,6 +224,23 @@ describe('ProgressProvider', () => {
     expect(Object.keys(result.current.progress.achievements)).toEqual(['magic-smoke'])
   })
 
+  it('records every achievement one action earns in a single update', () => {
+    saveProgress({ ...emptyProgress(), lessons: { day01: lp({ challengesDone: ['c1', 'c2'] }) } })
+    const { result } = renderHook(useProgress, { wrapper })
+    const writes = vi.spyOn(Storage.prototype, 'setItem')
+    act(() => result.current.recordQuiz('day01', 1))
+    expect(writes).toHaveBeenCalledTimes(1)
+    expect(result.current.recentlyUnlocked.map((a) => a.id).sort()).toEqual(
+      ['first-light', 'fundamentals-fluent', 'ohms-apprentice', 'perfect-circuit'],
+    )
+  })
+
+  it('an event unlock also counts today as active', () => {
+    const { result } = renderHook(useProgress, { wrapper })
+    act(() => result.current.unlock('short-circuit'))
+    expect(result.current.progress.activeDays).toEqual([localDate(new Date())])
+  })
+
   it('unlocks On a Roll on the third day in a row', () => {
     saveProgress({ ...emptyProgress(), activeDays: [daysAgo(2), daysAgo(1)] })
     const { result } = renderHook(useProgress, { wrapper })
