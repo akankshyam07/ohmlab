@@ -691,6 +691,8 @@
   .part-body {
     display: flex;
     flex-direction: column;
+    /* The desktop grid's `start` would shrink the pinned stage to its content's width. */
+    align-items: stretch;
     gap: var(--sp-4);
   }
 
