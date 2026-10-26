@@ -354,11 +354,6 @@
   height: 100%;
 }
 
-/* A thumbnail is a picture: no view, zoom or hotspot controls. */
-.part-thumb :is(.pv-tools, .pv-zoom, .pv-hotspots) {
-  display: none;
-}
-
 /* The model's camera layer is drawn at a fixed 1000 px; size containment keeps that out of the page's width. */
 .part-thumb,
 .part-stage-viewer {
@@ -756,15 +751,6 @@
 
   .part-tile-summary {
     display: none;
-  }
-
-  /* The model is laid out at twice the thumbnail's size and drawn at half: below ~200 px the viewer frames
-     itself as if zoomed in (ponytail: a viewer-side "thumbnail" mode would make this unnecessary). */
-  .part-thumb > * {
-    width: 200%;
-    height: 200%;
-    transform: scale(0.5);
-    transform-origin: 0 0;
   }
 
   .part-filter-options {

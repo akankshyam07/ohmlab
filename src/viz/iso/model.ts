@@ -66,6 +66,50 @@ function unoSocket(pin: string): Vec3 {
   throw new Error(`No Uno pin ${pin}`)
 }
 
+/* ------------------------------------------------------------------ ESP32 DevKit V1 (30-pin) */
+
+/**
+ * The DevKit at real size (51.5 × 28.3 mm), measured from its corner at the USB end on the 3V3 side:
+ * x along the board (USB at 0, antenna at the far end), y across. Pins point down through a plastic
+ * spacer, so the board stands on them; the header rows are 25.4 mm apart.
+ */
+export const ESP32_SIZE = { w: 51.5, h: 28.3, pcb: 1.6, pins: 6, spacer: 2.5 }
+/** Top of the DevKit's PCB when it stands on its pins. */
+export const EZ = ESP32_SIZE.pins + ESP32_SIZE.spacer + ESP32_SIZE.pcb
+/** Pin rows: the right row (3V3 side) runs along y = 1.45, the left row (EN, VIN) along y = 26.85; pin 0 is at the antenna end. */
+export const ESP32_ROWS = [
+  { y: 1.45, pins: ['GPIO23', 'GPIO22', 'GPIO1', 'GPIO3', 'GPIO21', 'GPIO19', 'GPIO18', 'GPIO5', 'GPIO17', 'GPIO16', 'GPIO4', 'GPIO2', 'GPIO15', 'GND', '3V3'] },
+  { y: 26.85, pins: ['EN', 'GPIO36', 'GPIO39', 'GPIO34', 'GPIO35', 'GPIO32', 'GPIO33', 'GPIO25', 'GPIO26', 'GPIO27', 'GPIO14', 'GPIO12', 'GPIO13', 'GND2', 'VIN'] },
+] as const
+/** x of the i-th pin from the antenna end. */
+export const esp32PinX = (i: number) => 43.6 - i * P
+/** Silkscreen names (as printed on the DevKit). */
+export const ESP32_SILK: Record<string, string> = { GPIO1: 'TX0', GPIO3: 'RX0', GPIO36: 'VP', GPIO39: 'VN', GPIO17: 'TX2', GPIO16: 'RX2', GND2: 'GND' }
+
+/** Where the DevKit sits on the bench when it's the supply: behind the board, its 3V3 side facing it. */
+const ESP_X0 = BOARD.x0 + 8
+const ESP_YF = -7
+/** DevKit coordinates (mm from its corner) to bench mm. */
+export const esp = (xr: number, yr: number) => ({ x: ESP_X0 + xr, y: ESP_YF - yr })
+
+/** Parses 'esp32:GPIO2', 'esp32:3V3', 'esp32:VIN', 'esp32:GND', 'esp32:EN'; null for anything else. */
+export function esp32Pin(h: Hole): { row: number; index: number } | null {
+  if (!h.startsWith('esp32:')) return null
+  const name = h.slice(6)
+  for (const [row, r] of ESP32_ROWS.entries()) {
+    const index = (r.pins as readonly string[]).indexOf(name)
+    if (index >= 0) return { row, index }
+  }
+  return null
+}
+
+function esp32Socket(h: Hole): Vec3 {
+  const pin = esp32Pin(h)
+  if (!pin) throw new Error(`No ESP32 DevKit pin ${h}`)
+  // Jumpers are drawn onto the pin's solder joint on top of the board.
+  return { ...esp(esp32PinX(pin.index), ESP32_ROWS[pin.row].y), z: EZ + 1.1 }
+}
+
 /* ------------------------------------------------------------------ 9 V battery */
 
 /** A 9 V battery lying on its broad side left of the board, snap terminals at the back end. */
@@ -79,6 +123,7 @@ const batteryTerminal = (t: '+' | '-'): Vec3 => ({ x: (BATTERY.x0 + BATTERY.x1) 
 
 /** Where a leg or jumper pin enters a hole (or header socket), in bench mm, on the surface. */
 export function holePoint(h: Hole): Vec3 {
+  if (h.startsWith('esp32:')) return esp32Socket(h)
   const p = parseHole(h)
   if (p.kind === 'uno') return unoSocket(p.pin)
   if (p.kind === 'battery') return batteryTerminal(p.terminal)
@@ -189,7 +234,15 @@ export function readPalette(): IsoPalette {
 const terminals = (c: Component): [string, string] =>
   c.kind === 'vsource' ? [c.pos, c.neg] : c.kind === 'led' || c.kind === 'diode' ? [c.anode, c.cathode] : [c.a, c.b]
 
-const SUPPLY_PINS = { uno: ['uno:5V', 'uno:GND'], battery9v: ['bat:+', 'bat:-'] } as const
+const SUPPLY_PINS: Record<BreadboardLayout['supply'], (layout: BreadboardLayout) => [Hole, Hole]> = {
+  uno: () => ['uno:5V', 'uno:GND'],
+  battery9v: () => ['bat:+', 'bat:-'],
+  // The ESP32's lab source is its 3V3 pin, or VIN, or else the GPIO that drives the circuit.
+  esp32: (layout) => {
+    const used = layout.parts.flatMap(legsOf).filter((h) => h.startsWith('esp32:'))
+    return [used.find((h) => h === 'esp32:3V3') ?? used.find((h) => h === 'esp32:VIN') ?? used.find((h) => h.startsWith('esp32:GPIO')) ?? 'esp32:3V3', 'esp32:GND']
+  },
+}
 
 /**
  * Current in each plain jumper (amps, positive from `from` to `to`). Ideal wires carry whatever
@@ -237,7 +290,7 @@ export function wireCurrents(layout: BreadboardLayout, circuit: Circuit, result:
   const source = circuit.components.find((c) => c.kind === 'vsource')
   const src = source && result.components[source.id]
   if (src) {
-    const [plus, minus] = SUPPLY_PINS[layout.supply]
+    const [plus, minus] = SUPPLY_PINS[layout.supply](layout)
     add(strip(plus), src.current)
     add(strip(minus), -src.current)
   }

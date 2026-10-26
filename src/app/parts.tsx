@@ -112,7 +112,7 @@ export function PartTile({ part, featured = false }: { part: PartInfo; featured?
     <article className="part-tile panel" data-featured={featured || undefined}>
       {/* A picture only: the hotspots stay out of reach (inert), the card is the link. */}
       <div className="part-thumb" aria-hidden="true" inert>
-        <PartViewer partId={part.id} ariaLabel={part.name} animate={false} />
+        <PartViewer partId={part.id} ariaLabel={part.name} thumbnail />
       </div>
       <div className="part-tile-text">
         <h3 className="part-tile-name">

@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import type { Circuit, ComponentResult, SolveResult } from '../../sim/types'
 import { formatSI } from '../../ui/format'
 import { holeLabel, parseHole } from '../BreadboardView'
 import { FLOW_THRESHOLD, flowSpeed, partLabel } from '../describe'
 import { placeLabels, type Box } from '../place'
 import type { BreadboardLayout, BreadboardPart, Hole } from '../types'
-import { Defs, benchPoints, drawBattery, drawBench, drawBoard, drawPart, drawUno, type DrawnPart, type PartState, type UnoDrawing } from './draw'
+import { Defs, benchPoints, drawBattery, drawBench, drawBoard, drawPart, drawUno, type DrawnPart, type PartState } from './draw'
 import {
-  type Affine,
   type Camera,
   type IsoViewName,
   type Pt,
@@ -28,14 +27,15 @@ import {
   poly,
   project,
   unitScale,
-  zoomAt,
 } from './geom'
-import { BATTERY, BOARD, UNO_SIZE, UZ, Z0, holePoint, readPalette, uno, wireCurrents } from './model'
+import { BATTERY, BOARD, UNO_SIZE, UZ, Z0, esp, holePoint, readPalette, uno, wireCurrents } from './model'
+import { useReducedMotion, usePanZoom, useSize, useViewMorph } from './camera'
+import { drawEsp32, esp32Anchors, esp32Bounds, esp32Outline } from './parts/esp32'
 import './IsoBench.css'
 
 export type { IsoViewName } from './geom'
 
-/** A labelled pointer to something on the bench. `at` is a part id ('R1'), a part terminal ('D1.anode'), a hole ('T+5', 'uno:5V') or 'uno:usb' / 'uno:chip'. */
+/** A labelled pointer to something on the bench. `at` is a part id ('R1'), a part terminal ('D1.anode'), a hole ('T+5', 'uno:5V', 'esp32:GPIO2'), 'uno:usb' / 'uno:chip', or a DevKit feature ('esp32:usb', 'esp32:en-button'…). */
 export interface IsoCallout {
   at: string
   title: string
@@ -69,39 +69,8 @@ const VBW = 1000
 const PIN_MODE_WIDTH = 560
 /** When the whole bench would be narrower than this on screen, start framed on the parts being built. */
 const SMALL_BENCH_PX = 380
-const MORPH_MS = 540
-const CAMERA_MS = 460
-const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
 const INTRO_BUDGET = 1300 // --dur-intro + 400 ms
 const MAX_ZOOM = 4
-
-function useReducedMotion() {
-  const query = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
-  const [reduced, setReduced] = useState(() => query?.matches ?? false)
-  useEffect(() => {
-    if (!query) return
-    const on = () => setReduced(query.matches)
-    query.addEventListener('change', on)
-    return () => query.removeEventListener('change', on)
-  }, [query])
-  return reduced
-}
-
-function useSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null)
-  const [size, setSize] = useState({ w: 0, h: 0 })
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const set = (w: number, h: number) => setSize((s) => (s.w === Math.round(w) && s.h === Math.round(h) ? s : { w: Math.round(w), h: Math.round(h) }))
-    set(el.clientWidth, el.clientHeight)
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(([e]) => set(e.contentRect.width, e.contentRect.height))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-  return [ref, size] as const
-}
 
 /**
  * The vertical slice of `ref` that's on screen, in 10 % steps. A stage can be taller than what's visible (a sticky
@@ -179,7 +148,8 @@ interface Change {
 interface BaseScene {
   cam: Camera
   node: ReactNode
-  uno: UnoDrawing | null
+  /** Named points on the supply board (screen): 'usb', 'chip' on the Uno; the DevKit's feature anchors. */
+  supplyAnchors: Record<string, Pt>
   obstacles: Pt[][]
   /** The whole bench's bounds in drawing units. */
   content: Rect
@@ -195,9 +165,6 @@ interface PartsScene {
   defs: ReactNode
 }
 
-const zoomCss = (z: Zoom) => `matrix(${z.s}, 0, 0, ${z.s}, ${z.tx}, ${z.ty})`
-const affineCss = (m: Affine) => `matrix(${m.map((v) => +v.toFixed(5)).join(', ')})`
-const sameZoom = (a: Zoom, b: Zoom) => Math.abs(a.s - b.s) < 1e-4 && Math.abs(a.tx - b.tx) < 0.5 && Math.abs(a.ty - b.ty) < 0.5
 const rectOf = (pts: Pt[]): Rect => ({
   x0: Math.min(...pts.map((p) => p.x)),
   y0: Math.min(...pts.map((p) => p.y)),
@@ -284,22 +251,24 @@ export function IsoBench({
       const defs = new Defs(`${uid}-${v}-b`)
       const unoDrawing = layout.supply === 'uno' ? drawUno(cam, pal, defs) : null
       const boardNode = drawBoard(cam, pal, defs)
-      const solids = depthSort(
-        cam,
-        [
-          { box: BOARD, node: boardNode },
-          unoDrawing
-            ? { box: { x0: uno(0, 0).x, x1: uno(68.6, 0).x, y0: uno(0, UNO_SIZE.h).y, y1: uno(0, 0).y, z0: 0, z1: UZ }, node: unoDrawing.node }
-            : { box: BATTERY, node: drawBattery(cam, pal, defs) },
-        ],
-        (s) => s.box,
-      )
+      const espBox = layout.supply === 'esp32' ? esp32Bounds(esp) : null
+      const supply = unoDrawing
+        ? { box: { x0: uno(0, 0).x, x1: uno(68.6, 0).x, y0: uno(0, UNO_SIZE.h).y, y1: uno(0, 0).y, z0: 0, z1: UZ }, node: unoDrawing.node }
+        : espBox
+          ? { box: espBox, node: drawEsp32(cam, pal, defs, esp) }
+          : { box: BATTERY, node: drawBattery(cam, pal, defs) }
+      const solids = depthSort(cam, [{ box: BOARD, node: boardNode }, supply], (s) => s.box)
       const boardCorners: Pt[] = []
       for (const x of [BOARD.x0, BOARD.x1]) for (const y of [BOARD.y0, BOARD.y1]) for (const z of [0, Z0]) boardCorners.push(project(cam, x, y, z))
+      const espAnchors = espBox ? esp32Anchors(esp) : null
       const scene: BaseScene = {
         cam,
-        uno: unoDrawing,
-        obstacles: [boardCorners, ...(unoDrawing ? [unoDrawing.outline] : [])],
+        supplyAnchors: unoDrawing
+          ? unoDrawing.anchors
+          : espAnchors
+            ? Object.fromEntries(Object.entries(espAnchors).map(([k, p]) => [k, project(cam, p.x, p.y, p.z)]))
+            : {},
+        obstacles: [boardCorners, ...(unoDrawing ? [unoDrawing.outline] : espBox ? [esp32Outline(cam, esp)] : [])],
         content: rectOf(fitPoints.map((p) => project(cam, p.x, p.y, p.z))),
         node: (
           <>
@@ -345,47 +314,11 @@ export function IsoBench({
   }, [camFor, layout, statesKey, pal, uid])
 
   /* ---------------- camera presets: crossfade two drawings while one transform maps the old bench plane onto the new */
-  const [shown, setShown] = useState<IsoViewName>(view)
-  const [leaving, setLeaving] = useState<{ view: IsoViewName; to: string; from: string } | null>(null)
-  useEffect(() => {
-    if (view === shown) return
-    if (!motion || phase !== 'live') {
-      setShown(view)
-      setLeaving(null)
-      return
-    }
-    // Precomputed endpoints: the bench plane's affine map from the old projection to the new one.
-    const a = multiplyAffine(groundMatrix(camFor(view), Z0), invertAffine(groundMatrix(camFor(shown), Z0)))
-    setLeaving({ view: shown, to: affineCss(a), from: affineCss(invertAffine(a)) })
-    setShown(view)
-  }, [view, shown, motion, phase, camFor])
-
-  const leaveRef = useRef<HTMLDivElement>(null)
-  const enterRef = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    if (!leaving) return
-    const timing = { duration: MORPH_MS, easing: EASE }
-    // Only the first few frames show both drawings: the new one fades in over the old (both following the
-    // same bench-plane map), then the old one is dropped so the rest of the tween moves a single layer.
-    const fade = { duration: 160, easing: 'linear' }
-    const leave = leaveRef.current
-    const anims = [
-      leave?.animate([{ transform: 'matrix(1, 0, 0, 1, 0, 0)' }, { transform: leaving.to }], { ...timing, fill: 'forwards' }),
-      enterRef.current?.animate([{ transform: leaving.from }, { transform: 'matrix(1, 0, 0, 1, 0, 0)' }], timing),
-      enterRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], fade),
-    ].filter((a): a is Animation => !!a)
-    const drop = window.setTimeout(() => leave && (leave.style.display = 'none'), fade.duration + 10)
-    let done = false
-    Promise.all(anims.map((a) => a.finished)).then(
-      () => !done && setLeaving(null),
-      () => {},
-    )
-    return () => {
-      done = true
-      clearTimeout(drop)
-      anims.forEach((a) => a.cancel())
-    }
-  }, [leaving])
+  const planeMap = useCallback(
+    (from: IsoViewName, to: IsoViewName) => multiplyAffine(groundMatrix(camFor(to), Z0), invertAffine(groundMatrix(camFor(from), Z0))),
+    [camFor],
+  )
+  const { shown, leaving, leaveRef, enterRef } = useViewMorph(view, motion && phase === 'live', planeMap)
 
   /* ---------------- which parts just changed (pop or flip) */
   const changes = useRef(new Map<string, Change>())
@@ -463,134 +396,16 @@ export function IsoBench({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [W, H, VBH, bandH, bandTop, focusKey, shown, cur, base, layout])
 
-  const [userZoom, setUserZoom] = useState<Zoom | null>(null)
-  useEffect(() => setUserZoom(null), [focusKey, shown, W, H])
-  const zoom = userZoom ?? target
   const limit = useCallback((z: Zoom) => clampZoom(z, base.content, W, H, fitZoom.s, fitZoom.s * MAX_ZOOM), [base, W, H, fitZoom.s])
-
-  const camRef = useRef<HTMLDivElement>(null)
-  const shownZoom = useRef<Zoom | null>(null)
-  const lastSize = useRef(size)
-  const noTween = useRef(false)
-  const [moving, setMoving] = useState(false)
-  useLayoutEffect(() => {
-    const el = camRef.current
-    if (!el || !W) return
-    const prev = shownZoom.current
-    shownZoom.current = zoom
-    el.style.transform = zoomCss(zoom)
-    const resized = lastSize.current !== size
-    lastSize.current = size
-    const skip = noTween.current
-    noTween.current = false
-    if (!prev || resized || skip || !motion || phase === 'pre' || sameZoom(prev, zoom)) return
-    // Start from wherever a running tween has got to; the compositor runs it (transform only).
-    const from = el.getAnimations().length ? getComputedStyle(el).transform : zoomCss(prev)
-    el.getAnimations().forEach((a) => a.cancel())
-    const a = el.animate([{ transform: from }, { transform: zoomCss(zoom) }], { duration: CAMERA_MS, easing: EASE })
-    setMoving(true)
-    a.finished.then(
-      () => setMoving(false),
-      () => {},
-    )
-  }, [zoom, W, size, motion, phase])
-
-  /* drag to pan, pinch or ctrl/⌘-wheel to zoom */
-  const pointers = useRef(new Map<number, Pt>())
-  const gesture = useRef<{ start: Zoom; pts: Pt[]; dragged: boolean; now: Zoom } | null>(null)
-  const suppressClick = useRef(false)
-  const local = (e: { clientX: number; clientY: number }): Pt => {
-    const r = stageRef.current!.getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
-  }
-  const writeZoom = (z: Zoom) => {
-    const el = camRef.current
-    if (!el) return
-    el.getAnimations().forEach((a) => a.cancel())
-    el.style.transform = zoomCss(z)
-  }
-  const beginGesture = () => {
-    gesture.current = { start: gesture.current?.now ?? shownZoom.current ?? zoom, pts: [...pointers.current.values()], dragged: gesture.current?.dragged ?? false, now: gesture.current?.now ?? shownZoom.current ?? zoom }
-  }
-  const onPointerDown = (e: ReactPointerEvent) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    pointers.current.set(e.pointerId, local(e))
-    if (pointers.current.size === 1) gesture.current = null
-    beginGesture()
-    suppressClick.current = false
-  }
-  const onPointerMove = (e: ReactPointerEvent) => {
-    if (!pointers.current.has(e.pointerId) || !gesture.current) return
-    pointers.current.set(e.pointerId, local(e))
-    const g = gesture.current
-    const pts = [...pointers.current.values()]
-    let next: Zoom
-    if (pts.length === 1 && g.pts.length === 1) {
-      const dx = pts[0].x - g.pts[0].x
-      const dy = pts[0].y - g.pts[0].y
-      if (!g.dragged && Math.hypot(dx, dy) < 5) return
-      next = { ...g.start, tx: g.start.tx + dx, ty: g.start.ty + dy }
-    } else if (pts.length >= 2 && g.pts.length >= 2) {
-      const d0 = Math.hypot(g.pts[1].x - g.pts[0].x, g.pts[1].y - g.pts[0].y) || 1
-      const d1 = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
-      const m0 = { x: (g.pts[0].x + g.pts[1].x) / 2, y: (g.pts[0].y + g.pts[1].y) / 2 }
-      const m1 = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
-      const z = zoomAt(g.start, d1 / d0, m0.x, m0.y)
-      next = { ...z, tx: z.tx + m1.x - m0.x, ty: z.ty + m1.y - m0.y }
-    } else return
-    if (!g.dragged) {
-      g.dragged = true
-      stageRef.current?.setPointerCapture?.(e.pointerId)
-      setMoving(true)
-    }
-    g.now = limit(next)
-    writeZoom(g.now)
-  }
-  const onPointerEnd = (e: ReactPointerEvent) => {
-    if (!pointers.current.delete(e.pointerId)) return
-    const g = gesture.current
-    if (pointers.current.size > 0) {
-      beginGesture()
-      return
-    }
-    gesture.current = null
-    if (g?.dragged) {
-      suppressClick.current = true
-      noTween.current = true
-      setUserZoom(g.now)
-      setMoving(false)
-    }
-  }
-  useEffect(() => {
-    const el = stageRef.current
-    if (!el) return
-    let commit = 0
-    const onWheel = (e: WheelEvent) => {
-      // Plain wheel scrolls the page; ctrl/⌘ + wheel (and trackpad pinch, which arrives as ctrl + wheel) zooms.
-      if (!e.ctrlKey && !e.metaKey) return
-      e.preventDefault()
-      const r = el.getBoundingClientRect()
-      const cur = gesture.current?.now ?? shownZoom.current
-      if (!cur) return
-      const next = limit(zoomAt(cur, Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top))
-      gesture.current = { start: next, pts: [], dragged: true, now: next }
-      shownZoom.current = next
-      writeZoom(next)
-      setMoving(true)
-      clearTimeout(commit)
-      commit = window.setTimeout(() => {
-        gesture.current = null
-        noTween.current = true
-        setUserZoom(next)
-        setMoving(false)
-      }, 160)
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      clearTimeout(commit)
-    }
-  }, [stageRef, limit])
+  const { camRef, zoom, userZoom, setUserZoom, moving, suppressClick, handlers } = usePanZoom({
+    stageRef,
+    target,
+    limit,
+    size,
+    animate: motion && phase !== 'pre',
+    resetKeys: [focusKey, shown],
+    wheel: 'modifier',
+  })
 
   /* ---------------- warm-up: every preset's geometry, and one hidden mount of each, while idle */
   // A preset switch then only re-mounts DOM along already-warm code paths (no cold first switch).
@@ -793,7 +608,8 @@ export function IsoBench({
   const toPx = (p: Pt): Pt => ({ x: p.x * zoom.s + zoom.tx, y: p.y * zoom.s + zoom.ty })
   const pinMode = W > 0 && W < PIN_MODE_WIDTH
   const resolve = (at: string): Pt | null => {
-    if (at === 'uno:usb' || at === 'uno:chip') return base.uno?.anchors[at.slice(4)] ?? null
+    const named = /^(uno|esp32):([a-z][a-z0-9-]*)$/.exec(at)
+    if (named && base.supplyAnchors[named[2]]) return base.supplyAnchors[named[2]]
     const [id, term] = at.split('.')
     const part = cur.byId.get(id)
     if (part) return part.anchors[term ?? 'top'] ?? part.anchors.top
@@ -885,16 +701,7 @@ export function IsoBench({
         ref={stageRef}
         className={stageClass}
         data-view={shown}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerEnd}
-        onPointerCancel={onPointerEnd}
-        onClickCapture={(e) => {
-          if (suppressClick.current) {
-            e.stopPropagation()
-            suppressClick.current = false
-          }
-        }}
+        {...handlers}
       >
         <div ref={camRef} className="iso-cam" style={{ width: VBW, height: VBH }}>
           {leaving && scene(leaving.view, 'leave')}

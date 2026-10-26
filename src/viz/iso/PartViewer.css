@@ -1,0 +1,193 @@
+/* PartViewer: a zoomable part with hotspots. Ink, shading and camera classes come from IsoBench.css. */
+
+.pv .pv-stage {
+  border-radius: inherit;
+}
+
+.pv-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pv {
+  container: pv / inline-size;
+}
+
+.pv-hotspots {
+  pointer-events: none;
+}
+
+.pv-hotspot {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* The visible dot is smaller than the 26 px target. */
+.pv-hotspot::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  border: 2px solid var(--sig-current);
+  box-shadow: 0 0 0 3px rgba(56, 225, 255, 0.18);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.pv-hotspot:hover::before,
+.pv-hotspot:focus-visible::before {
+  transform: scale(1.25);
+}
+
+.pv-hotspot:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* The halo on the chosen feature: a brand ring that breathes (still under reduced motion). */
+.pv-hotspot.is-on::before {
+  background: var(--brand);
+  border-color: var(--brand-strong);
+}
+
+.pv-hotspot.is-on::after {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.22), rgba(167, 139, 250, 0) 70%);
+  animation: pv-halo 1.8s var(--ease-out) infinite;
+  pointer-events: none;
+}
+
+@keyframes pv-halo {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0.35;
+  }
+}
+
+.pv-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 18px);
+  transform: translateX(-50%);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text);
+  font: 600 11px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pv-tools,
+.pv-zoom {
+  position: absolute;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+}
+
+.pv-tools {
+  left: 10px;
+  top: 10px;
+  flex-wrap: wrap;
+}
+
+.pv-zoom {
+  right: 10px;
+  bottom: 10px;
+}
+
+.pv-tools button,
+.pv-zoom button {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 13px/1 var(--font-body);
+  cursor: pointer;
+}
+
+.pv-zoom button {
+  font-size: 17px;
+  padding: 0;
+}
+
+.pv-zoom .pv-reset {
+  font-size: 13px;
+  padding: 0 12px;
+}
+
+.pv-tools button:hover,
+.pv-zoom button:hover {
+  color: var(--text);
+}
+
+.pv-tools button[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-hotspot.is-on::after {
+    animation: none;
+  }
+}
+
+.iso-still .pv-hotspot.is-on::after {
+  animation: none;
+}
+
+/* Small viewers (a card, a phone column): no view toolbar, a compact zoom group, smaller hotspots. */
+@container pv (max-width: 320px) {
+  .pv-tools {
+    display: none;
+  }
+
+  .pv-zoom {
+    right: 6px;
+    bottom: 6px;
+    padding: 2px;
+  }
+
+  .pv-zoom button {
+    min-width: 24px;
+    height: 24px;
+    font-size: 14px;
+  }
+
+  .pv-zoom .pv-reset {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .pv-hotspot::before {
+    inset: 9px;
+  }
+}

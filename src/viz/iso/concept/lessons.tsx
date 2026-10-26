@@ -10,7 +10,13 @@ import type { Circuit } from '../../../sim/types'
 import { IsoBench } from '../IsoBench'
 
 /** Lab settings each drawing builds (as in content/lessons.test.ts). */
-const BUILD: Record<string, Record<string, ControlValue>> = { 'series-parallel': { s1: true }, 'voltage-divider': { load: true } }
+const BUILD: Record<string, Record<string, ControlValue>> = {
+  'series-parallel': { s1: true },
+  'voltage-divider': { load: true },
+  'esp32-intro': { r1: 220 },
+  'level-shifting': { r1: 5100, r3: 220, r2: 10000 },
+  'esp32-wifi-led': { gpio: 3.3 },
+}
 
 const q = new URLSearchParams(location.search)
 const lesson = lessons[Number(q.get('l') ?? 0)]

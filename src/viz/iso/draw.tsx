@@ -1,6 +1,6 @@
 // Inked isometric drawings of the bench's solids. Every function returns plain SVG for one camera.
 import type { CSSProperties, ReactNode } from 'react'
-import type { ComponentStatus } from '../../sim/types'
+import type { ComponentStatus, LedColor } from '../../sim/types'
 import { LED_COLORS } from '../describe'
 import { resistorBands } from '../BreadboardView'
 import type { BreadboardPart } from '../types'
@@ -32,6 +32,8 @@ import {
   BATTERY,
   BOARD,
   CHANNEL,
+  ESP32_SIZE,
+  EZ,
   HEADER_H,
   HOUSING_H,
   type IsoPalette,
@@ -43,6 +45,7 @@ import {
   Z0,
   arcHeight,
   boardHoles,
+  esp,
   holePoint,
   silk,
   uno,
@@ -99,7 +102,7 @@ export class Defs {
 
 /* ------------------------------------------------------------------ primitives */
 
-const matrix = (m: number[]) => `matrix(${m.map(f).join(' ')})`
+export const matrix = (m: number[]) => `matrix(${m.map(f).join(' ')})`
 
 interface SolidOpts {
   /** Fill for the top face (defaults to the base colour). */
@@ -143,10 +146,10 @@ export function solid(cam: Camera, pts: Pt[], z0: number, z1: number, base: stri
   )
 }
 
-const box = (cam: Camera, b: Box3, base: string, o: SolidOpts = {}) => solid(cam, rect(b.x0, b.y0, b.x1, b.y1), b.z0, b.z1, base, o)
+export const box = (cam: Camera, b: Box3, base: string, o: SolidOpts = {}) => solid(cam, rect(b.x0, b.y0, b.x1, b.y1), b.z0, b.z1, base, o)
 
 /** Horizontal gradient that shades a round surface like faces turning from left to right. */
-function roundFill(defs: Defs, base: string, metal = false): string {
+export function roundFill(defs: Defs, base: string, metal = false): string {
   const s = metal ? 0.12 : 0
   return defs.linear(`round-${base}-${metal}`, [
     [0, shade(base, 0.12 - s)],
@@ -188,7 +191,7 @@ export function contactShadow(cam: Camera, defs: Defs, b: { x0: number; x1: numb
 }
 
 /** Text printed flat on a surface at height z (model mm), reading along +x (or +y when `turn`). */
-function print(cam: Camera, at: Pt, z: number, text: string, size: number, fill: string, o: { anchor?: 'start' | 'middle' | 'end'; turn?: boolean; key?: string; weight?: number } = {}): ReactNode {
+export function print(cam: Camera, at: Pt, z: number, text: string, size: number, fill: string, o: { anchor?: 'start' | 'middle' | 'end'; turn?: boolean; key?: string; weight?: number } = {}): ReactNode {
   return (
     <text
       key={o.key ?? text + at.x + at.y}
@@ -207,12 +210,10 @@ function print(cam: Camera, at: Pt, z: number, text: string, size: number, fill:
 
 /* ------------------------------------------------------------------ bench */
 
-export function drawBench(cam: Camera, pal: IsoPalette, id: string): ReactNode {
+export function drawBench(cam: Camera, pal: IsoPalette, id: string, c: Pt = { x: (BOARD.x0 + BOARD.x1) / 2, y: -4 }, r: Pt = { x: 150, y: 125 }): ReactNode {
   const m = matrix(groundMatrix(cam, 0))
   // A pool of grid round the bench that fades into the bench colour. Bounded on purpose: an
   // unbounded floor makes every camera layer huge to raster and composite.
-  const c = { x: (BOARD.x0 + BOARD.x1) / 2, y: -4 }
-  const r = { x: 150, y: 125 }
   return (
     <g className="iso-bench-floor" transform={m}>
       <defs>
@@ -282,7 +283,7 @@ export function drawBoard(cam: Camera, pal: IsoPalette, defs: Defs): ReactNode {
 }
 
 /** A moulded groove round the visible sides of a box, at height z. */
-function sideGroove(cam: Camera, b: Box3, z: number, color: string): ReactNode {
+export function sideGroove(cam: Camera, b: Box3, z: number, color: string): ReactNode {
   const faces = prism(cam, rect(b.x0, b.y0, b.x1, b.y1), b.z0, z)
   const d = faces.frontEdges.map(([p, q]) => `M${f(p.x)} ${f(p.y)}L${f(q.x)} ${f(q.y)}`).join('')
   return <path d={d} stroke={color} strokeOpacity={0.55} fill="none" className="iso-groove" />
@@ -291,13 +292,13 @@ function sideGroove(cam: Camera, b: Box3, z: number, color: string): ReactNode {
 /* ------------------------------------------------------------------ Arduino Uno */
 
 /** Real Uno rectangle (mm from its lower-left corner) as a bench Box3. */
-function ur(xr0: number, yr0: number, xr1: number, yr1: number, z0: number, z1: number): Box3 {
+export function ur(xr0: number, yr0: number, xr1: number, yr1: number, z0: number, z1: number): Box3 {
   const a = uno(xr0, yr0)
   const b = uno(xr1, yr1)
   return { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y), z0, z1 }
 }
 
-interface Piece {
+export interface Piece {
   box: Box3
   node: ReactNode
 }
@@ -548,7 +549,7 @@ export function drawUno(cam: Camera, pal: IsoPalette, defs: Defs): UnoDrawing {
   }
 }
 
-const depthSortPieces = (cam: Camera, pieces: Piece[]): ReactNode[] => depthSort(cam, pieces, (p) => p.box).map((p) => p.node)
+export const depthSortPieces = (cam: Camera, pieces: Piece[]): ReactNode[] => depthSort(cam, pieces, (p) => p.box).map((p) => p.node)
 
 /** The 8 projected corners of a box (for outlines and obstacle boxes). */
 export function corners(cam: Camera, b: Box3): Pt[] {
@@ -558,7 +559,7 @@ export function corners(cam: Camera, b: Box3): Pt[] {
 }
 
 /** A dark rectangular opening on a vertical wall of a box (only drawn when that wall faces the camera). */
-function wallOpening(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number; w: number; h: number }, pal: IsoPalette): ReactNode {
+export function wallOpening(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number; w: number; h: number }, pal: IsoPalette): ReactNode {
   if (wall === 'x0' && viewer(cam).x >= 0) return null
   const x = b.x0 - 0.01
   const pts = [
@@ -579,7 +580,7 @@ function wallOpening(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number
 }
 
 /** A round opening on the x0 wall (the barrel jack's socket). */
-function wallCircle(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number; r: number }, pal: IsoPalette): ReactNode {
+export function wallCircle(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number; r: number }, pal: IsoPalette): ReactNode {
   if (wall === 'x0' && viewer(cam).x >= 0) return null
   const x = b.x0 - 0.01
   const ring = (r: number) => Array.from({ length: 24 }, (_, i) => project(cam, x, o.y + Math.cos((i / 24) * Math.PI * 2) * r, o.z + Math.sin((i / 24) * Math.PI * 2) * r))
@@ -593,7 +594,7 @@ function wallCircle(cam: Camera, b: Box3, wall: 'x0', o: { y: number; z: number;
 }
 
 /** The polarity mark on top of an SMD electrolytic: a dark segment on the − side. */
-function capMark(cam: Camera, c: Pt, z: number, pal: IsoPalette): ReactNode {
+export function capMark(cam: Camera, c: Pt, z: number, pal: IsoPalette): ReactNode {
   return (
     <g transform={matrix(groundMatrix(cam, z))}>
       <path d={`M${f(c.x - 2.9)} ${f(c.y + 0.6)}A3 3 0 0 0 ${f(c.x + 2.9)} ${f(c.y + 0.6)}Z`} fill={pal.plastic} opacity={0.85} />
@@ -640,12 +641,12 @@ export interface DrawnPart {
   track?: Track
 }
 
-const lerp3 = (a: Vec3, b: Vec3, t: number): Vec3 => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t })
-const at = (p: Pt | Vec3, z: number): Vec3 => ({ x: p.x, y: p.y, z })
-const pathOf = (pts: Pt[]) => 'M' + pts.map((p) => `${f(p.x)} ${f(p.y)}`).join('L')
+export const lerp3 = (a: Vec3, b: Vec3, t: number): Vec3 => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t })
+export const at = (p: Pt | Vec3, z: number): Vec3 => ({ x: p.x, y: p.y, z })
+export const pathOf = (pts: Pt[]) => 'M' + pts.map((p) => `${f(p.x)} ${f(p.y)}`).join('L')
 
 /** A metal lead (polyline in model space): inked, with a two-stop gradient along it. */
-function lead(cam: Camera, defs: Defs, key: string, pts: Vec3[], pal: IsoPalette): ReactNode {
+export function lead(cam: Camera, defs: Defs, key: string, pts: Vec3[], pal: IsoPalette): ReactNode {
   const s = pts.map((p) => project(cam, p.x, p.y, p.z))
   const w = Math.max(1.3, 0.55 * unitScale(cam))
   const grad = defs.linear(`lead-${key}`, [[0, shade(pal.metal, -0.25)], [1, shade(pal.metal, 0.3)]], { a: s[0], b: s[s.length - 1] })
@@ -659,7 +660,7 @@ function lead(cam: Camera, defs: Defs, key: string, pts: Vec3[], pal: IsoPalette
 }
 
 /** Unit vector perpendicular to a screen segment, pointing down the screen. */
-function downNormal(a: Pt, b: Pt): Pt {
+export function downNormal(a: Pt, b: Pt): Pt {
   const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
   let n = { x: -(b.y - a.y) / len, y: (b.x - a.x) / len }
   if (n.y < 0 || (Math.abs(n.y) < 1e-6 && n.x < 0)) n = { x: -n.x, y: -n.y }
@@ -670,7 +671,7 @@ function downNormal(a: Pt, b: Pt): Pt {
  * An axial body (resistor, diode) from screen point a to b: inked capsule with end bulbs, colour
  * bands, then one shade stripe and one highlight over everything so bands shade like the body.
  */
-function axialBody(a: Pt, b: Pt, width: number, base: string, bands: { t: number; color: string; w?: number }[], bulbs: boolean): ReactNode {
+export function axialBody(a: Pt, b: Pt, width: number, base: string, bands: { t: number; color: string; w?: number }[], bulbs: boolean): ReactNode {
   const n = downNormal(a, b)
   const L = Math.hypot(b.x - a.x, b.y - a.y) || 1
   const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L }
@@ -768,7 +769,7 @@ function axial(cam: Camera, pal: IsoPalette, defs: Defs, part: Extract<Breadboar
   }
 }
 
-const boxOf3 = (pts: Vec3[], pad = 0): Box3 => ({
+export const boxOf3 = (pts: Vec3[], pad = 0): Box3 => ({
   x0: Math.min(...pts.map((p) => p.x)) - pad,
   x1: Math.max(...pts.map((p) => p.x)) + pad,
   y0: Math.min(...pts.map((p) => p.y)) - pad,
@@ -776,26 +777,15 @@ const boxOf3 = (pts: Vec3[], pad = 0): Box3 => ({
   z0: Math.min(...pts.map((p) => p.z)) - pad,
   z1: Math.max(...pts.map((p) => p.z)) + pad,
 })
-const padBox = (b: Box3, p: number) => ({ x0: b.x0 - p, x1: b.x1 + p, y0: b.y0 - p, y1: b.y1 + p })
+export const padBox = (b: Box3, p: number) => ({ x0: b.x0 - p, x1: b.x1 + p, y0: b.y0 - p, y1: b.y1 + p })
 
-function led(cam: Camera, pal: IsoPalette, defs: Defs, part: Extract<BreadboardPart, { kind: 'led' }>, state: PartState): DrawnPart {
-  const ha = holePoint(part.anode)
-  const hc = holePoint(part.cathode)
-  const span = Math.hypot(hc.x - ha.x, hc.y - ha.y) || 1
-  const d = { x: (hc.x - ha.x) / span, y: (hc.y - ha.y) / span }
-  const perp = { x: -d.y, y: d.x }
-  const m = lerp3(ha, hc, 0.5)
-  const zb = Z0 + 5.6
+/**
+ * A 5 mm LED from its flange up: the rim with its flat on the cathode side (`d` points to the cathode),
+ * then the lens (cylinder and dome) with the die inside, the lit and burnt overlays, and a highlight.
+ */
+export function ledHead(cam: Camera, pal: IsoPalette, defs: Defs, m: Pt, zb: number, d: Pt, color: LedColor, brightness: number, burnt: boolean) {
   const us = unitScale(cam)
-  const hex = LED_COLORS[part.color]
-  // Legs: the anode is 3 mm longer, so it carries a visible kink.
-  const a0 = { x: m.x - d.x * 1.27, y: m.y - d.y * 1.27, z: zb }
-  const c0 = { x: m.x + d.x * 1.27, y: m.y + d.y * 1.27, z: zb }
-  const a1 = at(a0, zb - 1)
-  const kink = lerp3(a1, ha, 0.42)
-  const kinked = { x: kink.x + perp.x * 1.5 - d.x * 0.7, y: kink.y + perp.y * 1.5 - d.y * 0.7, z: kink.z }
-  const legs = [lead(cam, defs, `${part.id}-k`, [c0, at(c0, zb - 1), hc], pal), lead(cam, defs, `${part.id}-a`, [a0, a1, kinked, lerp3(a1, ha, 0.7), ha], pal)]
-  // Flange with the flat on the cathode side, then the lens: cylinder and dome.
+  const hex = LED_COLORS[color]
   const lensOff = mix(shade(hex, 0.28), pal.bench, 0.25)
   const rim = solid(cam, circlePoly(m.x, m.y, 3.0, 36, { dir: d, at: 2.2 }), zb, zb + 1, lensOff, { smooth: true })
   const g = cylinder(cam, m.x, m.y, zb + 1, zb + 6.1, 2.5)
@@ -803,34 +793,30 @@ function led(cam: Camera, pal: IsoPalette, defs: Defs, part: Extract<BreadboardP
   const lensPath =
     `M${f(g.bottom.x - R)} ${f(g.bottom.y)}A${f(R)} ${f(g.ry)} 0 0 0 ${f(g.bottom.x + R)} ${f(g.bottom.y)}` +
     `L${f(g.top.x + R)} ${f(g.top.y)}A${f(R)} ${f(R)} 0 0 0 ${f(g.top.x - R)} ${f(g.top.y)}Z`
-  const lensFill = defs.linear(`lens-${part.color}`, [
+  const lensFill = defs.linear(`lens-${color}`, [
     [0, mix(lensOff, '#ffffff', 0.2)],
     [0.45, lensOff],
     [1, shade(lensOff, 0.35)],
   ])
-  const litFill = defs.linear(`lit-${part.color}`, [
+  const litFill = defs.linear(`lit-${color}`, [
     [0, mix(hex, '#ffffff', 0.75)],
     [0.5, mix(hex, '#ffffff', 0.35)],
     [1, hex],
   ])
-  const b = Math.max(0, Math.min(1, state.brightness ?? 0))
-  const burnt = state.status === 'burnt'
   // The die inside: anvil (cathode side, wider) and post, seen through the epoxy.
   const die = (dx: number, w: number, h: number) => {
     const p0 = project(cam, m.x + d.x * dx, m.y + d.y * dx, zb + 0.6)
     const p1 = project(cam, m.x + d.x * dx, m.y + d.y * dx, zb + h)
     return <path d={pathOf([p0, p1])} stroke={shade(hex, 0.62)} strokeOpacity={0.5} strokeWidth={f(w * us)} strokeLinecap="round" />
   }
-  const top = { x: g.top.x, y: g.top.y - R }
-  const body = (
-    <g className="iso-body">
-      {legs}
+  const node = (
+    <>
       {rim}
       <g className="iso-lens">
         <path d={lensPath} fill={lensFill} />
         {die(-0.7, 0.45, 3.6)}
         {die(0.65, 1.0, 3.2)}
-        <path d={lensPath} fill={litFill} className="iso-lit" style={{ opacity: burnt ? 0 : b }} />
+        <path d={lensPath} fill={litFill} className="iso-lit" style={{ opacity: burnt ? 0 : brightness }} />
         <path d={lensPath} fill="#17100e" className="iso-dead" style={{ opacity: burnt ? 0.88 : 0 }} />
         <path d={lensPath} fill="none" className="iso-ln" />
         <path
@@ -842,6 +828,34 @@ function led(cam: Camera, pal: IsoPalette, defs: Defs, part: Extract<BreadboardP
           strokeLinecap="round"
         />
       </g>
+    </>
+  )
+  return { node, g, R, hex }
+}
+
+function led(cam: Camera, pal: IsoPalette, defs: Defs, part: Extract<BreadboardPart, { kind: 'led' }>, state: PartState): DrawnPart {
+  const ha = holePoint(part.anode)
+  const hc = holePoint(part.cathode)
+  const span = Math.hypot(hc.x - ha.x, hc.y - ha.y) || 1
+  const d = { x: (hc.x - ha.x) / span, y: (hc.y - ha.y) / span }
+  const perp = { x: -d.y, y: d.x }
+  const m = lerp3(ha, hc, 0.5)
+  const zb = Z0 + 5.6
+  const hex = LED_COLORS[part.color]
+  // Legs: the anode is 3 mm longer, so it carries a visible kink.
+  const a0 = { x: m.x - d.x * 1.27, y: m.y - d.y * 1.27, z: zb }
+  const c0 = { x: m.x + d.x * 1.27, y: m.y + d.y * 1.27, z: zb }
+  const a1 = at(a0, zb - 1)
+  const kink = lerp3(a1, ha, 0.42)
+  const kinked = { x: kink.x + perp.x * 1.5 - d.x * 0.7, y: kink.y + perp.y * 1.5 - d.y * 0.7, z: kink.z }
+  const legs = [lead(cam, defs, `${part.id}-k`, [c0, at(c0, zb - 1), hc], pal), lead(cam, defs, `${part.id}-a`, [a0, a1, kinked, lerp3(a1, ha, 0.7), ha], pal)]
+  const b = Math.max(0, Math.min(1, state.brightness ?? 0))
+  const { node: head, g, R } = ledHead(cam, pal, defs, m, zb, d, part.color, b, state.status === 'burnt')
+  const top = { x: g.top.x, y: g.top.y - R }
+  const body = (
+    <g className="iso-body">
+      {legs}
+      {head}
     </g>
   )
   const legPts = [ha, hc, a0, c0, kinked]
@@ -928,14 +942,18 @@ export function drawPart(cam: Camera, pal: IsoPalette, defs: Defs, part: Breadbo
 }
 
 /** Model points that bound the whole bench (for fitting the camera). */
-export function benchPoints(parts: BreadboardPart[], supply: 'uno' | 'battery9v'): Vec3[] {
+export function benchPoints(parts: BreadboardPart[], supply: 'uno' | 'battery9v' | 'esp32'): Vec3[] {
   const pts: Vec3[] = []
   const add = (b: Box3) => {
     for (const x of [b.x0, b.x1]) for (const y of [b.y0, b.y1]) for (const z of [b.z0, b.z1]) pts.push({ x, y, z })
   }
   add(BOARD)
   if (supply === 'uno') add(ur(-6.35, 0, 68.6, 53.3, 0, UZ + 10.9))
-  else add(BATTERY)
+  else if (supply === 'esp32') {
+    const a = esp(-1, 0)
+    const b = esp(ESP32_SIZE.w, ESP32_SIZE.h)
+    add({ x0: a.x, x1: b.x, y0: b.y, y1: a.y, z0: 0, z1: EZ + 3.5 })
+  } else add(BATTERY)
   for (const p of parts) {
     if (p.kind !== 'wire') continue
     const a = holePoint(p.from)
