@@ -136,6 +136,20 @@ describe('ESP32 DevKit V1', () => {
     expect(holeLabel('esp32:GPIO2')).toBe('ESP32 pin GPIO2')
   })
 
+  it('draws 15 pins per side in the DevKit V1 order, from the USB end', () => {
+    const { container } = render(<BreadboardView layout={esp32} ariaLabel="b" />)
+    const labels = [...container.querySelectorAll('.bb-esp32 .bb-silk text[transform]')].map((t) => ({ name: t.textContent, x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')) }))
+    const side = (y: number) => labels.filter((l) => l.y === y).sort((a, b) => a.x - b.x).map((l) => l.name)
+    const [topY, bottomY] = [...new Set(labels.map((l) => l.y))].sort((a, b) => a - b)
+    expect(side(bottomY)).toEqual(['3V3', 'GND', 'D15', 'D2', 'D4', 'RX2', 'TX2', 'D5', 'D18', 'D19', 'D21', 'RX0', 'TX0', 'D22', 'D23'])
+    expect(side(topY)).toEqual(['VIN', 'GND', 'D13', 'D12', 'D14', 'D27', 'D26', 'D25', 'D33', 'D32', 'D35', 'D34', 'VN', 'VP', 'EN'])
+    expect(labels).toHaveLength(30)
+    expect(container.querySelector('.bb-esp32 .bb-socket')!.getAttribute('d')!.match(/M/g)).toHaveLength(30)
+    expect(layoutProblems({ supply: 'esp32', parts: [{ kind: 'wire', id: 'W1', from: 'esp32:GPIO18', to: 'a1', color: 'blue' }] })).toEqual([])
+    expect(holePosition('esp32:GPIO18').x).toBeCloseTo(holePosition('esp32:GPIO5').x + PITCH)
+    expect(holePosition('esp32:GPIO19').x).toBeCloseTo(holePosition('esp32:GPIO18').x + PITCH)
+  })
+
   it('reports pins the board lacks and pins used without the ESP32 supply', () => {
     expect(layoutProblems(esp32)).toEqual([])
     const bad: BreadboardLayout = { supply: 'uno', parts: [{ kind: 'wire', id: 'W1', from: 'esp32:GPIO6', to: 'a1', color: 'red' }] }
