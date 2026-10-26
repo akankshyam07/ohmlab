@@ -67,7 +67,7 @@ export function Home() {
             )}
             <button
               type="button"
-              className="btn btn-ghost"
+              className="link-arrow"
               onClick={() => document.getElementById('phase-map')?.scrollIntoView({ behavior: 'smooth' })}
             >
               See the 100-day map
@@ -79,21 +79,21 @@ export function Home() {
 
       <section className="stats" aria-label="Your progress">
         <dl>
-          <div className="stat panel">
+          <div className="stat">
             <dt>Lessons completed</dt>
             <dd>
               <span className="stat-value">{completed}</span>
               <span className="stat-unit">/ {lessons.length}</span>
             </dd>
           </div>
-          <div className="stat panel">
+          <div className="stat">
             <dt>Average mastery</dt>
             <dd>
               <span className="stat-value">{Math.round(avgMastery * 100)}</span>
               <span className="stat-unit">%</span>
             </dd>
           </div>
-          <div className="stat panel" data-hot={days > 0 || undefined}>
+          <div className="stat" data-hot={days > 0 || undefined}>
             <dt>Streak</dt>
             <dd>
               <Icon name="flame" size={22} />
@@ -111,7 +111,7 @@ export function Home() {
             <h2 id="home-topics-title">Jump in by topic</h2>
             <p>Know the theory already? Go straight to the hands-on part you need.</p>
           </div>
-          <a className="btn btn-ghost" href={href('topics')}>
+          <a className="link-arrow" href={href('topics')}>
             All topics <Icon name="right" size={18} />
           </a>
         </div>
@@ -196,7 +196,7 @@ function PhaseCard({ phase, index }: { phase: Phase; index: number }) {
           if (!lesson)
             return (
               <li key={d.day} className="day day-soon" style={vars({ '--i': i })}>
-                <span className="day-num mono">Day {d.day}</span>
+                <span className="day-num num">Day {d.day}</span>
                 <span className="day-title">{d.title}</span>
                 <span className="day-state">Coming soon</span>
               </li>
@@ -215,7 +215,7 @@ function PhaseCard({ phase, index }: { phase: Phase; index: number }) {
                 aria-label={`Day ${lesson.day}: ${lesson.title}`}
                 aria-describedby={stateId}
               >
-                <span className="day-num mono">Day {lesson.day}</span>
+                <span className="day-num num">Day {lesson.day}</span>
                 <span className="day-title">{lesson.title}</span>
                 <span className="day-foot">
                   <span className="day-state" id={stateId}>
@@ -250,7 +250,7 @@ function AchievementsPreview() {
             {unlocked} of {achievements.length} unlocked
           </p>
         </div>
-        <a className="btn btn-ghost" href={href('achievements')}>
+        <a className="link-arrow" href={href('achievements')}>
           All achievements <Icon name="right" size={18} />
         </a>
       </div>
@@ -311,7 +311,7 @@ function PartsTeaser() {
           <h2 id="home-parts-title">Explore real parts</h2>
           <p>Turn the boards you’ll wire, zoom into every pin, chip and LED, and see how each one connects.</p>
         </div>
-        <a className="btn btn-ghost" href={href('parts')}>
+        <a className="link-arrow" href={href('parts')}>
           All parts <Icon name="right" size={18} />
         </a>
       </div>

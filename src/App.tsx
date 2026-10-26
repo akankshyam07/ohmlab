@@ -192,7 +192,7 @@ function Toasts() {
           <div className="toast-text">
             <p className="toast-title">
               {first.title}
-              {queue.length > 1 && <span className="toast-more mono"> +{queue.length - 1} more</span>}
+              {queue.length > 1 && <span className="toast-more num"> +{queue.length - 1} more</span>}
             </p>
             <p className="sr-only">{first.description}</p>
           </div>

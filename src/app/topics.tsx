@@ -85,7 +85,7 @@ export function TopicCard({ topic, index, compact = false }: { topic: Topic; ind
             {String(index + 1).padStart(2, '0')}
           </span>
         )}
-        <span className="topic-days mono">{dayRange(topic)}</span>
+        <span className="topic-days num">{dayRange(topic)}</span>
       </div>
       <h2 className="topic-title">
         <a href={href('topics', topic.id)}>{topic.title}</a>
@@ -95,7 +95,7 @@ export function TopicCard({ topic, index, compact = false }: { topic: Topic; ind
           <RichText text={topic.summary} />
         </p>
       )}
-      <p className="topic-stats mono">
+      <p className="topic-stats num">
         {live > 0 ? `${live} ${live === 1 ? 'lesson' : 'lessons'} ready` : 'Coming soon'}
         <span aria-hidden="true"> · </span>
         {tparts.length} {tparts.length === 1 ? 'part' : 'parts'}
@@ -105,7 +105,7 @@ export function TopicCard({ topic, index, compact = false }: { topic: Topic; ind
           <span className="topic-bar" aria-hidden="true">
             <span style={{ width: `${pct}%` }} />
           </span>
-          <span className="topic-progress-text mono">
+          <span className="topic-progress-text num">
             {done} / {live} complete
           </span>
         </div>
@@ -144,7 +144,7 @@ export function TopicPage({ id }: { id: string }) {
           <RichText text={topic.summary} />
         </p>
         {live.length > 0 && (
-          <p className="topic-head-progress mono">
+          <p className="topic-head-progress num">
             {done} of {live.length} {live.length === 1 ? 'lesson' : 'lessons'} complete
           </p>
         )}
@@ -157,7 +157,7 @@ export function TopicPage({ id }: { id: string }) {
             if (!lesson)
               return (
                 <li key={day} className="day day-soon">
-                  <span className="day-num mono">Day {day}</span>
+                  <span className="day-num num">Day {day}</span>
                   <span className="day-title">{title}</span>
                   <span className="day-state">Coming soon</span>
                 </li>
@@ -175,7 +175,7 @@ export function TopicPage({ id }: { id: string }) {
                   aria-label={`Day ${lesson.day}: ${lesson.title}`}
                   aria-describedby={stateId}
                 >
-                  <span className="day-num mono">Day {lesson.day}</span>
+                  <span className="day-num num">Day {lesson.day}</span>
                   <span className="day-title">{lesson.title}</span>
                   <span className="day-foot">
                     <span className="day-state" id={stateId}>

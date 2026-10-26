@@ -113,7 +113,7 @@ export function BuildGuide({
       <fieldset className="build-parts">
         <legend>
           Parts{' '}
-          <span className="build-parts-count mono">
+          <span className="build-parts-count num">
             {have.length} / {build.parts.length} ready
           </span>
         </legend>

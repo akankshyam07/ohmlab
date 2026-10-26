@@ -378,7 +378,7 @@ export function Lab({ lessonId, lab, highlight, showFlow }: LabProps) {
                           Next: <RichText text={active.prompt} />
                         </>
                       ) : (
-                        'All challenges done!'
+                        'All challenges done.'
                       )}
                     </p>
                   </>

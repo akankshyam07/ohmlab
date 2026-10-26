@@ -174,7 +174,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
         <div className="lesson-mastery">
           <ProgressRing value={mastery(lesson)} size={68} />
           {unreadSteps > 0 && (
-            <p className="lesson-mastery-note mono">
+            <p className="lesson-mastery-note num">
               steps read {steps.length - unreadSteps} / {steps.length}
             </p>
           )}
@@ -232,7 +232,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
               go?.()
             }}
           >
-            <p className="step-count mono">
+            <p className="step-count num">
               Step {index + 1} of {steps.length}
             </p>
             <h2 id="step-title" tabIndex={-1} data-autofocus>
@@ -334,7 +334,7 @@ function LessonView({ lesson, stepParam }: { lesson: Lesson; stepParam?: string 
                     {/* A visual echo of the current step under the board; the step list carries it for screen readers. */}
                     {buildStep !== null && (
                       <p className="wiring-step" aria-hidden="true">
-                        <span className="wiring-step-num mono">
+                        <span className="wiring-step-num num">
                           Step {buildStep + 1} of {build.steps.length}
                         </span>
                         <span className="wiring-step-text">
@@ -399,7 +399,7 @@ function CompletionChecklist({
           </span>
           <span>
             Quiz ≥ 80 %{' '}
-            <span className="checklist-detail mono">
+            <span className="checklist-detail num">
               {lp?.quizAttempts ? `best ${best} %` : 'not taken yet'}
             </span>
             <span className="sr-only">{quizDone ? ', done' : ', not done yet'}</span>
@@ -412,7 +412,7 @@ function CompletionChecklist({
             </span>
             <span>
               Lab challenges{' '}
-              <span className="checklist-detail mono">
+              <span className="checklist-detail num">
                 {challengesDone} / {challenges.length}
               </span>
               <span className="sr-only">{labDone ? ', done' : ', not done yet'}</span>

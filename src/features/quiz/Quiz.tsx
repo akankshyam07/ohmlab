@@ -137,7 +137,7 @@ export function Quiz({ lessonId, questions }: { lessonId: string; questions: Qui
           </p>
           <p>
             {passed
-              ? 'Nice work, that’s a pass! You’ve got the core ideas of this lesson.'
+              ? 'Nice work, that’s a pass. You’ve got the core ideas of this lesson.'
               : `You need ${Math.ceil(PASS * total)} / ${total} to pass. Look back at the ones you missed, then have another go.`}
           </p>
           {passed && lesson && !isComplete(lesson) && unfinished.length > 0 && (

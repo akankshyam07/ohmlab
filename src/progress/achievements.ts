@@ -46,7 +46,7 @@ export const achievements: Achievement[] = [
   {
     id: 'magic-smoke',
     title: 'Magic Smoke',
-    description: 'Burn out a part in the lab. Better a virtual one than the one in your kit!',
+    description: 'Burn out a part in the lab. Better a virtual one than the one in your kit.',
     icon: '💨',
     unlocked: () => false, // event-based: unlock('magic-smoke')
   },

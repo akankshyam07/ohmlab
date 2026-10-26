@@ -1,52 +1,55 @@
 /* Ohmlab design tokens. Every colour, size and motion value in the app comes from here.
-   Direction: "night lab" — a dark oscilloscope-like bench where signals glow. See docs/DESIGN_SYSTEM.md. */
+   Direction: "lab notebook at night": graphite paper, a quiet graticule, copper for the hand that writes, and signals
+   that glow only when they carry meaning. See docs/DESIGN_SYSTEM.md and docs/DESIGN_DIRECTION.md. */
 
 :root {
-  /* Surfaces (dark, blue-black) */
-  --bg: #090d16;
-  --bg-grid: rgba(120, 150, 255, 0.06);
-  --surface-1: #0f1522;
-  --surface-2: #151d2e;
-  --surface-3: #1d2740;
-  --border: rgba(160, 180, 255, 0.14);
-  --border-strong: rgba(160, 180, 255, 0.28);
+  /* Surfaces: one cool graphite family (hue ~214°, saturation ≤ 14 %), opaque and layered, lowest to highest. */
+  --bg: #0c0f13;
+  --bg-grid: rgba(170, 185, 205, 0.035);
+  --surface-1: #12161b;
+  --surface-2: #181d23;
+  --surface-3: #20262e;
+  --border: rgba(170, 185, 205, 0.12);
+  --border-strong: rgba(170, 185, 205, 0.24);
 
-  /* Text (all pass WCAG AA on --surface-1) */
-  --text: #e8ecf8;
-  --text-muted: #a5afc8;
-  --text-faint: #7d88a6;
+  /* Text (contrast on --surface-1: 14.8, 7.7, 5.1) */
+  --text: #e6e8eb;
+  --text-muted: #a2aab4;
+  --text-faint: #7f8893;
 
-  /* Brand */
-  --brand: #a78bfa;
-  --brand-strong: #c4b5fd;
-  --brand-ink: #1a1033;
+  /* Brand: copper, the colour of a fresh solder pad. The one accent: primary actions, links, focus, selection,
+     progress. brand-ink on brand 6.5:1; brand-strong is the text/link tone (8.7:1 on surface-1). */
+  --brand: #c98a5e;
+  --brand-strong: #e0a77f;
+  --brand-ink: #1a0f08;
 
-  /* Signal colours: one meaning each, used consistently in diagrams, meters and text */
-  --sig-current: #38e1ff;
-  --sig-voltage: #ffc24b;
-  --sig-power: #ff7a6b;
-  --sig-resistance: #c9a6ff;
-  --sig-ground: #6f7b99;
+  /* Signal colours: one meaning each, used consistently in diagrams, meters and text. All below 75 % saturation. */
+  --sig-current: #5cc6dd;
+  --sig-voltage: #e2b552;
+  --sig-power: #e9746a;
+  --sig-resistance: #8ea9cc;
+  --sig-ground: #6f7884;
 
   /* Feedback */
-  --ok: #5ef2a0;
-  --warn: #ffc24b;
-  --danger: #ff6b7d;
-  --info: #38e1ff;
+  --ok: #6cc896;
+  --warn: #e2b552;
+  --danger: #e5677f;
+  --info: #5cc6dd;
 
-  /* Type */
-  --font-display: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
-  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Type: Instrument Serif for display (one weight, 400; never bolded), IBM Plex Sans for body and UI,
+     IBM Plex Mono for numbers, units and code (Plex Sans backs up glyphs Plex Mono lacks, such as Ω). */
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'IBM Plex Sans', ui-monospace, 'SF Mono', Menlo, monospace;
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
   --fs-md: 1rem;
   --fs-lg: 1.125rem;
   --fs-xl: 1.5rem;
-  --fs-2xl: 2rem;
-  --fs-3xl: clamp(2rem, 4vw, 3rem);
+  --fs-2xl: 2.25rem;
+  --fs-3xl: clamp(2.5rem, 5vw, 3.75rem);
 
-  /* Space and shape */
+  /* Space and shape. Radii shrink as elements nest: containers 14, controls 8, rows 6, badges 4. */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -54,13 +57,20 @@
   --sp-5: 24px;
   --sp-6: 32px;
   --sp-7: 48px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  /* Only where roundness means something: toggle tracks, dots, thin progress bars. */
   --radius-pill: 999px;
-  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 40px rgba(0, 0, 0, 0.45);
-  --glow-current: 0 0 12px rgba(56, 225, 255, 0.55);
-  --glow-brand: 0 0 0 3px rgba(167, 139, 250, 0.35);
+  /* Shadows carry the background's hue and one light source from above. */
+  --shadow-panel: 0 1px 0 rgba(220, 230, 245, 0.035) inset, 0 1px 2px rgba(3, 6, 11, 0.5), 0 12px 32px -12px rgba(3, 6, 11, 0.7);
+  --shadow-raised: 0 1px 0 rgba(220, 230, 245, 0.05) inset, 0 2px 4px rgba(3, 6, 11, 0.5), 0 18px 40px -14px rgba(3, 6, 11, 0.85);
+  --glow-current: 0 0 10px rgba(92, 198, 221, 0.45);
+  /* Focus ring for controls drawn with box-shadow (custom inputs): a gap, then a crisp copper ring. */
+  --glow-brand: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand-strong);
+  /* Paper grain: an 8-bit noise tile drawn once, laid over the page at very low opacity (see index.css). */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.88 0 0 0 0 0.92 0 0 0 1.6 -0.55'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
   /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -75,9 +85,9 @@
   --dur-intro: 900ms;
 
   /* Isometric bench illustration (src/viz/iso). Base colours only: face shades are computed in code. */
-  --iso-ink: #0a0f1d;
-  --iso-bench: #0c1220;
-  --iso-bench-grid: rgba(120, 150, 255, 0.07);
+  --iso-ink: #0a0d12;
+  --iso-bench: #0e1217;
+  --iso-bench-grid: rgba(170, 185, 205, 0.06);
   --iso-pcb: #1f4c8a;
   --iso-pcb-trace: #5d93dc;
   --iso-silk: #e6ecff;

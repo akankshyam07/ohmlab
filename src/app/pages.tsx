@@ -33,7 +33,7 @@ export function AchievementsPage() {
               </span>
               <h2>{a.title}</h2>
               <p>{a.description}</p>
-              <p className="ach-status mono">
+              <p className="ach-status num">
                 {at ? `Unlocked ${dateFormat.format(new Date(at))}` : 'Locked'}
               </p>
             </li>

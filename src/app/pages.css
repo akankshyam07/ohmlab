@@ -14,12 +14,12 @@
 
 .page-head h1 {
   font-size: var(--fs-3xl);
-  letter-spacing: -0.03em;
 }
 
 .page-head p:not(.eyebrow) {
   color: var(--text-muted);
-  max-width: 60ch;
+  font-size: var(--fs-lg);
+  max-width: 58ch;
 }
 
 /* ---------- Achievements ---------- */
@@ -42,26 +42,25 @@
 }
 
 .ach-card h2 {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
   color: var(--text-muted);
+}
+
+/* Locked badges are outlines waiting to be filled in; earned ones become solid, with a copper top edge. */
+.ach-card:not([data-unlocked]) {
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
 }
 
 .ach-card[data-unlocked] {
   color: var(--text);
-  border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  border-top: 2px solid var(--brand);
 }
 
 .ach-card[data-unlocked] h2 {
   color: var(--text);
-}
-
-.ach-card[data-unlocked]::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(14rem 8rem at 20% 0%, color-mix(in srgb, var(--brand) 18%, transparent), transparent 70%);
-  pointer-events: none;
 }
 
 .ach-icon-lg {
@@ -74,7 +73,7 @@
 .ach-status {
   margin-top: auto;
   padding-top: var(--sp-2);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--text-faint);
 }
 
@@ -97,7 +96,7 @@
 }
 
 .setting h2 {
-  font-size: var(--fs-xl);
+  font-size: 1.875rem;
 }
 
 .setting-help {
@@ -164,7 +163,6 @@
 .switch input:checked + .switch-track {
   background: color-mix(in srgb, var(--sig-current) 30%, var(--surface-3));
   border-color: var(--sig-current);
-  box-shadow: var(--glow-current);
 }
 
 .switch input:checked + .switch-track::after {
@@ -185,11 +183,12 @@
   color: var(--text);
   background: var(--surface-2);
   border-color: var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
 }
 
 .confirm::backdrop {
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
 }
 
 .confirm[open] {
@@ -204,7 +203,7 @@
 }
 
 .confirm h2 {
-  font-size: var(--fs-xl);
+  font-size: 1.875rem;
 }
 
 .confirm p {
@@ -252,5 +251,4 @@
 
 .notfound-trace circle {
   stroke: var(--sig-power);
-  filter: drop-shadow(0 0 6px var(--sig-power));
 }

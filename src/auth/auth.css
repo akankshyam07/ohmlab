@@ -16,10 +16,10 @@
   min-height: 44px;
   padding: 0 var(--sp-4) 0 var(--sp-3);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   color: var(--text);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: var(--fs-sm);
   cursor: pointer;
@@ -34,12 +34,12 @@
 }
 
 .acct-signin:hover {
-  border-color: var(--brand);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--brand) 28%, transparent);
+  border-color: color-mix(in srgb, var(--text) 32%, transparent);
+  background: var(--surface-3);
 }
 
 .acct-signin:active {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(1px);
 }
 
 .acct {
@@ -55,7 +55,7 @@
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
 }
@@ -66,17 +66,16 @@
   width: 34px;
   height: 34px;
   flex: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--brand-strong), var(--brand));
+  border-radius: var(--radius-md);
+  background: var(--brand);
   color: var(--brand-ink);
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-weight: 600;
   font-size: var(--fs-md);
   line-height: 1;
   box-shadow:
-    0 0 0 2px var(--surface-1),
-    0 0 0 3px color-mix(in srgb, var(--brand) 55%, transparent),
-    0 0 16px color-mix(in srgb, var(--brand) 30%, transparent);
+    0 0 0 2px var(--bg),
+    0 0 0 3px color-mix(in srgb, var(--brand) 45%, transparent);
   transition: box-shadow var(--dur-med) var(--ease-out);
 }
 
@@ -93,9 +92,8 @@ img.acct-avatar {
 .acct-button:hover .acct-avatar,
 .acct-button[aria-expanded='true'] .acct-avatar {
   box-shadow:
-    0 0 0 2px var(--surface-1),
-    0 0 0 3px var(--brand-strong),
-    0 0 24px color-mix(in srgb, var(--brand) 50%, transparent);
+    0 0 0 2px var(--bg),
+    0 0 0 3px var(--brand-strong);
 }
 
 /* Sync state at a glance: a dot on the avatar (the label is in the button's name and the panel). */
@@ -140,9 +138,7 @@ img.acct-avatar {
   background: var(--surface-2);
   border-color: var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow:
-    var(--shadow-panel),
-    0 0 32px color-mix(in srgb, var(--brand) 16%, transparent);
+  box-shadow: var(--shadow-raised);
   transform-origin: top right;
   animation: acct-pop var(--dur-med) var(--ease-out);
 }
@@ -258,26 +254,13 @@ img.acct-avatar {
   color: var(--text);
   background: var(--surface-2);
   border-color: var(--border-strong);
-  box-shadow:
-    var(--shadow-panel),
-    0 0 60px color-mix(in srgb, var(--brand) 18%, transparent);
+  border-top: 2px solid var(--brand);
+  box-shadow: var(--shadow-raised);
   overflow: auto;
 }
 
-.signin::before {
-  /* a soft violet light from the top, like the page background */
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 160px;
-  border-radius: inherit;
-  background: radial-gradient(22rem 9rem at 30% 0%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%);
-  pointer-events: none;
-}
-
 .signin::backdrop {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
 }
 
 .signin[open] {
@@ -306,11 +289,9 @@ img.acct-avatar {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--brand) 16%, var(--surface-3));
+  background: color-mix(in srgb, var(--brand) 12%, var(--surface-3));
   color: var(--brand-strong);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--brand) 45%, transparent),
-    0 0 24px color-mix(in srgb, var(--brand) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 .signin-close,
@@ -321,7 +302,7 @@ img.acct-avatar {
   height: 44px;
   flex: none;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -344,7 +325,7 @@ img.acct-avatar {
   margin-left: calc(-1 * var(--sp-3));
   padding: 0 var(--sp-3) 0 var(--sp-2);
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -373,8 +354,7 @@ img.acct-avatar {
 }
 
 .signin-body h2 {
-  font-size: var(--fs-xl);
-  letter-spacing: -0.02em;
+  font-size: 1.875rem;
 }
 
 .signin-lead {
@@ -573,8 +553,10 @@ img.acct-avatar {
   gap: var(--sp-4);
   margin-top: var(--sp-4);
   padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-4);
-  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
-  background: linear-gradient(100deg, color-mix(in srgb, var(--brand) 13%, var(--surface-2)), var(--surface-1) 70%);
+  border-color: var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
   animation: nudge-in var(--dur-slow) var(--ease-out);
 }
 
@@ -597,7 +579,7 @@ img.acct-avatar {
 }
 
 .nudge-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
 }
 

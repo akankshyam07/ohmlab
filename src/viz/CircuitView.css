@@ -208,7 +208,7 @@
 
 /* Labels and tags */
 .cv-label {
-  font: 600 15px var(--font-display);
+  font: 600 15px var(--font-body);
   fill: var(--text);
 }
 /* A halo in the panel colour keeps labels readable where they cross a wire. */
@@ -258,23 +258,24 @@
 .cv-probe:focus { outline: none; }
 .cv-part.is-interactive { cursor: pointer; }
 .cv-hit { fill: transparent; }
+/* Clickability reads from hover and focus, never a permanent frame: a thin ring, invisible at rest. */
 .cv-ring {
   fill: none;
   stroke: var(--brand);
-  stroke-width: 2.5;
+  stroke-width: 1.5;
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
   pointer-events: none;
 }
-.cv-part.is-interactive:hover .cv-ring { opacity: 0.45; stroke-dasharray: 4 4; }
-.cv-part:focus-visible .cv-ring { opacity: 1; stroke-dasharray: none; }
+.cv-part.is-interactive:hover .cv-ring { opacity: 0.5; stroke-dasharray: 4 4; }
+.cv-part:focus-visible .cv-ring { opacity: 1; stroke: var(--brand-strong); stroke-width: 2; stroke-dasharray: none; }
 .cv-part.is-interactive:hover .cv-sym { stroke-width: 3; }
 
 .cv-halo {
   fill: color-mix(in srgb, var(--brand) 14%, transparent);
   stroke: var(--brand);
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px var(--brand));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--brand) 60%, transparent));
 }
 .cv--motion .cv-halo { animation: cv-pulse 1.6s ease-in-out infinite alternate; }
 @keyframes cv-pulse {
@@ -345,16 +346,17 @@
 .cv--intro .cv-flow,
 .cv--intro .cv-chevron { opacity: 0; }
 
-/* After the intro, clickable parts pulse a few times to say "click me" (until any part is clicked). */
+/* After the intro, clickable parts pulse a few times to say "click me" (until any part is clicked): a faint thin
+   ring that swells slightly and fades to nothing (no fill-mode, so it ends at the resting opacity, 0). */
 .cv--hint .cv-part.is-interactive .cv-ring {
   transform-box: fill-box;
   transform-origin: center;
   animation: cv-hint 1.1s var(--ease-out) 3;
 }
 @keyframes cv-hint {
-  0% { opacity: 0; transform: scale(0.94); }
-  35% { opacity: 0.6; }
-  100% { opacity: 0; transform: scale(1.2); }
+  0% { opacity: 0; transform: scale(0.97); }
+  35% { opacity: 0.3; }
+  100% { opacity: 0; transform: scale(1.1); }
 }
 
 @media (prefers-reduced-motion: reduce) {

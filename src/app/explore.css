@@ -19,7 +19,7 @@
 .explore-section > h2,
 .explore-section .section-head h2 {
   margin-bottom: var(--sp-4);
-  font-size: var(--fs-xl);
+  font-size: 1.875rem;
 }
 
 /* ---------- Topic cards ---------- */
@@ -51,10 +51,13 @@
 
 .topic-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--brand) 55%, transparent);
-  box-shadow:
-    var(--shadow-panel),
-    0 0 28px color-mix(in srgb, var(--brand) 18%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-raised);
+}
+
+.topic-card:active {
+  transform: translateY(0);
 }
 
 .topic-card:has(a:focus-visible) {
@@ -75,11 +78,11 @@
   width: 36px;
   height: 36px;
   border: 1px solid color-mix(in srgb, var(--brand) 45%, transparent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--brand) 10%, var(--surface-1));
   color: var(--brand-strong);
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .topic-card:not([data-live]) .topic-index {
@@ -89,13 +92,14 @@
 }
 
 .topic-days {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 
 .topic-title {
-  font-size: var(--fs-lg);
-  line-height: 1.3;
+  font-size: var(--fs-xl);
+  line-height: 1.1;
 }
 
 .topic-title a {
@@ -125,7 +129,9 @@
 .topic-stats {
   margin-top: auto;
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .topic-progress {
@@ -145,12 +151,11 @@
 .topic-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--sig-current), var(--brand));
-  box-shadow: var(--glow-current);
+  background: var(--brand);
 }
 
 .topic-progress-text {
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--fs-xs);
 }
 
@@ -166,9 +171,78 @@
 .topic-parts li {
   padding: 2px var(--sp-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   font-size: var(--fs-xs);
+}
+
+/* Topics page from 1024 px: a ledger, one ruled row per topic (index, title and summary, parts, progress),
+   read like a notebook's contents page rather than a wall of equal cards. */
+@media (min-width: 1024px) {
+  .topic-grid:not(.topic-row) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .topic-card:not([data-compact]) {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1.25fr) minmax(0, 1fr) 210px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'top title parts stats'
+      'top summary parts progress';
+    gap: var(--sp-1) var(--sp-6);
+    padding: var(--sp-4) var(--sp-5);
+  }
+
+  .topic-card:not([data-compact]) .topic-card-top {
+    grid-area: top;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--sp-2);
+  }
+
+  .topic-card:not([data-compact]) .topic-title {
+    grid-area: title;
+  }
+
+  .topic-card:not([data-compact]) .topic-summary {
+    grid-area: summary;
+    max-width: 52ch;
+  }
+
+  .topic-card:not([data-compact]) .topic-parts {
+    grid-area: parts;
+    align-content: flex-start;
+    padding-top: 6px;
+  }
+
+  .topic-card:not([data-compact]) .topic-stats {
+    grid-area: stats;
+    margin-top: 0;
+    padding-top: 6px;
+  }
+
+  .topic-card:not([data-compact]) .topic-progress {
+    grid-area: progress;
+    align-self: start;
+  }
+
+  .topic-card:not([data-compact]):hover {
+    transform: none;
+  }
+}
+
+/* Topics with nothing to play yet sit back: no fill, a dashed edge, so the playable ones lead. */
+.topic-card:not([data-live]) {
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.topic-card:not([data-live]) .topic-title a {
+  color: var(--text-muted);
 }
 
 .topic-card[data-compact] {
@@ -177,7 +251,11 @@
 }
 
 .topic-card[data-compact] .topic-title {
-  font-size: var(--fs-md);
+  font-size: 1.375rem;
+}
+
+.topic-card[data-compact] .topic-stats {
+  font-size: var(--fs-xs);
 }
 
 .topic-head-progress {
@@ -211,7 +289,7 @@
   min-height: 44px;
   padding: 0 var(--sp-2) 0 var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text);
   text-decoration: none;
@@ -221,8 +299,12 @@
 }
 
 .part-chip:hover {
-  border-color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 60%, transparent);
   background: var(--surface-2);
+}
+
+.part-chip:active {
+  transform: translateY(1px);
 }
 
 .part-chip-name {
@@ -269,7 +351,7 @@
   min-height: 40px;
   padding: 0 var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface-1);
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -279,11 +361,19 @@
     background-color var(--dur-med) var(--ease-out);
 }
 
-.part-filter input:checked + span {
-  border-color: var(--brand);
-  background: var(--surface-3);
+.part-filter label:hover input:not(:checked) + span {
+  border-color: var(--border-strong);
   color: var(--text);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--brand) 24%, transparent);
+}
+
+.part-filter label:active span {
+  transform: translateY(1px);
+}
+
+.part-filter input:checked + span {
+  border-color: color-mix(in srgb, var(--brand) 60%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, var(--surface-2));
+  color: var(--text);
 }
 
 .part-filter input:focus-visible + span {
@@ -330,10 +420,12 @@
 
 .part-tile:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--brand) 55%, transparent);
-  box-shadow:
-    var(--shadow-panel),
-    0 0 28px color-mix(in srgb, var(--brand) 18%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  box-shadow: var(--shadow-raised);
+}
+
+.part-tile:active {
+  transform: translateY(0);
 }
 
 .part-tile:has(a:focus-visible) {
@@ -344,8 +436,7 @@
 .part-thumb {
   aspect-ratio: 4 / 3;
   border-bottom: 1px solid var(--border);
-  background: radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 70%),
-    var(--bg);
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, var(--surface-2), transparent 75%), var(--bg);
   pointer-events: none;
 }
 
@@ -417,9 +508,13 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Part names are model numbers (V1, 1N4007, HC-SR04): set in Plex, where 1, l and I can't be confused. */
 .part-head h1 {
-  font-size: var(--fs-3xl);
-  letter-spacing: -0.03em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(2rem, 3.6vw, 2.75rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .part-head-meta {
@@ -434,7 +529,7 @@
 }
 
 .part-topic-chip:hover {
-  border-color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 60%, transparent);
   color: var(--text);
 }
 
@@ -457,9 +552,7 @@
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 70%),
-    var(--bg);
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, var(--surface-2), transparent 75%), var(--bg);
   box-shadow: var(--shadow-panel);
 }
 
@@ -471,15 +564,14 @@
   min-height: 52px;
   padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  background: var(--surface-1);
 }
 
 .part-stage-caption {
   min-width: 0;
   overflow: hidden;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -514,7 +606,7 @@
 
 .part-section h2 {
   margin-bottom: var(--sp-3);
-  font-size: var(--fs-xl);
+  font-size: 1.875rem;
 }
 
 .part-hint {
@@ -556,7 +648,7 @@
 }
 
 .feature-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
 }
 
@@ -566,10 +658,14 @@
   line-height: 1.6;
 }
 
+.feature:active {
+  transform: translateY(1px);
+}
+
 .feature[aria-pressed='true'] {
   border-color: var(--sig-current);
   background: color-mix(in srgb, var(--sig-current) 7%, var(--surface-1));
-  box-shadow: 0 0 18px color-mix(in srgb, var(--sig-current) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--sig-current);
 }
 
 .feature[aria-pressed='true'] .feature-title {
@@ -604,8 +700,6 @@
   color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .pin-table tbody th {
@@ -677,11 +771,12 @@
 }
 
 .part-lessons a:hover {
-  border-color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 60%, transparent);
+  background: var(--surface-2);
 }
 
-.part-lessons .mono {
-  color: var(--sig-current);
+.part-lessons .num {
+  color: var(--brand-strong);
   font-size: var(--fs-xs);
 }
 

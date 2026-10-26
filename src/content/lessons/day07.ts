@@ -200,7 +200,7 @@ const lesson: Lesson = {
         id: 'overheat',
         prompt: 'Now you know where the limit is: **overheat** R1, pushing it past its **0.25 W** rating.',
         hint: 'Power is V² ÷ R. Go one size smaller than the safe value you just found.',
-        success: 'Too hot! On 9 V, 220 Ω dissipates about 0.37 W; 100 Ω about 0.81 W, which would burn. A real ¼ W resistor would discolour and could fail.',
+        success: 'Too hot. On 9 V, 220 Ω dissipates about 0.37 W; 100 Ω about 0.81 W, which would burn. A real ¼ W resistor would discolour and could fail.',
         check: (r) => r.components.R1?.status === 'overpower' || r.components.R1?.status === 'burnt',
       },
       {

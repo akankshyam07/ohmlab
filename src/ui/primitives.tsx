@@ -1,22 +1,15 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import './ui.css'
 
 /** The Ohmlab mark: a resistor zig-zag that reads as a waveform. */
 export function LogoMark({ size = 32 }: { size?: number }) {
-  const id = useId()
   return (
     <svg className="logo-mark" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" style={{ stopColor: 'var(--sig-current)' }} />
-          <stop offset="1" style={{ stopColor: 'var(--brand)' }} />
-        </linearGradient>
-      </defs>
-      <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="8" className="logo-mark-plate" />
+      <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7" className="logo-mark-plate" />
       <path
         d="M4 16h5l2-5 3 10 3-10 3 10 2-5h6"
         fill="none"
-        stroke={`url(#${id})`}
+        stroke="var(--brand-strong)"
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"

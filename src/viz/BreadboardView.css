@@ -130,7 +130,7 @@
 .bb-bat-band { fill: #c46a1f; opacity: 0.92; }
 .bb-bat-volts {
   fill: #fff;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
   text-anchor: middle;
   dominant-baseline: central;
@@ -210,7 +210,7 @@
   fill: color-mix(in srgb, var(--brand) 22%, transparent);
   stroke: var(--brand);
   stroke-width: 2;
-  filter: drop-shadow(0 0 6px var(--brand));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--brand) 60%, transparent));
   pointer-events: none;
 }
 .bb-halo--wire { fill: none; stroke-width: 13; stroke-linecap: round; opacity: 0.55; }
@@ -227,7 +227,7 @@
 .bb-ids .is-highlighted .bb-leader { stroke: var(--brand); }
 .bb-ids text {
   fill: var(--text);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   text-anchor: middle;
   dominant-baseline: central;
@@ -235,9 +235,9 @@
 .bb-ids .is-highlighted rect { fill: var(--brand); stroke: var(--brand-strong); }
 .bb-ids .is-highlighted text { fill: var(--brand-ink); }
 
-.bb-tip rect { fill: var(--surface-3); stroke: var(--brand); stroke-width: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5)); }
+.bb-tip rect { fill: var(--surface-3); stroke: var(--brand); stroke-width: 1; filter: drop-shadow(0 4px 10px rgba(3, 6, 11, 0.55)); }
 .bb-tip text { text-anchor: middle; dominant-baseline: central; }
-.bb-tip-title { fill: var(--text); font-family: var(--font-display); font-weight: 600; }
+.bb-tip-title { fill: var(--text); font-family: var(--font-body); font-weight: 600; }
 .bb-tip-detail { fill: var(--text-muted); font-family: var(--font-mono); }
 
 @media (prefers-reduced-motion: no-preference) {

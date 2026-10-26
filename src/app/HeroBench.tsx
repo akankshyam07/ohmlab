@@ -61,7 +61,7 @@ export function HeroBench() {
     <div className="bench panel" aria-label="Try it: a live LED circuit" role="group">
       <div className="bench-head">
         <span className="eyebrow">
-          <span className="live-dot" aria-hidden="true" /> live circuit
+          <span className="live-dot" aria-hidden="true" /> Live circuit
         </span>
         <span className="chip">5 V · red LED</span>
       </div>
@@ -161,7 +161,7 @@ export function HeroBench() {
       </fieldset>
       <p className="bench-verdict" role="status" data-status={status}>
         {status === 'burnt'
-          ? 'Pop! With no resistor the current runs away and the LED burns out. That is lesson one.'
+          ? 'Pop. With no resistor the current runs away and the LED burns out. That is lesson one.'
           : status === 'overcurrent'
             ? 'Too much current: the LED is overloaded and will not last long.'
             : brightness < 0.15

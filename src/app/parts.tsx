@@ -278,7 +278,7 @@ function PartView({ part, anchor }: { part: PartInfo; anchor?: string }) {
                 {usedIn.map((l) => (
                   <li key={l.id}>
                     <a href={href('lesson', l.id)}>
-                      <span className="mono">Day {l.day}</span> {l.title}
+                      <span className="num">Day {l.day}</span> {l.title}
                     </a>
                   </li>
                 ))}

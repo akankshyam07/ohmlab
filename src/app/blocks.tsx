@@ -288,7 +288,7 @@ function CodeView({ block }: { block: Code }) {
   return (
     <figure className="blk-code">
       <div className="blk-code-bar">
-        <span className="blk-code-lang mono">{label}</span>
+        <span className="blk-code-lang num">{label}</span>
         <button
           type="button"
           className="btn btn-ghost blk-code-copy"
@@ -361,7 +361,7 @@ function CodeView({ block }: { block: Code }) {
                 {k + 1}
               </span>
               <span>
-                <span className="blk-code-note-line mono">Line {note.line}</span> <RichText text={note.text} />
+                <span className="blk-code-note-line num">Line {note.line}</span> <RichText text={note.text} />
               </span>
             </li>
           ))}

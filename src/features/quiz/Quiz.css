@@ -41,8 +41,9 @@
 }
 
 .quiz-prompt {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--fs-lg);
+  font-weight: 500;
   line-height: 1.45;
   margin-bottom: var(--sp-3);
   padding: 0;
@@ -66,16 +67,23 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .quiz-option:hover {
   border-color: var(--border-strong);
 }
 
+.quiz-option:active {
+  transform: translateY(1px);
+}
+
 .quiz-option:has(input:checked) {
-  border-color: var(--brand);
-  background: var(--surface-3);
+  border-color: color-mix(in srgb, var(--brand) 70%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface-2));
 }
 
 .quiz-option:has(input:focus-visible) {
@@ -135,13 +143,20 @@
   color: var(--brand-ink);
   background: var(--brand);
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brand-strong) 70%, transparent);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .quiz-button:hover:not(:disabled) {
-  background: var(--brand-strong);
+  background: color-mix(in srgb, var(--brand) 82%, var(--brand-strong));
+}
+
+.quiz-button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .quiz-button:focus-visible {
@@ -174,7 +189,7 @@
 }
 
 .quiz-verdict-title {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .quiz-verdict--correct {
@@ -207,9 +222,11 @@
 }
 
 .quiz-score {
-  font-family: var(--font-display);
+  font-family: var(--font-mono);
   font-size: var(--fs-2xl);
-  font-weight: 700;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .quiz-result--pass .quiz-score {
@@ -274,7 +291,7 @@
 }
 
 .quiz-review-mark {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .quiz-review--right .quiz-review-mark {
