@@ -80,6 +80,10 @@
   transition: box-shadow var(--dur-med) var(--ease-out);
 }
 
+img.acct-avatar {
+  object-fit: cover;
+}
+
 .acct-avatar[data-large] {
   width: 44px;
   height: 44px;

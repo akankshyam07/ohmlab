@@ -66,7 +66,13 @@ Lesson (content) ──► LessonPage (app) ──► Lab (features/lab)
 
 ## Accounts and sync
 
-Optional. Configured at build time by `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (a `sb_publishable_…` key or a legacy anon JWT; secret/service_role keys are refused). Without them `useAuth().available` is false, no account UI renders and `@supabase/supabase-js` is never downloaded (it is a lazy chunk).
+Optional, with two backends behind one `Backend` interface (`src/auth/client.ts`), chosen at start without blocking first paint:
+
+1. **claude.ai Artifact** (`src/auth/artifact.ts`): when `await window.claude?.use?.("db")` and `use("user")` both resolve and `user.me()` gives an id. The viewer is already signed in to claude.ai, so there is no sign-in or sign-out UI; the account menu says "Synced with your Claude account" plus the viewer's name when shared (names are shown, never stored). Progress lives in the viewer's private doc `data/users/<id>/progress` as `{ progress, updatedAt }` (private even from the artifact's owner). Publish with `capabilities: { db: {}, user: {} }`. Permanent db errors (`invalid_argument`, e.g. a view-only viewer, `quota_exceeded`, `revoked`, …) stop syncing with a message; others retry. One `get` on start, then one `set` at a time and only on change; no subscription.
+2. **Supabase** (email code), below.
+3. Neither: local only, no account UI. `window.claude` doesn't exist on GitHub Pages or in E2E.
+
+Supabase is configured at build time by `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (a `sb_publishable_…` key or a legacy anon JWT; secret/service_role keys are refused). Without them `useAuth().available` is false, no account UI renders and `@supabase/supabase-js` is never downloaded (it is a lazy chunk).
 
 - **Sign-in:** passwordless email code: `signInWithOtp({ email, options: { shouldCreateUser: true } })`, then `verifyOtp({ email, token, type: 'email' })`. No magic links, so it works in sandboxed iframes. The session persists in `localStorage` (supabase-js default). Sign-out is `scope: 'local'` (this browser only) and keeps local progress.
 - **First sync** (sign-in, or app start while signed in): fetch the row, validate `data` with the store's `validateProgress` (untrusted), `mergeProgress` it with local progress (union steps/challenges/days, max quiz best and attempts, earliest completion and achievement times, `lastLessonId` from the newer copy by `updated_at` vs `ohmlab.progressChangedAt`), write the result locally with `useProgressSync().replace` (no settle) and upsert it. Nothing is uploaded before this merge succeeds; it retries with backoff. A row with a newer `version` is never overwritten (sync stops with a message); a corrupt row is replaced by local progress.

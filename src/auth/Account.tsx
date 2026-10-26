@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../ui/primitives'
 import { useAuth } from './AuthProvider'
+import type { AuthUser } from './client'
 import type { SyncStatus } from './sync'
 import './auth.css'
 
@@ -13,15 +14,39 @@ const STATUS_LABEL: Record<SyncStatus, string> = {
 }
 
 function useStatusLabel() {
-  const { sync } = useAuth()
-  return sync.problem?.fatal ? 'Not synced' : STATUS_LABEL[sync.status]
+  const { sync, mode } = useAuth()
+  if (sync.problem?.fatal) return 'Not synced'
+  return sync.status === 'synced' && mode === 'artifact' ? 'Synced with your Claude account' : STATUS_LABEL[sync.status]
 }
 
-function Avatar({ email, large }: { email: string; large?: boolean }) {
+function Avatar({ user, large }: { user: AuthUser; large?: boolean }) {
+  if (user.avatarUrl)
+    return <img className="acct-avatar" data-large={large || undefined} src={user.avatarUrl} alt="" />
+  const initial = (user.name || user.email).trim()[0]
   return (
     <span className="acct-avatar" data-large={large || undefined} aria-hidden="true">
-      {(email.trim()[0] ?? '?').toUpperCase()}
+      {initial ? initial.toUpperCase() : <Icon name="user" size={large ? 22 : 18} />}
     </span>
+  )
+}
+
+/** Who is signed in: the email (email mode), or the Claude account and the viewer's name if shared (artifact). */
+function Who({ user }: { user: AuthUser }) {
+  const { mode } = useAuth()
+  const [caption, main] =
+    mode === 'artifact'
+      ? user.name
+        ? ['Your Claude account', user.name]
+        : ['Signed in on claude.ai', 'Your Claude account']
+      : ['Signed in as', user.email]
+  return (
+    <div className="acct-who">
+      <Avatar user={user} large />
+      <div className="acct-who-text">
+        <p className="acct-caption">{caption}</p>
+        <p className="acct-email">{main}</p>
+      </div>
+    </div>
   )
 }
 
@@ -50,7 +75,7 @@ function focusAccountButton() {
 
 /** Top-bar control: "Sign in", or the learner's initial opening a small account panel. Absent without config. */
 export function AccountButton() {
-  const { available, ready, user, sync, openSignIn, signOut } = useAuth()
+  const { available, mode, ready, user, sync, openSignIn, signOut } = useAuth()
   const label = useStatusLabel()
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -100,36 +125,36 @@ export function AccountButton() {
         data-account-button
         aria-expanded={open}
         aria-controls="acct-panel"
-        aria-label={`Account: ${user.email}. ${label}`}
+        aria-label={`Account: ${user.email || user.name || 'your Claude account'}. ${label}`}
         onClick={() => setOpen((o) => !o)}
       >
-        <Avatar email={user.email} />
+        <Avatar user={user} />
         <span className="acct-dot" aria-hidden="true" />
       </button>
       {open && (
         // tabIndex -1: a click on the panel's text keeps focus inside, so onBlur doesn't close it.
         <div id="acct-panel" className="acct-panel panel" role="group" aria-label="Account" tabIndex={-1}>
-          <div className="acct-who">
-            <Avatar email={user.email} large />
-            <div className="acct-who-text">
-              <p className="acct-caption">Signed in as</p>
-              <p className="acct-email">{user.email}</p>
-            </div>
-          </div>
+          <Who user={user} />
           <SyncStatusLine live />
-          <p className="acct-note">Progress syncs to every device you sign in on.</p>
-          <button
-            type="button"
-            className="btn btn-ghost acct-signout"
-            onClick={async () => {
-              setOpen(false)
-              await signOut()
-              focusAccountButton()
-            }}
-          >
-            <Icon name="logout" size={18} />
-            Sign out
-          </button>
+          {mode === 'artifact' ? (
+            <p className="acct-note">Saved privately to your Claude account, so it follows you to any device.</p>
+          ) : (
+            <>
+              <p className="acct-note">Progress syncs to every device you sign in on.</p>
+              <button
+                type="button"
+                className="btn btn-ghost acct-signout"
+                onClick={async () => {
+                  setOpen(false)
+                  await signOut()
+                  focusAccountButton()
+                }}
+              >
+                <Icon name="logout" size={18} />
+                Sign out
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -138,29 +163,32 @@ export function AccountButton() {
 
 /** Settings → Account. */
 export function AccountSection() {
-  const { available, ready, user, openSignIn, signOut } = useAuth()
+  const { available, mode, ready, user, openSignIn, signOut } = useAuth()
   if (!available) return null
   return (
     <section className="setting panel" aria-labelledby="set-account">
       <h2 id="set-account">Account</h2>
       {user ? (
         <>
-          <div className="acct-who">
-            <Avatar email={user.email} large />
-            <div className="acct-who-text">
-              <p className="acct-caption">Signed in as</p>
-              <p className="acct-email">{user.email}</p>
-            </div>
-          </div>
+          <Who user={user} />
           <SyncStatusLine />
-          <p className="setting-help">
-            Lessons, quiz scores, streak and achievements sync automatically to every device you sign in on. Signing
-            out keeps your progress in this browser.
-          </p>
-          <button type="button" className="btn btn-ghost" onClick={() => void signOut().then(focusAccountButton)}>
-            <Icon name="logout" size={18} />
-            Sign out
-          </button>
+          {mode === 'artifact' ? (
+            <p className="setting-help">
+              You’re using Ohmlab on claude.ai, so lessons, quiz scores, streak and achievements save privately to
+              your Claude account and follow you to any device. Only you can see them.
+            </p>
+          ) : (
+            <>
+              <p className="setting-help">
+                Lessons, quiz scores, streak and achievements sync automatically to every device you sign in on.
+                Signing out keeps your progress in this browser.
+              </p>
+              <button type="button" className="btn btn-ghost" onClick={() => void signOut().then(focusAccountButton)}>
+                <Icon name="logout" size={18} />
+                Sign out
+              </button>
+            </>
+          )}
         </>
       ) : (
         <>

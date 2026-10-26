@@ -31,7 +31,7 @@ const NAV: { label: string; icon: IconName; path: string[]; match: Route['name']
 
 function Shell() {
   const route = useRoute()
-  const { user } = useAuth()
+  const { user, mode } = useAuth()
   const main = useRef<HTMLElement>(null)
   const routeKey = JSON.stringify(route)
   const previous = useRef(route)
@@ -99,7 +99,11 @@ function Shell() {
 
       <footer className="footer">
         <LogoMark size={20} />
-        <span>Ohmlab — try it, break it, see why. {user ? 'Your progress syncs to your account.' : 'Your progress stays in this browser.'}</span>
+        <span>Ohmlab — try it, break it, see why. {user
+            ? mode === 'artifact'
+              ? 'Your progress syncs with your Claude account.'
+              : 'Your progress syncs to your account.'
+            : 'Your progress stays in this browser.'}</span>
       </footer>
 
       <Toasts />

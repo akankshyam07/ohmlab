@@ -1,14 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useProgress, useProgressSync, validateProgress } from '../progress/store'
 import type { Progress } from '../progress/types'
-import { AuthProblem, authAvailable, createBackend, toProblem, type AuthUser, type Backend, type CloudProgress } from './client'
+import { createArtifactBackend } from './artifact'
+import {
+  AuthProblem,
+  authAvailable,
+  createBackend,
+  mayBeArtifact,
+  toProblem,
+  type AuthUser,
+  type Backend,
+  type CloudProgress,
+} from './client'
 import { mergeProgress } from './merge'
 import { SignInDialog } from './SignInDialog'
 import { createSyncScheduler, type SyncScheduler, type SyncStatus } from './sync'
 
 export interface AuthApi {
-  /** Supabase is configured. When false no account UI renders anywhere. */
+  /** Cloud sync exists here (claude.ai Artifact, or Supabase configured). When false no account UI renders. */
   available: boolean
+  /** 'artifact': the claude.ai viewer, always signed in, no sign-in UI. 'email': Supabase. null while unknown. */
+  mode: Backend['kind'] | null
   /** We know whether someone is signed in (the session has been read). */
   ready: boolean
   user: AuthUser | null
@@ -23,6 +35,7 @@ export interface AuthApi {
 const noop = async () => {}
 const OFF: AuthApi = {
   available: false,
+  mode: null,
   ready: true,
   user: null,
   sync: { status: 'idle' },
@@ -55,6 +68,14 @@ function writeChangedAt(iso: string) {
   }
 }
 
+/** JSON with sorted keys: equal data compares equal whatever order a store returned its keys in. */
+const canonical = (x: unknown): string =>
+  JSON.stringify(x, (_k, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  )
+
 /** Local progress + the cloud row → merged progress. The row is untrusted, so it is validated first. */
 export function mergeCloud(local: Progress, cloud: CloudProgress | null): Progress {
   if (!cloud) return local
@@ -68,11 +89,14 @@ export function mergeCloud(local: Progress, cloud: CloudProgress | null): Progre
 }
 
 /**
- * Optional accounts. `backend` is for tests: omitted, the real one loads from env (or nothing does, without it);
- * null means "not configured".
+ * Optional cloud sync. Backend priority: the claude.ai Artifact viewer (`window.claude.use`), else Supabase from
+ * env, else none (local only). Resolution is async and never blocks first paint. `backend` is for tests: null means
+ * "not configured".
  */
 export function AuthProvider({ children, backend: injected }: { children: ReactNode; backend?: Backend | null }) {
-  const available = injected === undefined ? authAvailable : injected !== null
+  const [available, setAvailable] = useState(() =>
+    injected === undefined ? authAvailable || mayBeArtifact() : injected !== null,
+  )
   const [backend, setBackend] = useState<Backend | null>(injected ?? null)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [ready, setReady] = useState(!available)
@@ -84,11 +108,16 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
   const local = useProgressSync()
 
   useEffect(() => {
-    if (injected !== undefined || !authAvailable) return
+    if (injected !== undefined || !(authAvailable || mayBeArtifact())) return
     let live = true
-    createBackend()
-      .then((b) => live && setBackend(b))
-      .catch(() => live && setReady(true)) // supabase-js failed to load: behave as signed out
+    ;(async () => {
+      const found =
+        (await createArtifactBackend().catch(() => null)) ??
+        (authAvailable ? await createBackend().catch(() => null) : null)
+      if (!live) return
+      if (found) setBackend(found)
+      else setAvailable(false) // nothing to sync with (or supabase-js failed to load): local only
+    })()
     return () => {
       live = false
     }
@@ -98,7 +127,7 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
     if (!backend) return
     return backend.onUserChange((next) => {
       setReady(true)
-      setUser((u) => (u?.id === next?.id && u?.email === next?.email ? u : next))
+      setUser((u) => (u && next && canonical(u) === canonical(next) ? u : next))
     })
   }, [backend])
 
@@ -122,7 +151,8 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
         if (!live) return
         const next = mergeCloud(local.current(), cloud) // current(): changes made while loading count too
         local.replace(next)
-        await backend.saveProgress(userId, next, now)
+        // Write only on change: the cloud copy may already be exactly the merged result.
+        if (!cloud || canonical(cloud.data) !== canonical(next)) await backend.saveProgress(userId, next, now)
         merged = true
         return next
       },
@@ -150,7 +180,7 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
   }, [user])
 
   const signOut = useCallback(async () => {
-    if (!backend) return
+    if (!backend?.signOut) return
     await scheduler.current?.flush() // the last changes reach the cloud first (best effort when offline)
     await backend.signOut().catch(() => {})
     setAnnouncement('Signed out. Your progress stays in this browser.')
@@ -159,11 +189,12 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
   const api = useMemo<AuthApi>(() => {
     if (!available) return OFF
     const need = () => {
-      if (!backend) throw new AuthProblem('unknown')
-      return backend
+      if (!backend?.sendCode || !backend.verifyCode) throw new AuthProblem('unknown')
+      return { sendCode: backend.sendCode, verifyCode: backend.verifyCode }
     }
     return {
       available,
+      mode: backend?.kind ?? null,
       ready,
       user,
       sync,
@@ -177,12 +208,14 @@ export function AuthProvider({ children, backend: injected }: { children: ReactN
     }
   }, [available, backend, ready, user, sync, signOut])
 
+  const emailMode = backend?.kind !== 'artifact'
+
   return (
     <AuthContext.Provider value={api}>
       {children}
       {available && (
         <>
-          <SignInDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+          {emailMode && <SignInDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />}
           <p className="sr-only" role="status">
             {announcement}
           </p>

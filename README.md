@@ -55,7 +55,7 @@ Routing uses the URL hash (`#/lesson/first-led`), so deep links work on Pages wi
 
 ## Progress and privacy
 
-Progress is stored in your browser (`localStorage`). No tracking. Accounts are optional: when the build has Supabase keys, learners can sign in with an emailed code and their progress syncs across devices.
+Progress is stored in your browser (`localStorage`). No tracking. Cloud sync is optional. Published as a claude.ai Artifact (with `capabilities: { db: {}, user: {} }`), progress saves privately to each viewer's Claude account with no setup or sign-in. Elsewhere, when the build has Supabase keys, learners can sign in with an emailed code.
 
 ## Optional accounts (Supabase)
 
