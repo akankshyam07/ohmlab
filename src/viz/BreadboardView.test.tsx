@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { BreadboardView, holePosition, layoutProblems, MIN_TEXT_PX, parseHole, PITCH, resistorBands } from './BreadboardView'
+import { BreadboardView, ESP32_PINS, holeLabel, holePosition, layoutProblems, MIN_TEXT_PX, parseHole, PITCH, resistorBands } from './BreadboardView'
 import type { BreadboardLayout } from './types'
 
 const uno: BreadboardLayout = {
@@ -96,6 +96,62 @@ describe('holePosition', () => {
     expect(pin('VIN').x).toBeLessThan(pin('A0').x)
     expect(pin('A0').x).toBeLessThan(pin('A5').x)
     expect(() => holePosition('z9')).toThrow()
+  })
+})
+
+const esp32: BreadboardLayout = {
+  supply: 'esp32',
+  parts: [
+    { kind: 'wire', id: 'w-3v3', from: 'esp32:3V3', to: 'T+1', color: 'red' },
+    { kind: 'wire', id: 'w-gnd', from: 'esp32:GND', to: 'T-1', color: 'black' },
+    { kind: 'wire', id: 'w-io2', from: 'esp32:GPIO2', to: 'a8', color: 'yellow' },
+    { kind: 'resistor', id: 'R1', from: 'c8', to: 'c12', ohms: 220 },
+    { kind: 'led', id: 'D1', anode: 'e12', cathode: 'e13', color: 'red' },
+    { kind: 'wire', id: 'w-minus', from: 'a13', to: 'T-13', color: 'black' },
+  ],
+}
+
+describe('ESP32 DevKit V1', () => {
+  it('parses its pins and breaks out the 30-pin board’s 25 GPIOs plus 3V3, VIN, GND and EN', () => {
+    expect(parseHole('esp32:GPIO2')).toEqual({ kind: 'esp32', pin: 'GPIO2' })
+    expect(parseHole('esp32:EN')).toEqual({ kind: 'esp32', pin: 'EN' })
+    for (const bad of ['esp32:GPIO40', 'esp32:gpio2', 'esp32:D2', 'esp32:5V', 'esp32:GPIO02']) expect(() => parseHole(bad), bad).toThrow(/Invalid breadboard hole/)
+    expect(ESP32_PINS).toHaveLength(29)
+    for (const pin of ['GPIO1', 'GPIO3', 'GPIO16', 'GPIO17', 'GPIO36', 'GPIO39', 'GPIO2', 'GPIO23']) expect(ESP32_PINS).toContain(pin)
+    for (const pin of ['GPIO0', 'GPIO6', 'GPIO11', 'GPIO24', 'GPIO37']) expect(ESP32_PINS).not.toContain(pin)
+  })
+
+  it('lays the headers out as on the real board, above the breadboard', () => {
+    const pin = (p: string) => holePosition(`esp32:${p}`)
+    // USB end on the left: 3V3 then GND start the bottom header (facing the rails); VIN then GND start the top one.
+    expect(pin('3V3').y).toBeGreaterThan(pin('VIN').y + 5 * PITCH)
+    expect(pin('3V3').y).toBeLessThan(holePosition('T+1').y - 2 * PITCH)
+    expect(pin('GND').x).toBeCloseTo(pin('3V3').x + PITCH)
+    expect(pin('GND').y).toBe(pin('3V3').y)
+    expect(pin('VIN').x).toBeCloseTo(pin('3V3').x)
+    const bottom = ['3V3', 'GND', 'GPIO15', 'GPIO2', 'GPIO4', 'GPIO16', 'GPIO17', 'GPIO5', 'GPIO18', 'GPIO19', 'GPIO21', 'GPIO3', 'GPIO1', 'GPIO22', 'GPIO23']
+    const top = ['VIN', 'GPIO13', 'GPIO12', 'GPIO14', 'GPIO27', 'GPIO26', 'GPIO25', 'GPIO33', 'GPIO32', 'GPIO35', 'GPIO34', 'GPIO39', 'GPIO36', 'EN']
+    for (const row of [bottom, top]) for (let i = 1; i < row.length; i++) expect(pin(row[i]).x, row[i]).toBeGreaterThan(pin(row[i - 1]).x)
+    expect(pin('EN').y).toBe(pin('VIN').y)
+    expect(holeLabel('esp32:GPIO2')).toBe('ESP32 pin GPIO2')
+  })
+
+  it('reports pins the board lacks and pins used without the ESP32 supply', () => {
+    expect(layoutProblems(esp32)).toEqual([])
+    const bad: BreadboardLayout = { supply: 'uno', parts: [{ kind: 'wire', id: 'W1', from: 'esp32:GPIO6', to: 'a1', color: 'red' }] }
+    expect(layoutProblems(bad)).toEqual(['W1: esp32:GPIO6 needs the ESP32 supply', 'W1: esp32:GPIO6 is not on the ESP32 DevKit V1 (30-pin) headers'])
+    expect(layoutProblems({ ...esp32, parts: [{ kind: 'wire', id: 'W2', from: 'uno:5V', to: 'a1', color: 'red' }] })).toEqual(['W2: uno:5V needs the Uno supply'])
+  })
+
+  it('draws the DevKit with labelled pins and names wires by ESP32 pin', () => {
+    const { container } = render(<BreadboardView layout={esp32} ariaLabel="ESP32 build" />)
+    for (const name of ['Yellow jumper wire from ESP32 pin GPIO2 to a8', 'Red jumper wire from ESP32 pin 3V3 to the top + rail', 'Black jumper wire from ESP32 pin GND to the top − rail'])
+      expect(screen.getByRole('img', { name })).toBeInTheDocument()
+    expect(container.querySelector('.bb-esp32')).not.toBeNull()
+    expect(container.querySelector('.bb-uno:not(.bb-esp32)')).toBeNull()
+    const silk = [...container.querySelectorAll('.bb-esp32 .bb-silk text')].map((t) => t.textContent)
+    for (const label of ['EN', 'BOOT', 'VP', 'VN', 'TX0', 'RX2', 'D23', 'VIN']) expect(silk).toContain(label)
+    expect([...container.querySelectorAll('.bb-esp32 text.is-used')].map((t) => t.textContent)).toEqual(['3V3', 'GND', 'D2'])
   })
 })
 

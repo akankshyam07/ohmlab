@@ -53,6 +53,7 @@ export interface CircuitLayout {
  * - 'B+1'…'B+30', 'B-1'…'B-30': bottom power rails.
  * - 'uno:5V', 'uno:3V3', 'uno:GND', 'uno:VIN', 'uno:D2'…'uno:D13', 'uno:A0'…'uno:A5': Arduino Uno header pins.
  * - 'bat:+', 'bat:-': a 9 V battery snap.
+ * - 'esp32:3V3', 'esp32:VIN', 'esp32:GND', 'esp32:EN', 'esp32:GPIO<n>' (n in 0–39): ESP32 DevKit V1 (30-pin) header pins.
  */
 export type Hole = string
 
@@ -64,7 +65,7 @@ export type BreadboardPart =
 
 export interface BreadboardLayout {
   /** Which off-board supply is drawn beside the breadboard. */
-  supply: 'uno' | 'battery9v'
+  supply: 'uno' | 'battery9v' | 'esp32'
   /** Part ids match the lab circuit's component ids where the part is the same component (R1, D1…). */
   parts: BreadboardPart[]
 }

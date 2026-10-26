@@ -15,23 +15,39 @@ export type Rail = 'T+' | 'T-' | 'B+' | 'B-'
 export const UNO_PINS = ['5V', '3V3', 'GND', 'VIN', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10', 'D11', 'D12', 'D13', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5'] as const
 export type UnoPin = (typeof UNO_PINS)[number]
 
+/*
+ * ESP32 DevKit V1 (30-pin) headers, as printed on the board, each listed from the USB end to the antenna end.
+ * With the USB on the left, the 'EN' side runs along the top edge and the '3V3' side along the bottom edge.
+ */
+const ESP32_TOP_SILK = ['VIN', 'GND', 'D13', 'D12', 'D14', 'D27', 'D26', 'D25', 'D33', 'D32', 'D35', 'D34', 'VN', 'VP', 'EN']
+const ESP32_BOTTOM_SILK = ['3V3', 'GND', 'D15', 'D2', 'D4', 'RX2', 'TX2', 'D5', 'D18', 'D19', 'D21', 'RX0', 'TX0', 'D22', 'D23']
+const ESP32_SILK_GPIO: Record<string, number> = { RX2: 16, TX2: 17, RX0: 3, TX0: 1, VP: 36, VN: 39 }
+/** The hole-grammar name of a silkscreen label: 'D2' → 'GPIO2', 'RX0' → 'GPIO3', '3V3' → '3V3'. */
+const esp32PinOf = (silk: string) => (silk in ESP32_SILK_GPIO ? `GPIO${ESP32_SILK_GPIO[silk]}` : /^D\d+$/.test(silk) ? `GPIO${silk.slice(1)}` : silk)
+/** Pins the 30-pin board breaks out (the grammar allows GPIO0–39; the rest aren't on its headers). */
+export const ESP32_PINS: readonly string[] = [...new Set([...ESP32_BOTTOM_SILK, ...ESP32_TOP_SILK].map(esp32PinOf))]
+
 export type ParsedHole =
   | { kind: 'strip'; row: StripRow; col: number }
   | { kind: 'rail'; rail: Rail; col: number }
   | { kind: 'uno'; pin: UnoPin }
+  | { kind: 'esp32'; pin: string }
   | { kind: 'battery'; terminal: '+' | '-' }
 
 const COL = '([1-9]|[12][0-9]|30)'
 const STRIP_RE = new RegExp(`^([a-j])${COL}$`)
 const RAIL_RE = new RegExp(`^([TB][+-])${COL}$`)
+const ESP32_RE = /^esp32:(3V3|VIN|GND|EN|GPIO([0-9]|[1-3][0-9]))$/
 
-/** Parses a Hole ('a1'…'j30', 'T+1', 'B-30', 'uno:5V', 'bat:+'). Throws on anything else. */
+/** Parses a Hole ('a1'…'j30', 'T+1', 'B-30', 'uno:5V', 'esp32:GPIO2', 'bat:+'). Throws on anything else. */
 export function parseHole(h: Hole): ParsedHole {
   let m = STRIP_RE.exec(h)
   if (m) return { kind: 'strip', row: m[1] as StripRow, col: Number(m[2]) }
   m = RAIL_RE.exec(h)
   if (m) return { kind: 'rail', rail: m[1] as Rail, col: Number(m[2]) }
   if (h.startsWith('uno:') && (UNO_PINS as readonly string[]).includes(h.slice(4))) return { kind: 'uno', pin: h.slice(4) as UnoPin }
+  m = ESP32_RE.exec(h)
+  if (m) return { kind: 'esp32', pin: m[1] }
   if (h === 'bat:+' || h === 'bat:-') return { kind: 'battery', terminal: h === 'bat:+' ? '+' : '-' }
   throw new Error(`Invalid breadboard hole "${h}"`)
 }
@@ -97,6 +113,22 @@ const UNO_SOCKETS = Object.fromEntries(
 /** Silkscreen spelling, where it differs from the pin's name in the hole grammar. */
 const UNO_SILK: Partial<Record<string, string>> = { '3V3': '3.3V' }
 
+/*
+ * The ESP32 DevKit also sits above the board, turned so the USB end is on the left and the antenna on the
+ * right: the '3V3' header runs along the bottom edge, facing the rails, and the 'EN' header along the top.
+ */
+const ESP = { x: BX + 0.6 * P, y: -14.6 * P, w: 21 * P, h: 12 * P }
+const espHeader = (silk: string[], y: number): HeaderPin[] => silk.map((name, i) => ({ name, x: ESP.x + 3.5 * P + i * P, y }))
+const ESP32_TOP = espHeader(ESP32_TOP_SILK, ESP.y + 1 * P)
+const ESP32_BOTTOM = espHeader(ESP32_BOTTOM_SILK, ESP.y + ESP.h - 1 * P)
+// 'esp32:GND' is the GND beside 3V3 (the bottom header is searched first).
+const ESP32_SOCKETS = Object.fromEntries(
+  ESP32_PINS.map((pin) => {
+    const { x, y } = [...ESP32_BOTTOM, ...ESP32_TOP].find((h) => esp32PinOf(h.name) === pin)!
+    return [pin, { x, y }]
+  }),
+) as Record<string, Point>
+
 const BAT = { x: 1.2 * P, y: 6.6 * P, w: 5.6 * P, h: 10.6 * P }
 const BAT_TERMINALS: Record<'+' | '-', Point> = { '+': { x: 9.2 * P, y: 4.4 * P }, '-': { x: 9.2 * P, y: 5.6 * P } }
 
@@ -110,6 +142,11 @@ export function holePosition(h: Hole): Point {
       return { x: colX(p.col), y: RAIL_Y[p.rail] }
     case 'uno':
       return UNO_SOCKETS[p.pin]
+    case 'esp32': {
+      const at = ESP32_SOCKETS[p.pin]
+      if (!at) throw new Error(`${h} is not on the ESP32 DevKit V1 (30-pin) headers`)
+      return at
+    }
     case 'battery':
       return BAT_TERMINALS[p.terminal]
   }
@@ -127,7 +164,7 @@ function connectedBox(p: ParsedHole): Box | null {
 }
 
 /**
- * Where a leg goes, as the build steps say it: "c8", "top + rail", "Uno 5V", "battery +".
+ * Where a leg goes, as the build steps say it: "c8", "top + rail", "Uno 5V", "ESP32 pin GPIO2", "battery +".
  * A rail is one connected strip, so its column doesn't matter and isn't named.
  */
 export function holeLabel(h: Hole): string {
@@ -139,6 +176,8 @@ export function holeLabel(h: Hole): string {
       return `${p.rail[0] === 'T' ? 'top' : 'bottom'} ${p.rail[1] === '+' ? '+' : '−'} rail`
     case 'uno':
       return `Uno ${UNO_SILK[p.pin] ?? p.pin}`
+    case 'esp32':
+      return `ESP32 pin ${p.pin}`
     case 'battery':
       return `battery ${p.terminal === '+' ? '+' : '−'}`
   }
@@ -228,6 +267,8 @@ export function layoutProblems(layout: BreadboardLayout): string[] {
         continue
       }
       if (p.kind === 'uno' && layout.supply !== 'uno') problems.push(`${part.id}: ${h} needs the Uno supply`)
+      if (p.kind === 'esp32' && layout.supply !== 'esp32') problems.push(`${part.id}: ${h} needs the ESP32 supply`)
+      if (p.kind === 'esp32' && !ESP32_PINS.includes(p.pin)) problems.push(`${part.id}: ${h} is not on the ESP32 DevKit V1 (30-pin) headers`)
       if (p.kind === 'battery' && layout.supply !== 'battery9v') problems.push(`${part.id}: ${h} needs the 9 V battery supply`)
       const other = used.get(h)
       if (other) problems.push(`${part.id}: ${h} is already used by ${other}`)
@@ -706,6 +747,66 @@ function Uno({ ts, uid, used }: { ts: TextSize; uid: string; used: Set<string> }
   )
 }
 
+function Esp32({ ts, uid, used }: { ts: TextSize; uid: string; used: Set<string> }) {
+  const { x, y, w, h } = ESP
+  const fs = ts(FS * 0.8)
+  const small = ts(FS * 0.65)
+  const mid = y + h / 2
+  const topLabelY = ESP32_TOP[0].y + 0.75 * P
+  const bottomLabelY = ESP32_BOTTOM[0].y - 0.75 * P
+  // The WROOM module: a metal can, then the PCB antenna overhanging the board's right end.
+  const can = { x: x + 8.6 * P, y: mid - 2.1 * P, w: 8.4 * P, h: 4.2 * P }
+  const antenna = { x: can.x + can.w, y: can.y, w: 4.4 * P, h: can.h }
+  const zig = Array.from({ length: 6 }, (_, i) => `${i ? 'L' : 'M'}${antenna.x + (0.6 + i * 0.6) * P} ${i % 2 ? antenna.y + antenna.h - 0.6 * P : antenna.y + 0.6 * P}`).join('')
+  // A socket is "used" only if it is the one the grammar's name lands on (two pins are printed GND).
+  const isUsed = (pin: HeaderPin) => {
+    const name = esp32PinOf(pin.name)
+    return used.has(name) && ESP32_SOCKETS[name].x === pin.x && ESP32_SOCKETS[name].y === pin.y
+  }
+  const button = (cy: number, label: string, ly: number) => (
+    <g key={label}>
+      <rect className="bb-reset" x={x + 1.0 * P} y={cy - 0.6 * P} width={1.2 * P} height={1.2 * P} rx={2} />
+      <circle className="bb-esp-button" cx={x + 1.6 * P} cy={cy} r={0.36 * P} />
+      <text x={x + 1.6 * P} y={ly} textAnchor="middle" style={{ fontSize: small }}>
+        {label}
+      </text>
+    </g>
+  )
+  return (
+    <g className="bb-uno bb-esp32" aria-hidden="true">
+      <rect className="bb-board-shadow" x={x + 4} y={y + 10} width={w} height={h} rx={8} />
+      <rect className="bb-esp-pcb" x={x} y={y} width={w} height={h} rx={7} />
+      <rect className="bb-pcb-gloss" x={x + 1.5} y={y + 1.5} width={w - 3} height={h * 0.4} rx={6} />
+      {/* Micro-USB on the left end. */}
+      <rect className="bb-usb" x={x - 0.9 * P} y={mid - 1.1 * P} width={2.6 * P} height={2.2 * P} rx={2} fill={`url(#${uid}-metal)`} />
+      <rect className="bb-usb-slot" x={x - 0.9 * P} y={mid - 0.45 * P} width={0.7 * P} height={0.9 * P} rx={1} />
+      <g className="bb-silk">
+        {button(mid - 2.9 * P, 'EN', mid - 1.75 * P)}
+        {button(mid + 2.9 * P, 'BOOT', mid + 1.75 * P)}
+      </g>
+      <rect className="bb-esp-antenna" x={antenna.x} y={antenna.y} width={antenna.w} height={antenna.h} rx={3} />
+      <path className="bb-esp-trace" d={zig} />
+      <rect className="bb-esp-can" x={can.x} y={can.y} width={can.w} height={can.h} rx={3} fill={`url(#${uid}-metal)`} />
+      {[ESP32_TOP, ESP32_BOTTOM].map((pins) => (
+        <rect key={pins[0].y} className="bb-header" x={pins[0].x - 0.5 * P} y={pins[0].y - 0.5 * P} width={pins.length * P} height={P} rx={2} />
+      ))}
+      <path className="bb-socket" d={holeSquares([...ESP32_TOP, ...ESP32_BOTTOM], 0.42 * P)} />
+      <g className="bb-silk" style={{ fontSize: fs }}>
+        {ESP32_TOP.map((p) => (
+          <text key={`t${p.x}`} className={isUsed(p) ? 'is-used' : undefined} x={p.x} y={topLabelY} transform={`rotate(-90 ${p.x} ${topLabelY})`} textAnchor="end">
+            {p.name}
+          </text>
+        ))}
+        {ESP32_BOTTOM.map((p) => (
+          <text key={`b${p.x}`} className={isUsed(p) ? 'is-used' : undefined} x={p.x} y={bottomLabelY} transform={`rotate(-90 ${p.x} ${bottomLabelY})`} textAnchor="start">
+            {p.name}
+          </text>
+        ))}
+      </g>
+    </g>
+  )
+}
+
 function Battery({ ts, uid }: { ts: TextSize; uid: string }) {
   const { x, y, w, h } = BAT
   const capTop = y - 1.3 * P
@@ -748,6 +849,7 @@ const BOARD_BOX: Box = { x0: BX - 0.8 * P, y0: -0.8 * P, x1: BX + BOARD_W + 0.8 
 const SUPPLY_BOX: Record<BreadboardLayout['supply'], Box> = {
   battery9v: { ...BOARD_BOX, x0: -0.8 * P },
   uno: { ...BOARD_BOX, x0: Math.min(BOARD_BOX.x0, UNO.x - 1.3 * P - 0.6 * P), y0: UNO.y - 0.8 * P },
+  esp32: { ...BOARD_BOX, x0: Math.min(BOARD_BOX.x0, ESP.x - 0.9 * P - 0.6 * P), y0: ESP.y - 0.8 * P },
 }
 // Wires go over parts (as on a real bench, and so a tall LED never hides where a jumper lands).
 const DRAW_ORDER: Record<BreadboardPart['kind'], number> = { resistor: 0, diode: 0, led: 1, wire: 2 }
@@ -768,7 +870,7 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
       for (const h of holesOf(d.part)) {
         const p = parseHole(h)
         if (p.kind === 'strip') usedCols.add(p.col)
-        if (p.kind === 'uno') usedPins.add(p.pin)
+        if (p.kind === 'uno' || p.kind === 'esp32') usedPins.add(p.pin)
       }
     return { drawn, problems, usedCols, usedPins }
   }, [layout])
@@ -885,7 +987,7 @@ export function BreadboardView({ layout, ariaLabel, highlight }: BreadboardViewP
             ))}
           </defs>
 
-          {layout.supply === 'uno' ? <Uno ts={ts} uid={uid} used={usedPins} /> : <Battery ts={ts} uid={uid} />}
+          {layout.supply === 'uno' ? <Uno ts={ts} uid={uid} used={usedPins} /> : layout.supply === 'esp32' ? <Esp32 ts={ts} uid={uid} used={usedPins} /> : <Battery ts={ts} uid={uid} />}
           <Board ts={ts} usedCols={usedCols} />
 
           {activeDrawn && (

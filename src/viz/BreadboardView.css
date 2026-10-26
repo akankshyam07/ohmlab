@@ -105,6 +105,12 @@
 .bb-dcjack-pin { fill: #000; stroke: #4a4d53; }
 .bb-reset { fill: #d7d9dc; stroke: #8a8e94; }
 .bb-reset-cap { fill: #b73a3a; }
+/* ESP32 DevKit (simplified; no logos) */
+.bb-esp-pcb { fill: #1c1d22; stroke: #000; stroke-width: 1.5; }
+.bb-esp-can { stroke: #6b717a; stroke-width: 1; }
+.bb-esp-antenna { fill: #1f5f3a; stroke: #15422a; }
+.bb-esp-trace { fill: none; stroke: #c9a24a; stroke-width: 2.2; stroke-linejoin: round; }
+.bb-esp-button { fill: #2a2b30; }
 .bb-chip rect { fill: #1d1e22; stroke: #000; }
 .bb-chip-pins { stroke: #bfc4ca; stroke-width: 2.4; }
 .bb-chip-notch { fill: #2c2d32; }
