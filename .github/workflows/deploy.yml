@@ -37,6 +37,13 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report
+      # E2E above ran against a key-free build. The deployed build gets the public Supabase client config
+      # (repo Variables; empty means local-only, no account UI).
+      - run: npm run build
+        if: github.event_name != 'pull_request'
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:

@@ -6,6 +6,8 @@ import { AchievementsPage, NotFound, SettingsPage } from './app/pages'
 import { href, navKind, useRoute, type Route } from './app/router'
 import { afterViewTransition } from './app/transitions'
 import { SettingsProvider } from './app/settings'
+import { AccountButton } from './auth/Account'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Icon, LogoMark, type IconName } from './ui/primitives'
 import './app/shell.css'
 
@@ -13,7 +15,9 @@ export default function App() {
   return (
     <ProgressProvider>
       <SettingsProvider>
-        <Shell />
+        <AuthProvider>
+          <Shell />
+        </AuthProvider>
       </SettingsProvider>
     </ProgressProvider>
   )
@@ -27,6 +31,7 @@ const NAV: { label: string; icon: IconName; path: string[]; match: Route['name']
 
 function Shell() {
   const route = useRoute()
+  const { user } = useAuth()
   const main = useRef<HTMLElement>(null)
   const routeKey = JSON.stringify(route)
   const previous = useRef(route)
@@ -80,6 +85,7 @@ function Shell() {
               ))}
             </ul>
           </nav>
+          <AccountButton />
         </div>
       </header>
 
@@ -93,7 +99,7 @@ function Shell() {
 
       <footer className="footer">
         <LogoMark size={20} />
-        <span>Ohmlab — try it, break it, see why. Your progress stays in this browser.</span>
+        <span>Ohmlab — try it, break it, see why. {user ? 'Your progress syncs to your account.' : 'Your progress stays in this browser.'}</span>
       </footer>
 
       <Toasts />

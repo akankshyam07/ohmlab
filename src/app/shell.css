@@ -88,6 +88,10 @@
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sig-current) 60%, transparent));
 }
 
+.topnav {
+  margin-left: auto; /* nav and account sit together on the right */
+}
+
 .topnav ul {
   display: flex;
   gap: var(--sp-1);
@@ -137,6 +141,7 @@
   .topbar-inner {
     height: 60px;
     padding: 0 var(--sp-3) 0 var(--sp-4);
+    gap: var(--sp-2);
   }
 
   .brand-word {

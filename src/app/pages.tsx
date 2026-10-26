@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { achievements } from '../progress/achievements'
 import { useProgress } from '../progress/store'
+import { AccountSection } from '../auth/Account'
+import { useAuth } from '../auth/AuthProvider'
 import { Icon } from '../ui/primitives'
 import { href } from './router'
 import { useSettings } from './settings'
@@ -45,6 +47,7 @@ export function AchievementsPage() {
 export function SettingsPage() {
   const { animateFlow, setAnimateFlow } = useSettings()
   const { reset } = useProgress()
+  const { user } = useAuth()
   const dialog = useRef<HTMLDialogElement>(null)
   const [message, setMessage] = useState('')
 
@@ -54,6 +57,8 @@ export function SettingsPage() {
         <p className="eyebrow">Bench setup</p>
         <h1>Settings</h1>
       </header>
+
+      <AccountSection />
 
       <section className="setting panel" aria-labelledby="set-motion">
         <h2 id="set-motion">Motion</h2>
@@ -71,7 +76,9 @@ export function SettingsPage() {
       <section className="setting panel" aria-labelledby="set-progress">
         <h2 id="set-progress">Progress</h2>
         <p className="setting-help">
-          Progress is saved in this browser only. Resetting clears lessons, quiz scores, streak and achievements.
+          {user
+            ? 'Progress is saved in this browser and synced to your account. Resetting clears lessons, quiz scores, streak and achievements here and in your account.'
+            : 'Progress is saved in this browser only. Resetting clears lessons, quiz scores, streak and achievements.'}
         </p>
         <button type="button" className="btn btn-danger" onClick={() => dialog.current?.showModal?.()}>
           Reset progress

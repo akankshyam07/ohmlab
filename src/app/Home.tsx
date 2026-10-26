@@ -3,6 +3,7 @@ import { getLesson, lessons, phases } from '../content'
 import type { Phase } from '../content/types'
 import { achievements } from '../progress/achievements'
 import { useProgress } from '../progress/store'
+import { SyncNudge } from '../auth/Account'
 import { Icon } from '../ui/primitives'
 import { continueTarget, lessonState } from './curriculum'
 import { HeroBench } from './HeroBench'
@@ -97,6 +98,7 @@ export function Home() {
             </dd>
           </div>
         </dl>
+        <SyncNudge />
       </section>
 
       <section className="map" id="phase-map" aria-labelledby="map-title">

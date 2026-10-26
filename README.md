@@ -55,4 +55,21 @@ Routing uses the URL hash (`#/lesson/first-led`), so deep links work on Pages wi
 
 ## Progress and privacy
 
-Progress is stored only in your browser (`localStorage`). There are no accounts and no tracking.
+Progress is stored in your browser (`localStorage`). No tracking. Accounts are optional: when the build has Supabase keys, learners can sign in with an emailed code and their progress syncs across devices.
+
+## Optional accounts (Supabase)
+
+1. Create a Supabase project. In the SQL editor run [`supabase/schema.sql`](supabase/schema.sql) (the `progress` table with row-level security).
+2. **Authentication → Email templates**: in both **Magic Link** (returning learners) and **Confirm signup** (first sign-in), show the code, e.g. `<p>Your Ohmlab code: <strong>{{ .Token }}</strong></p>`, and remove the link. Without `{{ .Token }}` learners get a link but no code.
+3. **Authentication → Providers → Email**: enabled, sign-ups allowed, OTP length 6.
+4. For real users, set up custom SMTP (**Authentication → SMTP**): the built-in sender only delivers to project team members and is heavily rate-limited.
+5. Locally, put the project URL and publishable key in `.env.local` (git-ignored):
+
+   ```bash
+   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...   # or the legacy anon key
+   ```
+
+6. For GitHub Pages, add the same two values as repository **Variables** (Settings → Secrets and variables → Actions → Variables). They are public client keys by design (RLS protects the data). Never use a secret or `service_role` key; the app refuses them.
+
+Without these variables the app builds and runs exactly as before, with no account UI. E2E tests always run without them. In dev, `?mockAuth` (or `?mockAuth=signedin`) before the `#` shows the account UI against an in-memory fake (code `123456`).

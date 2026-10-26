@@ -34,7 +34,7 @@ Beginner resources either (a) explain theory with static diagrams, or (b) give r
 
 ## Out of scope for MVP (see ROADMAP.md)
 
-Free-form drag-and-drop circuit builder, capacitor/transient simulation, Arduino code execution, accounts and cloud sync, 3D views, light theme, i18n.
+Free-form drag-and-drop circuit builder, capacitor/transient simulation, Arduino code execution, 3D views, light theme, i18n.
 
 ## Success metrics (local, measurable in tests and review)
 
@@ -58,3 +58,4 @@ Free-form drag-and-drop circuit builder, capacitor/transient simulation, Arduino
 | 2026-10-25 | One LED limit everywhere: ok ≤ 20 mA, warn above; reverse > 5 V flagged | Review: the simulator called states "fine" that the lessons call harmful |
 | 2026-10-25 | Illustrated breadboard per build (pulled forward from v1.1) | Review: text-only builds were the main delight gap against the reference; wiring is topology-tested against the lab circuit |
 | 2026-10-25 | Lesson "Next" stays usable mid-quiz as "Skip quiz" | Quiz place persists in the session, so peeking at the build doesn't cost progress |
+| 2026-10-25 | Optional accounts with Supabase (`@supabase/supabase-js`, lazy-loaded): email 6-digit code sign-in, one `progress` row per learner with RLS, lossless merge on sign-in, debounced upload | Progress should follow the learner across devices. Hosted auth + Postgres with RLS means no backend of our own; codes (not magic links) work inside sandboxed iframes. Without env keys the app stays exactly local-only |

@@ -35,26 +35,28 @@ function isLessonProgress(x: unknown): x is LessonProgress {
   )
 }
 
+/** Untrusted value (stored or downloaded) → Progress, or null when it isn't valid version-1 progress. */
+export function validateProgress(x: unknown): Progress | null {
+  return isRecord(x) &&
+    x.version === 1 &&
+    isRecord(x.lessons) &&
+    Object.values(x.lessons).every(isLessonProgress) &&
+    isRecord(x.achievements) &&
+    Object.values(x.achievements).every((v) => typeof v === 'string') &&
+    isStringArray(x.activeDays) &&
+    isOptionalString(x.lastLessonId)
+    ? (x as unknown as Progress)
+    : null
+}
+
 /** Stored JSON → Progress. Anything missing, corrupted or from another version gives empty progress. */
 export function parseProgress(raw: string | null): Progress {
   if (!raw) return emptyProgress()
   try {
-    const x: unknown = JSON.parse(raw)
-    if (
-      isRecord(x) &&
-      x.version === 1 &&
-      isRecord(x.lessons) &&
-      Object.values(x.lessons).every(isLessonProgress) &&
-      isRecord(x.achievements) &&
-      Object.values(x.achievements).every((v) => typeof v === 'string') &&
-      isStringArray(x.activeDays) &&
-      isOptionalString(x.lastLessonId)
-    )
-      return x as unknown as Progress
+    return validateProgress(JSON.parse(raw)) ?? emptyProgress()
   } catch {
-    // invalid JSON: fall through
+    return emptyProgress() // invalid JSON
   }
-  return emptyProgress()
 }
 
 export function loadProgress(): Progress {
@@ -158,6 +160,14 @@ export function settle(
 
 const ProgressContext = createContext<ProgressApi | null>(null)
 
+/** For cloud sync (src/auth) only: read the latest progress and swap in a merged copy, outside ProgressApi. */
+export interface ProgressSync {
+  current: () => Progress
+  /** Saves and shows `next` as is: no settle, so no new active day, completion stamps or toasts. */
+  replace: (next: Progress) => void
+}
+const ProgressSyncContext = createContext<ProgressSync | null>(null)
+
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(loadProgress)
   const [recentlyUnlocked, setRecentlyUnlocked] = useState<Achievement[]>([])
@@ -213,7 +223,22 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [actions, progress, recentlyUnlocked],
   )
 
-  return <ProgressContext.Provider value={api}>{children}</ProgressContext.Provider>
+  const sync = useMemo<ProgressSync>(
+    () => ({ current: () => current.current, replace: (next) => commit(next, []) }),
+    [commit],
+  )
+
+  return (
+    <ProgressContext.Provider value={api}>
+      <ProgressSyncContext.Provider value={sync}>{children}</ProgressSyncContext.Provider>
+    </ProgressContext.Provider>
+  )
+}
+
+export function useProgressSync(): ProgressSync {
+  const sync = useContext(ProgressSyncContext)
+  if (!sync) throw new Error('useProgressSync() must be used inside <ProgressProvider>')
+  return sync
 }
 
 export function useProgress(): ProgressApi {
