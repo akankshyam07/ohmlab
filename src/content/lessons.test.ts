@@ -3,9 +3,9 @@ import { solveDC } from '../sim/solver'
 import type { Circuit, Component, SolveResult } from '../sim/types'
 import type { CircuitLayout, Point } from '../viz/types'
 import { breadboardNets, legsOf, parseHole } from './breadboard'
-import { getLesson, lessons, phases } from './index'
+import { getLesson, getPart, lessons, parts, phases, topics } from './index'
 import { BREADBOARD, LED_WAY, METER_NEEDED, METER_OPTIONAL, METER_VOLTS, NO_METER } from './lessons/primer'
-import type { Block, ControlValue, Lab, LabControl } from './types'
+import { PART_ANCHORS, type Block, type ControlValue, type Lab, type LabControl, type PartId } from './types'
 
 const NODE_FIELDS: Record<Component['kind'], string[]> = {
   vsource: ['pos', 'neg'],
@@ -126,9 +126,9 @@ describe('curriculum', () => {
     expect(phases[6].days.filter((d) => d.title.startsWith('Capstone')).map((d) => d.day)).toEqual([93, 94, 95, 96, 97, 98, 99, 100])
   })
 
-  it('links exactly the six MVP days to lessons, consistently', () => {
+  it('links exactly the lesson days to lessons, consistently', () => {
     const linked = phases.flatMap((p) => p.days.filter((d) => d.lessonId).map((d) => ({ ...d, phase: p.n })))
-    expect(linked.map((d) => d.day)).toEqual([1, 2, 5, 6, 7, 8])
+    expect(linked.map((d) => d.day)).toEqual([1, 2, 5, 6, 7, 8, 71, 72, 73])
     for (const d of linked) {
       const lesson = getLesson(d.lessonId!)
       expect(lesson, d.lessonId).toBeDefined()
@@ -182,6 +182,15 @@ describe('lesson schema', () => {
         expect(first, 'choice questions with the correct option first').toBeLessThanOrEqual(choices.length / 2)
         // The quiz says "Correct"/"Not quite" itself and quotes the right option's why as a correction.
         for (const q of choices) for (const o of q.options) if (o.correct) expect(o.why, q.id).not.toMatch(LEADING_VERDICT)
+      })
+
+      it('code notes point at real, non-blank lines', () => {
+        for (const s of lesson.sections)
+          for (const b of s.blocks) {
+            if (b.type !== 'code') continue
+            const lines = b.code.split('\n')
+            for (const n of b.notes ?? []) expect(lines[n.line - 1]?.trim(), `${s.id} line ${n.line}`).toBeTruthy()
+          }
       })
 
       it('has at least 2 predict blocks: one correct option, a why for each, and a tryIt that names a lab control', () => {
@@ -315,14 +324,23 @@ const BUILD_CONFIG: Record<string, Record<string, ControlValue>> = {
   'voltage-divider': { load: true },
   power: {},
   'diodes-leds': {},
+  'esp32-intro': { r1: 220 },
+  'level-shifting': { r1: 5100, r3: 220, r2: 10000 },
+  'esp32-wifi-led': { gpio: 3.3 },
 }
-const SUPPLY_PINS = { uno: ['uno:5V', 'uno:GND'], battery9v: ['bat:+', 'bat:-'] } as const
+const SUPPLY_PINS = { uno: ['uno:5V', 'uno:GND'], battery9v: ['bat:+', 'bat:-'], esp32: ['esp32:3V3', 'esp32:GND'] } as const
+/** Where the lab's source sits when it isn't the supply's power pin (an ESP32 GPIO, or VIN standing in for a sensor). */
+const SOURCE_PINS: Record<string, readonly [string, string]> = {
+  'esp32-intro': ['esp32:GPIO23', 'esp32:GND'],
+  'level-shifting': ['esp32:VIN', 'esp32:GND'],
+  'esp32-wifi-led': ['esp32:GPIO23', 'esp32:GND'],
+}
 
 describe('breadboards', () => {
   it('parseHole accepts the grammar and nothing else', () => {
-    for (const ok of ['a1', 'e30', 'f1', 'j30', 'T+1', 'T-30', 'B+15', 'B-2', 'uno:5V', 'uno:3V3', 'uno:GND', 'uno:VIN', 'uno:D2', 'uno:D13', 'uno:A0', 'uno:A5', 'bat:+', 'bat:-'])
+    for (const ok of ['a1', 'e30', 'f1', 'j30', 'T+1', 'T-30', 'B+15', 'B-2', 'uno:5V', 'uno:3V3', 'uno:GND', 'uno:VIN', 'uno:D2', 'uno:D13', 'uno:A0', 'uno:A5', 'bat:+', 'bat:-', 'esp32:3V3', 'esp32:VIN', 'esp32:GND', 'esp32:EN', 'esp32:GPIO0', 'esp32:GPIO23', 'esp32:GPIO39'])
       expect(parseHole(ok), ok).not.toBeNull()
-    for (const bad of ['a0', 'a31', 'k5', 'A5', 'T+0', 'T+31', 'T5', 'uno:D1', 'uno:D14', 'uno:A6', 'uno:5v', 'bat:x', '', 'c 5'])
+    for (const bad of ['a0', 'a31', 'k5', 'A5', 'T+0', 'T+31', 'T5', 'uno:D1', 'uno:D14', 'uno:A6', 'uno:5v', 'bat:x', '', 'c 5', 'esp32:GPIO40', 'esp32:5V', 'esp32:D23'])
       expect(parseHole(bad), bad).toBeNull()
     expect(parseHole('a5')).toBe(parseHole('e5'))
     expect(parseHole('e5')).not.toBe(parseHole('f5'))
@@ -355,8 +373,8 @@ describe('breadboards', () => {
         for (const h of holes) expect(parseHole(h), h).not.toBeNull()
         const repeated = holes.filter((h, i) => holes.indexOf(h) !== i)
         expect(repeated, 'holes used twice').toEqual([])
-        const otherSupply = board!.supply === 'uno' ? /^bat:/ : /^uno:/
-        expect(holes.filter((h) => otherSupply.test(h)), 'pins of the supply that is not drawn').toEqual([])
+        const own = { uno: 'uno:', battery9v: 'bat:', esp32: 'esp32:' }[board!.supply]
+        expect(holes.filter((h) => h.includes(':') && !h.startsWith(own)), 'pins of a supply that is not drawn').toEqual([])
         for (const part of board!.parts) {
           const [x, y] = legsOf(part)
           expect(parseHole(x), `${part.id} has both legs in one strip`).not.toBe(parseHole(y))
@@ -379,7 +397,7 @@ describe('breadboards', () => {
         const sources = circuit.components.filter((c) => c.kind === 'vsource')
         expect(sources.length).toBe(1)
         const source = sources[0] as Extract<Component, { kind: 'vsource' }>
-        const [plusPin, minusPin] = SUPPLY_PINS[board!.supply]
+        const [plusPin, minusPin] = SOURCE_PINS[lesson.id] ?? SUPPLY_PINS[board!.supply]
         terms.push({ name: `${source.id}.pos (${plusPin})`, node: find(source.pos), net: netOf.get(plusPin) })
         terms.push({ name: `${source.id}.neg (${minusPin})`, node: find(source.neg), net: netOf.get(minusPin) })
 
@@ -499,6 +517,18 @@ const expectedAnswers: Record<string, Record<string, number>> = {
     'two-red-9v': ((9 - 2 - 2) / 220) * 1000,
     'diode-plus-led': ((5 - 0.7 - 2) / 220) * 1000,
   },
+  'esp32-intro': {
+    'r-red-3v3': (3.3 - 2) / 0.01,
+    'blue-3v3-100': ((3.3 - 3) / 100) * 1000,
+  },
+  'level-shifting': {
+    'textbook-v': (5 * 2000) / 3000,
+    'echo-current': (5 / (5100 + 220 + 10000)) * 1000,
+  },
+  'esp32-wifi-led': {
+    'web-led-current': ((3.3 - 2) / 220) * 1000,
+    'green-r': (3.3 - 2.2) / 0.01,
+  },
 }
 
 describe('numeric quiz answers match hand calculations', () => {
@@ -536,6 +566,12 @@ describe('simulator values quoted in lesson text', () => {
     ['Day 2: red on 9 V, 1 kΩ, about 7 mA', 9, 1000, ['red'], 7],
     ['Day 8: two red, 220 Ω, about 5.6 mA', 5, 220, ['red', 'red'], 5.6],
     ['Day 8: two blue on 9 V, 220 Ω, about 13 mA', 9, 220, ['blue', 'blue'], 13],
+    ['Day 71: red on 3.3 V, 1 kΩ, about 1.5 mA', 3.3, 1000, ['red'], 1.5],
+    ['Day 71: red on 5 V, 1 kΩ, about 3.2 mA', 5, 1000, ['red'], 3.2],
+    ['Day 71: red on 3.3 V, 220 Ω, about 6 mA', 3.3, 220, ['red'], 6.4],
+    ['Day 71: red on 3.3 V, 100 Ω, about 13 mA', 3.3, 100, ['red'], 13.4],
+    ['Day 71: blue on 3.3 V, 100 Ω, about 3.6 mA', 3.3, 100, ['blue'], 3.6],
+    ['Day 71: red on 5 V, 100 Ω, about 29 mA', 5, 100, ['red'], 29],
   ] as const)('%s', (_label, volts, ohms, parts, quoted) => {
     expect(Math.abs(loop(volts, ohms, [...parts]) - quoted) / quoted).toBeLessThan(0.05)
   })
@@ -590,5 +626,51 @@ describe('challenges agree with what the lesson teaches', () => {
         }
       }
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Parts and topics
+
+describe('parts', () => {
+  const lessonIds = new Set(lessons.map((l) => l.id))
+  const topicIds = new Set(topics.map((t) => t.id))
+  it('has exactly one entry per PartId, found by getPart', () => {
+    expect(parts.map((p) => p.id).sort()).toEqual(Object.keys(PART_ANCHORS).sort())
+    for (const p of parts) expect(getPart(p.id)).toBe(p)
+    expect(getPart('nope')).toBeUndefined()
+  })
+  for (const p of parts) {
+    it(`${p.id}: features cover every model anchor once, and every reference resolves`, () => {
+      expect(p.features.map((f) => f.anchor).sort()).toEqual([...PART_ANCHORS[p.id]].sort())
+      for (const f of p.features) expect(f.title && f.detail, f.anchor).toBeTruthy()
+      expect(p.summary.length).toBeGreaterThan(20)
+      expect(p.howToConnect.length).toBeGreaterThan(0)
+      expect(p.mistakes.length).toBeGreaterThan(0)
+      if (p.availability.source === 'buy') expect(p.availability.price).toMatch(/\$/)
+      expect(p.topicIds.length).toBeGreaterThan(0)
+      for (const t of p.topicIds) expect(topicIds, t).toContain(t)
+      for (const r of p.related ?? []) expect(r === p.id ? undefined : getPart(r), r).toBeDefined()
+      for (const l of p.lessonIds ?? []) expect(lessonIds, l).toContain(l)
+    })
+  }
+  it('only the ESP32 needs buying: everything else is in the Elegoo Uno kit', () => {
+    expect(parts.filter((p) => p.availability.source === 'buy').map((p) => p.id)).toEqual(['esp32-devkit' satisfies PartId])
+  })
+})
+
+describe('topics', () => {
+  it('split days 1–100 between them, once each, in order', () => {
+    expect(new Set(topics.map((t) => t.id)).size).toBe(topics.length)
+    expect(topics.flatMap((t) => t.days)).toEqual(Array.from({ length: 100 }, (_, i) => i + 1))
+  })
+  it('list real lessons and parts, and every lesson sits in the topic that owns its day', () => {
+    for (const t of topics) {
+      expect(t.summary.length, t.id).toBeGreaterThan(20)
+      expect(t.partIds.length, t.id).toBeGreaterThan(0)
+      for (const id of t.lessonIds) expect(getLesson(id), `${t.id}: ${id}`).toBeDefined()
+      for (const id of t.partIds) expect(getPart(id)?.topicIds, `${t.id}: ${id}`).toContain(t.id)
+    }
+    for (const l of lessons) expect(topics.find((t) => t.days.includes(l.day))?.lessonIds, l.id).toContain(l.id)
   })
 })

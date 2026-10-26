@@ -71,3 +71,18 @@ Personas and step-by-step journeys for Ohmlab v1. Each journey ends with **succe
 - A wrong choice answer shows the chosen option's `why` and the correct option's `why`.
 - **Retry quiz** resets the questions. The best score is kept (a worse retry never lowers it) and persists across reloads.
 - Completion flips to true as soon as the best score reaches ≥ 80 % with all challenges done.
+
+## Journey 4: Theory-ready learner wiring an ESP32 (Arjun)
+
+Arjun, 17, has done JEE physics: Ohm's law and dividers are easy for him. He wants to know what the parts look like and how to wire them for real, and he has just bought an ESP32.
+
+1. From **Topics** he opens **ESP32 & wireless**. It lists Days 71–82 (71–73 interactive), and the parts ESP32 DevKit, HC-SR04, LED and resistor.
+2. In **Parts → ESP32 DevKit V1** he checks the hotspots (BOOT button, AMS1117, the two headers with the printed labels) and the pin notes: 3.3 V logic, input-only 34–39, strapping 0/2/12/15, ADC2 dead with WiFi. Availability says “buy (~$6–10)”.
+3. Day 71: he predicts that 1 kΩ on 3.3 V gives less than half the 5 V current, checks it in the lab (about 1.5 mA), and finishes the three challenges (100 Ω or 220 Ω on 3.3 V, 100 Ω for blue, 220 Ω on 5 V).
+4. Day 72: the lab starts with ECHO wired straight to D18 (5 V). He builds 1 kΩ / 2 kΩ (3.33 V), adds a 220 Ω trim (3.11 V), then scales up to 5.1 kΩ + 220 Ω over 10 kΩ (about 3.26 V, 0.33 mA). On the bench he measures the divider with VIN standing in for ECHO **before** connecting D18.
+5. Day 73: he types the sketch from the table, reads the IP in the Serial Monitor and turns the LED on from his phone. The lab tells him the simulator doesn’t run code, and the **GPIO23** control stands in for his taps.
+
+**Success criteria**
+- Topics, parts and lessons cross-link with no dead links. Every part feature matches a hotspot on its model.
+- The ESP32 lessons’ build steps highlight their `stepParts` on the breadboard, which is drawn with the ESP32 beside it.
+- Every ESP32 lesson can be completed in the simulator; no step claims the simulator runs the sketch.

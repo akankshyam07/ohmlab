@@ -6,6 +6,8 @@
 
 Complete beginners: no physics, no code. They usually own (or will buy) an Elegoo Uno starter kit. Every lesson assumes only the lessons before it.
 
+**Also:** learners who already know the theory (JEE prep, AP physics) and want the hands-on side: what parts look like, how to wire them for real, the ESP32, and topic-wise navigation. Lessons from Day 71 on are written for them: theory as one-line refreshers, the weight on wiring, pins, failure modes and the code. The **Parts** guide and **Topics** serve them on every day.
+
 ## Teaching method: predict → try → explain → check → build
 
 Every lesson runs the same loop.
@@ -26,7 +28,7 @@ Every lesson runs the same loop.
 | Predict (≥ 2) | A guess before a lab change | Unique id across all lessons; ≥ 3 options, exactly one correct, every option has a `why`; `tryIt` names a lab control by its exact label in bold; correct option not mostly first |
 | Lab | Circuit + grid layout, controls, click-to-change parts, readouts, 2–4 challenges in teaching order | Every challenge fails in the starting circuit and passes for at least one reachable setting (brute-force tested). Any choice option that burns a part from the starting circuit is `skipOnClick`; the starting value never is. No LED challenge passes while an LED is warned about (except the deliberate burn). Diagram labels use the part ids the text uses (`V1`, `R1`, `D1 (LED)`); the diagram appends the value itself |
 | Quiz (5–7) | `choice` (exactly one correct, every option has a `why`) and `numeric` (answer in its stated unit, tolerance, hint, explanation) | Every numeric answer is re-derived with plain arithmetic in the tests. Options are shuffled at runtime, but in the data at most half of a lesson's choice questions put the correct option first. The correct option's `why` never opens with "Right." / "Correct.", because the quiz also shows it as a correction |
-| Build it for real | Parts, steps, safety | Kit parts only: resistors 10 Ω–1 MΩ, red/yellow/green/blue/white LEDs, 1N4007, buttons, breadboard, Uno 5 V/GND, 9 V battery + snap. Steps start with the breadboard primer and say whether a multimeter is needed |
+| Build it for real | Parts, steps, `stepParts`, safety, breadboard drawing | Kit parts only: resistors 10 Ω–1 MΩ, red/yellow/green/blue/white LEDs, 1N4007, buttons, breadboard, Uno 5 V/GND, 9 V battery + snap. The ESP32 is the one exception: listed as “buy (~$6–10)”. Steps start with the breadboard primer and say whether a multimeter is needed. `stepParts` has one entry per step naming the breadboard parts it places or uses. When the drawing shows a later state than a step builds, a caption step says “it shows the board after step N” |
 
 ### Numbers in text
 
@@ -102,6 +104,29 @@ Lab: 5 V or 9 V across one 0.25 W resistor (10 Ω–1 kΩ; 10 Ω and 100 Ω burn
 
 Lab: V1 (5 V / 9 V) → R1 → D1 → D2 → D3 (1N4007 protection diode), with jumper S1 that skips D2 and switch S2 that bypasses D3; colour choice on both LEDs; flip D1; 100 Ω is `skipOnClick`. Predicts: adding the protection diode (about 10.7 mA); two blue LEDs on 5 V; D1 backwards on 9 V (REVERSE V). Challenges: an LED that takes over 2.7 V, two reds in series, two blues in series (needs 9 V), then reverse blocking on **5 V** with D1 not over-stressed. Coming from the 9 V two-blue challenge, the learner usually flips D1 on 9 V first, sees REVERSE V, and the hint sends them back to 5 V.
 
+### Day 71 — Meet the ESP32 (`esp32-intro`)
+- Identify the DevKit V1’s parts and headers (pin labels as printed: D23, RX2, VP…), and power it from USB, VIN or 3V3 safely.
+- Size an LED resistor for a 3.3 V pin and keep each pin under 20 mA.
+- Avoid input-only (34–39), strapping (0, 2, 12, 15) and ADC2-with-WiFi pins.
+
+Lab: V1 = GPIO23 (3.3 V; also Uno 5 V or LOW) → R1 → D1. Resistor 10 Ω (`skipOnClick`, burns) / 100 / 220 / 330 Ω / 1 kΩ; LED colour. Predicts: 1 kΩ moved from 5 V to 3.3 V (about 1.5 mA, under half); blue on 3.3 V with 100 Ω (about 3.6 mA). Challenges: red at 5–15 mA on 3.3 V, blue at ≥ 3 mA on 3.3 V, smallest safe resistor on the Uno’s 5 V (220 Ω).
+
+### Day 72 — 3.3 V ↔ 5 V: level shifting (`level-shifting`)
+- Explain why 5 V damages a 3.3 V input and when 3.3 V → 5 V works unaided.
+- Design a divider that brings HC-SR04 ECHO to a safe, readable HIGH, and measure it before connecting the pin.
+
+Lab: V1 = ECHO (5 V) → R1 (top) → R3 (trim, top) → R2 (bottom), probe D18. Starts wired straight (5 V on the pin). Challenges: the textbook 1 kΩ / 2 kΩ (3.33 V), 2.8–3.3 V with a trim, then the same window at ≤ 0.5 mA (5.1 kΩ + 220 Ω over 10 kΩ). The build tests the divider with VIN standing in for ECHO before D18 is connected.
+
+### Day 73 — WiFi: a web page that controls an LED (`esp32-wifi-led`)
+- Trace a tap to `digitalWrite`, read and adapt a `WebServer` sketch, find the IP and debug the usual failures.
+
+Lab: Day 71’s circuit with GPIO23 as a LOW/HIGH choice standing in for the taps; the lesson says plainly that the simulator doesn’t run code. The sketch is a code/explanation table, one piece per row (the content model has no code block yet). Challenges: tap ON; 10–15 mA by changing only the resistor.
+
+## Parts guide and topics
+
+- `src/content/parts/` exports `parts: PartInfo[]` and `getPart(id)`: one entry per `PartId`, with a feature for every model anchor in `PART_ANCHORS`, real pinouts, step-by-step wiring, common mistakes, availability, topics and related parts. Tests check that the anchors are complete and every reference resolves.
+- `src/content/topics.ts` exports seven topics (Basics, Arduino, Power & motors, Sensors & displays, Analog & logic, ESP32 & wireless, Make it permanent). Together they cover days 1–100 once each, in order. A topic’s parts are derived from the parts’ own `topicIds`, so the two never disagree, and every lesson is listed by the topic that owns its day.
+
 ## The 100 days in v1
 
 All 100 days appear on the curriculum map (`src/content/curriculum.ts`), grouped into 7 phases. Days with an interactive lesson link to it; every other day is shown as "Coming soon", never as a dead link.
@@ -113,7 +138,7 @@ All 100 days appear on the curriculum map (`src/content/curriculum.ts`), grouped
 | 3 | 29–40 | Driving real loads | — |
 | 4 | 41–56 | Sensors, displays, communication | — |
 | 5 | 57–70 | Circuits without a microcontroller | — |
-| 6 | 71–82 | Wireless and bigger chips | — |
+| 6 | 71–82 | Wireless and bigger chips | 71, 72, 73 |
 | 7 | 83–100 | Make it permanent (93–100: Capstone) | — |
 
 Days 3 (breadboards) and 4 (multimeter) are hands-on skills with nothing to simulate on a DC solver, so they wait for a future "bench" lesson type. Days 9–12 need a switch-focused lab (possible now) and capacitors/transients (not in the v1 solver; see ROADMAP.md). The capstone (days 93–100) is split into requirements, block diagram, breadboard prototype, firmware, KiCad, assembly, enclosure and documentation.
@@ -122,6 +147,6 @@ Days 3 (breadboards) and 4 (multimeter) are hands-on skills with nothing to simu
 
 1. Create `src/content/lessons/dayNN.ts` with a default-exported `Lesson`.
 2. Add it to `src/content/index.ts` and set `lessonId` on its day in `curriculum.ts`.
-3. Add every numeric quiz answer's hand calculation to `expectedAnswers` in `lessons.test.ts`.
+3. Add every numeric quiz answer's hand calculation to `expectedAnswers` in `lessons.test.ts`, and its drawn configuration to `BUILD_CONFIG` (plus `SOURCE_PINS` when the lab's source is an ESP32 GPIO or a stand-in rather than the supply pin).
 4. Add at least two `predict` blocks before the lab moments they set up, start `realBuild.steps` with the primers from `lessons/primer.ts`, and mark destructive choice options `skipOnClick`.
 5. Run `npx vitest run src/content`. The tests check ids, layout ↔ circuit consistency, wire current directions (KCL on the drawing), that every challenge is reachable and not already solved, predict and quiz rules (one correct option, a `why` for each, correct option not mostly first), `skipOnClick` placement, the build primers, and that no LED challenge passes while the simulator warns about an LED.

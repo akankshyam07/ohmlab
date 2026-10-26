@@ -1,4 +1,4 @@
-import type { BreadboardPart } from '../../viz/types'
+import type { BreadboardLayout, BreadboardPart } from '../../viz/types'
 import type { RichString } from '../types'
 
 // "Before you build" primers, shared by every realBuild until the Day 3 (breadboard) and
@@ -28,3 +28,21 @@ export const UNO_POWER: BreadboardPart[] = [
 
 export const UNO_POWER_STEP: RichString =
   'Power the rails: a **red** jumper from the Uno’s **5V** pin to the top **+** rail, and a **black** jumper from a **GND** pin to the top **−** rail.'
+
+/** ESP32 GND to the top − rail. Every ESP32 build starts with this wire. */
+export const ESP32_GND: BreadboardPart = { kind: 'wire', id: 'w-gnd', from: 'esp32:GND', to: 'T-1', color: 'black' }
+
+export const ESP32_GND_STEP: RichString =
+  'Ground first: a **black** jumper from one of the ESP32’s **GND** pins to the top **−** rail. The DevKit is too wide for one half-size breadboard, so it stays beside the board and male-to-female jumpers reach its pins.'
+
+/** GPIO23 → R1 (220 Ω) → red LED → GND, used by Day 71 and Day 73. */
+export const ESP32_LED_BOARD: BreadboardLayout = {
+  supply: 'esp32',
+  parts: [
+    ESP32_GND,
+    { kind: 'wire', id: 'w-gpio', from: 'esp32:GPIO23', to: 'a8', color: 'yellow' },
+    { kind: 'resistor', id: 'R1', from: 'c8', to: 'c12', ohms: 220 },
+    { kind: 'led', id: 'D1', anode: 'e12', cathode: 'e13', color: 'red' },
+    { kind: 'wire', id: 'w-minus', from: 'a13', to: 'T-13', color: 'black' },
+  ],
+}

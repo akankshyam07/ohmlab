@@ -116,9 +116,9 @@ export const phases: Phase[] = [
     title: 'Wireless and bigger chips',
     summary: 'Move to the 3.3 V ESP32 for WiFi and Bluetooth, run on batteries, and debug systematically.',
     days: days(71, [
-      'ESP32: what changes from the Uno (3.3V logic)',
-      'Level shifting between 3.3V and 5V',
-      'WiFi: a web page that controls an LED',
+      ['ESP32: what changes from the Uno (3.3V logic)', 'esp32-intro'],
+      ['Level shifting between 3.3V and 5V', 'level-shifting'],
+      ['WiFi: a web page that controls an LED', 'esp32-wifi-led'],
       'Reading sensors on your phone',
       'Bluetooth Low Energy',
       'MQTT: sending data to the cloud',

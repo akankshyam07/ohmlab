@@ -3,7 +3,7 @@ import type { BreadboardLayout, BreadboardPart, Hole } from '../viz/types'
 const NUM = '([1-9]|[12][0-9]|30)'
 const STRIP = new RegExp(`^([a-j])${NUM}$`)
 const RAIL = new RegExp(`^([TB][+-])${NUM}$`)
-const PIN = /^(uno:(5V|3V3|GND|VIN|D([2-9]|1[0-3])|A[0-5])|bat:[+-])$/
+const PIN = /^(uno:(5V|3V3|GND|VIN|D([2-9]|1[0-3])|A[0-5])|bat:[+-]|esp32:(3V3|VIN|GND|EN|GPIO([0-9]|[12][0-9]|3[0-9])))$/
 
 /**
  * The strip a hole belongs to, or null if the hole doesn't exist. Holes in one strip are joined by

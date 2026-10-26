@@ -8,6 +8,8 @@ export type Block =
   | { type: 'text'; text: RichString }
   | { type: 'callout'; tone: 'tip' | 'warn' | 'info'; title?: string; text: RichString }
   | { type: 'formula'; expr: string; caption?: RichString }
+  /** Source code shown verbatim with a copy button; `notes` explain it line by line (1-based line numbers). */
+  | { type: 'code'; language: 'cpp' | 'python' | 'text'; code: string; caption?: RichString; notes?: { line: number; text: RichString }[] }
   | { type: 'table'; head: string[]; rows: RichString[][] }
   /**
    * Predict-then-test: the learner commits to a guess before touching the lab. Picking an option reveals
@@ -150,4 +152,55 @@ export interface Phase {
   title: string
   summary: string
   days: CurriculumDay[]
+}
+
+/** A real-world part the learner can explore: a zoomable model with labelled features, plus how to use it. */
+export interface PartInfo {
+  id: PartId
+  name: string
+  category: 'board' | 'passive' | 'semiconductor' | 'input' | 'output' | 'sensor' | 'power' | 'tool'
+  summary: RichString
+  /** 'kit': in a typical Elegoo Uno starter kit; 'buy': needs buying (with a rough price). */
+  availability: { source: 'kit' } | { source: 'buy'; price: string }
+  /** Each feature is a hotspot on the model; `anchor` must be one of PART_ANCHORS[id]. */
+  features: { anchor: string; title: string; detail: RichString }[]
+  pins?: { name: string; detail: RichString }[]
+  /** Real-life wiring, step by step. */
+  howToConnect: RichString[]
+  mistakes: RichString[]
+  topicIds: string[]
+  related?: PartId[]
+  /** A lesson that uses this part, if any. */
+  lessonIds?: string[]
+}
+
+/** Named hotspot points each part model provides (the viz owns geometry; content owns the words). */
+export const PART_ANCHORS = {
+  'arduino-uno': ['usb', 'barrel-jack', 'regulator', 'atmega328p', 'crystal', 'reset-button', 'usb-chip', 'power-led', 'l-led', 'tx-rx-leds', 'digital-header', 'power-header', 'analog-header', 'icsp'],
+  'esp32-devkit': ['esp32-module', 'antenna', 'usb', 'usb-uart', 'regulator', 'en-button', 'boot-button', 'power-led', 'gpio2-led', 'left-header', 'right-header', 'pin-3v3', 'pin-vin', 'pin-gnd'],
+  breadboard: ['terminal-strip', 'centre-gap', 'power-rail-plus', 'power-rail-minus', 'column-numbers', 'row-letters'],
+  resistor: ['body', 'bands', 'tolerance-band', 'lead'],
+  led: ['lens', 'anode-leg', 'cathode-leg', 'flat-edge', 'die'],
+  'push-button': ['plunger', 'legs-connected', 'legs-switched'],
+  potentiometer: ['knob', 'pin-end-a', 'pin-wiper', 'pin-end-b'],
+  'electrolytic-capacitor': ['can', 'negative-stripe', 'long-leg', 'vent'],
+  'diode-1n4007': ['body', 'cathode-band', 'anode-lead', 'cathode-lead'],
+  'servo-sg90': ['horn', 'case', 'wire-signal', 'wire-power', 'wire-ground'],
+  'hc-sr04': ['transmitter', 'receiver', 'pin-vcc', 'pin-trig', 'pin-echo', 'pin-gnd', 'crystal'],
+  'jumper-wire': ['male-pin', 'female-socket', 'housing'],
+  'battery-9v': ['battery', 'snap', 'lead-red', 'lead-black'],
+} as const satisfies Record<string, readonly string[]>
+
+export type PartId = keyof typeof PART_ANCHORS
+
+/** Topic-wise entry point, cutting across the day-by-day curriculum. */
+export interface Topic {
+  id: string
+  title: string
+  summary: RichString
+  /** Lessons in suggested order (ids from `lessons`). */
+  lessonIds: string[]
+  partIds: PartId[]
+  /** Curriculum days that belong to this topic (including ones without a lesson yet). */
+  days: number[]
 }
