@@ -11,6 +11,13 @@ describe('parseHash', () => {
     ['#/lesson/first-led/quiz', { name: 'lesson', id: 'first-led', step: 'quiz' }],
     ['#/achievements', { name: 'achievements' }],
     ['#/settings', { name: 'settings' }],
+    ['#/topics', { name: 'topics' }],
+    ['#/topics/esp32-wireless', { name: 'topic', id: 'esp32-wireless' }],
+    ['#/topics/a/b', { name: 'notFound' }],
+    ['#/parts', { name: 'parts' }],
+    ['#/parts/esp32-devkit', { name: 'part', id: 'esp32-devkit' }],
+    ['#/parts/esp32-devkit/antenna', { name: 'part', id: 'esp32-devkit', anchor: 'antenna' }],
+    ['#/parts/a/b/c', { name: 'notFound' }],
     ['#/lesson', { name: 'notFound' }],
     ['#/lesson/a/b/c', { name: 'notFound' }],
     ['#/settings/extra', { name: 'notFound' }],
@@ -32,5 +39,7 @@ describe('navKind', () => {
     expect(navKind({ name: 'lesson', id: 'a' }, { name: 'lesson', id: 'a', step: 'quiz' })).toBe('step')
     expect(navKind({ name: 'lesson', id: 'a' }, { name: 'lesson', id: 'b' })).toBe('page')
     expect(navKind({ name: 'home' }, { name: 'lesson', id: 'a' })).toBe('page')
+    expect(navKind({ name: 'part', id: 'led' }, { name: 'part', id: 'led', anchor: 'lens' })).toBe('anchor')
+    expect(navKind({ name: 'part', id: 'led' }, { name: 'part', id: 'resistor' })).toBe('page')
   })
 })

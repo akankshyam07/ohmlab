@@ -1,12 +1,16 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { getLesson, lessons, phases } from '../content'
-import type { Phase } from '../content/types'
+import { getPart } from '../content/parts'
+import { topics } from '../content/topics'
+import type { PartInfo, Phase } from '../content/types'
 import { achievements } from '../progress/achievements'
 import { useProgress } from '../progress/store'
 import { SyncNudge } from '../auth/Account'
 import { Icon } from '../ui/primitives'
 import { continueTarget, lessonState } from './curriculum'
 import { HeroBench } from './HeroBench'
+import { PartTile } from './parts'
+import { TopicCard } from './topics'
 import { href } from './router'
 import './home.css'
 
@@ -100,6 +104,27 @@ export function Home() {
         </dl>
         <SyncNudge />
       </section>
+
+      <section className="home-topics" aria-labelledby="home-topics-title">
+        <div className="section-head section-head-row">
+          <div>
+            <h2 id="home-topics-title">Jump in by topic</h2>
+            <p>Know the theory already? Go straight to the hands-on part you need.</p>
+          </div>
+          <a className="btn btn-ghost" href={href('topics')}>
+            All topics <Icon name="right" size={18} />
+          </a>
+        </div>
+        <ul className="topic-row">
+          {topics.map((t) => (
+            <li key={t.id}>
+              <TopicCard topic={t} compact />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <PartsTeaser />
 
       <section className="map" id="phase-map" aria-labelledby="map-title">
         <div className="section-head">
@@ -270,5 +295,33 @@ function HeroWaves() {
         />
       </svg>
     </div>
+  )
+}
+
+const FEATURED_PARTS = ['esp32-devkit', 'arduino-uno'] as const
+
+/** Two real boards up close, as a way into the Parts pages. */
+function PartsTeaser() {
+  const featured = FEATURED_PARTS.map((id) => getPart(id)).filter((p): p is PartInfo => Boolean(p))
+  if (featured.length === 0) return null
+  return (
+    <section className="home-parts" aria-labelledby="home-parts-title">
+      <div className="section-head section-head-row">
+        <div>
+          <h2 id="home-parts-title">Explore real parts</h2>
+          <p>Turn the boards you’ll wire, zoom into every pin, chip and LED, and see how each one connects.</p>
+        </div>
+        <a className="btn btn-ghost" href={href('parts')}>
+          All parts <Icon name="right" size={18} />
+        </a>
+      </div>
+      <ul className="part-feature-row">
+        {featured.map((p) => (
+          <li key={p.id}>
+            <PartTile part={p} featured />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

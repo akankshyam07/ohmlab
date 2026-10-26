@@ -184,6 +184,16 @@ describe('BuildGuide wiring diagram', () => {
     )
   })
 
+  it('marks parts that are not in the kit and links kit lines to their part pages', () => {
+    render(<Guide build={{ ...build, parts: ['ESP32 DevKit V1 (30-pin)', '1 red LED', 'A phone on WiFi'] }} />)
+    expect(screen.getByText(/Here’s everything you need/)).toBeInTheDocument()
+    const parts = screen.getByRole('group', { name: /Parts/ })
+    expect(within(parts).getByRole('checkbox', { name: /ESP32 DevKit/ })).toHaveAccessibleName(/Not in the kit · ~\$/)
+    expect(within(parts).getByRole('checkbox', { name: '1 red LED' })).toBeInTheDocument()
+    expect(within(parts).getByRole('link', { name: /About the ESP32/ })).toHaveAttribute('href', '#/parts/esp32-devkit')
+    expect(within(parts).getAllByRole('link')).toHaveLength(2)
+  })
+
   it('without a layout, steps stay a plain list', () => {
     render(<Guide build={{ ...build, breadboard: undefined }} />)
     expect(screen.queryByRole('figure')).not.toBeInTheDocument()

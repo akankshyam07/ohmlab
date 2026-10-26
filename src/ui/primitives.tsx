@@ -27,9 +27,12 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 
 const ICONS = {
   learn: 'M3 12h4l2-5 3 10 3-10 2 5h4',
+  topics: 'M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z',
+  chip: 'M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4M10 10h4v4h-4z',
   trophy: 'M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4',
   gear: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1',
   check: 'M5 12.5l4.5 4.5L19 7.5',
+  copy: 'M9 9h10v11H9zM5 15V4h10',
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z',
   clock: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   left: 'M15 5l-7 7 7 7',

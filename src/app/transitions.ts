@@ -1,7 +1,7 @@
 import { flushSync } from 'react-dom'
 
 /** Kinds of change, set as `data-nav` on <html> while their view transition runs: CSS names and animates by kind. */
-export type NavKind = 'page' | 'step'
+export type NavKind = 'page' | 'step' | 'anchor'
 
 let running: ViewTransition | null = null
 

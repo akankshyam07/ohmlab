@@ -3,6 +3,8 @@ import { ProgressProvider, useProgress } from './progress/store'
 import { Home } from './app/Home'
 import { LessonPage } from './app/LessonPage'
 import { AchievementsPage, NotFound, SettingsPage } from './app/pages'
+import { PartPage, PartsPage } from './app/parts'
+import { TopicPage, TopicsPage } from './app/topics'
 import { href, navKind, useRoute, type Route } from './app/router'
 import { afterViewTransition } from './app/transitions'
 import { SettingsProvider } from './app/settings'
@@ -23,9 +25,12 @@ export default function App() {
   )
 }
 
-const NAV: { label: string; icon: IconName; path: string[]; match: Route['name'][] }[] = [
+// `short` is the label phones show; the link keeps the full label as its accessible name.
+const NAV: { label: string; short?: string; icon: IconName; path: string[]; match: Route['name'][] }[] = [
   { label: 'Learn', icon: 'learn', path: [], match: ['home', 'lesson'] },
-  { label: 'Achievements', icon: 'trophy', path: ['achievements'], match: ['achievements'] },
+  { label: 'Topics', icon: 'topics', path: ['topics'], match: ['topics', 'topic'] },
+  { label: 'Parts', icon: 'chip', path: ['parts'], match: ['parts', 'part'] },
+  { label: 'Achievements', short: 'Awards', icon: 'trophy', path: ['achievements'], match: ['achievements'] },
   { label: 'Settings', icon: 'gear', path: ['settings'], match: ['settings'] },
 ]
 
@@ -43,8 +48,11 @@ function Shell() {
     const from = previous.current
     previous.current = route
     if (JSON.stringify(from) === routeKey) return
+    const kind = navKind(from, route)
+    // A part page's anchor (#/parts/:id/:anchor) only moves the camera; the page handles it.
+    if (kind === 'anchor') return
     const heading = document.querySelector<HTMLElement>('[data-autofocus]')
-    if (navKind(from, route) === 'page') {
+    if (kind === 'page') {
       window.scrollTo(0, 0)
       ;(heading ?? main.current)?.focus({ preventScroll: true })
       return
@@ -77,9 +85,18 @@ function Shell() {
             <ul>
               {NAV.map((item) => (
                 <li key={item.label}>
-                  <a href={href(...item.path)} aria-current={item.match.includes(route.name) ? 'page' : undefined}>
+                  <a
+                    href={href(...item.path)}
+                    aria-label={item.short ? item.label : undefined}
+                    aria-current={item.match.includes(route.name) ? 'page' : undefined}
+                  >
                     <Icon name={item.icon} size={20} />
-                    <span>{item.label}</span>
+                    <span className="nav-label">{item.label}</span>
+                    {item.short && (
+                      <span className="nav-short" aria-hidden="true">
+                        {item.short}
+                      </span>
+                    )}
                   </a>
                 </li>
               ))}
@@ -92,6 +109,10 @@ function Shell() {
       <main id="main" ref={main} tabIndex={-1}>
         {route.name === 'home' && <Home />}
         {route.name === 'lesson' && <LessonPage id={route.id} step={route.step} />}
+        {route.name === 'topics' && <TopicsPage />}
+        {route.name === 'topic' && <TopicPage id={route.id} />}
+        {route.name === 'parts' && <PartsPage />}
+        {route.name === 'part' && <PartPage id={route.id} anchor={route.anchor} />}
         {route.name === 'achievements' && <AchievementsPage />}
         {route.name === 'settings' && <SettingsPage />}
         {route.name === 'notFound' && <NotFound />}

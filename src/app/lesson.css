@@ -631,6 +631,208 @@
   font-size: var(--fs-sm);
 }
 
+/* ---------- Code ---------- */
+
+.blk-code {
+  margin-inline: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.blk-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.blk-code-lang {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.blk-code-copy {
+  min-height: 40px;
+  padding-inline: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.blk-code-copy[data-copied] {
+  color: var(--ok);
+}
+
+/* Scrolls sideways inside its frame (never widens the page); inline-size containment keeps long lines out of
+   the layout's min-content. */
+.blk-code-scroll {
+  contain: inline-size;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+.blk-code-scroll:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: -2px;
+}
+
+.blk-code pre {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: var(--sp-3) 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+/* Undo the inline-code pill: here <code> is a block of block lines. */
+.blk-code code {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+
+.blk-code-line {
+  display: block;
+  padding-right: var(--sp-4);
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out);
+}
+
+.blk-code-line[data-hot] {
+  background: color-mix(in srgb, var(--sig-current) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--sig-current);
+}
+
+.blk-code-ln {
+  display: inline-block;
+  width: 3.2em;
+  padding-right: var(--sp-3);
+  color: var(--text-faint);
+  text-align: right;
+  user-select: none;
+}
+
+.blk-code-src {
+  white-space: pre;
+  color: var(--text);
+}
+
+.tok-keyword {
+  color: var(--sig-resistance);
+}
+
+.tok-string {
+  color: var(--ok);
+}
+
+.tok-comment {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.tok-number {
+  color: var(--sig-voltage);
+}
+
+.tok-preprocessor {
+  color: var(--sig-power);
+}
+
+.blk-code-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: var(--sp-2);
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--sig-current) 20%, transparent);
+  color: var(--sig-current);
+  font-size: 11px;
+  line-height: 1;
+  vertical-align: 1px;
+  user-select: none;
+}
+
+.blk-code figcaption {
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.blk-code-notes {
+  display: grid;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: var(--sp-2);
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+  list-style: none;
+}
+
+.blk-code-notes li {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  cursor: default;
+  transition: background-color var(--dur-med) var(--ease-out);
+}
+
+.blk-code-notes li[data-hot] {
+  background: color-mix(in srgb, var(--sig-current) 9%, transparent);
+}
+
+.blk-code-notes li:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 0;
+}
+
+.blk-code-note-num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sig-current) 20%, transparent);
+  color: var(--sig-current);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.blk-code-note-line {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+@media (max-width: 639px) {
+  .blk-code pre {
+    font-size: 13px;
+  }
+
+  .blk-code-ln {
+    width: 2.6em;
+    padding-right: var(--sp-2);
+  }
+}
+
 .blk-table {
   overflow-x: auto;
   border-radius: var(--radius-md);
@@ -768,6 +970,39 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.build-parts li {
+  position: relative;
+}
+
+.build-buy {
+  display: flex;
+  width: fit-content;
+  margin-top: var(--sp-1);
+  white-space: normal;
+}
+
+/* "About the …" link to the part's page, at the right end of its checklist row. */
+.build-parts li:has(.build-part-link) label {
+  padding-right: 52px;
+}
+
+.build-part-link {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-1);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  color: var(--brand-strong);
+  transform: translateY(-50%);
+}
+
+.build-part-link:hover {
+  background: var(--surface-3);
 }
 
 .build-parts label {

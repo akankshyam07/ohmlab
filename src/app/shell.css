@@ -133,6 +133,10 @@
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 70%, transparent));
 }
 
+.nav-short {
+  display: none;
+}
+
 @media (max-width: 639px) {
   .shell > main {
     padding: var(--sp-5) var(--sp-4) var(--sp-7);
@@ -148,15 +152,49 @@
     display: none;
   }
 
+  /* Five tabs: icon over a short label ("Awards"), tight enough for 375 px beside the brand and account. */
+  .topnav ul {
+    gap: 0;
+  }
+
   .topnav a {
     flex-direction: column;
     justify-content: center;
     gap: 2px;
-    min-width: 56px;
-    padding: 2px var(--sp-2);
+    min-width: 46px;
+    padding: 2px var(--sp-1);
     border-radius: var(--radius-md);
-    font-size: var(--fs-xs);
+    font-size: 11px;
     font-family: var(--font-body);
+  }
+
+  .topnav a:has(.nav-short) .nav-label {
+    display: none;
+  }
+
+  .nav-short {
+    display: inline;
+  }
+}
+
+/* Narrowest phones: icons only (each link keeps its name). */
+@media (max-width: 359px) {
+  .topnav a {
+    min-width: 44px;
+  }
+
+  .nav-label,
+  .nav-short {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .topnav a:has(.nav-short) .nav-label {
+    display: inline;
   }
 }
 

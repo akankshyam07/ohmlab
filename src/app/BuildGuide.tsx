@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import type { RealBuild, RichString } from '../content/types'
+import { getPart } from '../content/parts'
+import type { PartId, PartInfo, RealBuild, RichString } from '../content/types'
 import type { Circuit, SolveResult } from '../sim/types'
 import { Icon } from '../ui/primitives'
 import { RichText } from '../ui/RichText'
 import { BreadboardView } from '../viz/BreadboardView'
 import { IsoBench } from '../viz/iso/IsoBench'
+import { href } from './router'
 import type { BreadboardLayout } from '../viz/types'
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -14,6 +16,29 @@ export function partIdsInStep(step: RichString, layout: BreadboardLayout): strin
   return layout.parts
     .map((p) => p.id)
     .filter((id) => id && new RegExp(`(?<![\\w-])${escapeRegExp(id)}(?![\\w-])`).test(step))
+}
+
+// Kit-list wording → the part page it is about (first match wins; "Elegoo Uno and USB cable" is the Uno).
+const KIT_LINE_PARTS: [RegExp, PartId][] = [
+  [/\besp32\b/i, 'esp32-devkit'],
+  [/\buno\b/i, 'arduino-uno'],
+  [/breadboard/i, 'breadboard'],
+  [/1N400\d|\bdiode/i, 'diode-1n4007'],
+  [/\bLEDs?\b/, 'led'],
+  [/resistor/i, 'resistor'],
+  [/potentiometer/i, 'potentiometer'],
+  [/capacitor/i, 'electrolytic-capacitor'],
+  [/push ?button|\bbutton/i, 'push-button'],
+  [/servo|SG90/i, 'servo-sg90'],
+  [/HC-SR04|ultrasonic/i, 'hc-sr04'],
+  [/9 ?V\b.*batter|batter.*9 ?V/i, 'battery-9v'],
+  [/jumper|wires?\b/i, 'jumper-wire'],
+]
+
+/** The part page a kit-list line is about, when there is one. */
+export function partForKitLine(line: RichString): PartInfo | undefined {
+  const hit = KIT_LINE_PARTS.find(([re]) => re.test(line))
+  return hit ? getPart(hit[1]) : undefined
 }
 
 /** The parts build step `i` lights up: the authored `stepParts[i]`, else (no `stepParts` at all) the ids its text names. */
@@ -72,7 +97,7 @@ export function BuildGuide({
 
   return (
     <>
-      <p className="blk-text">Time to leave the simulator. Here is everything you need from your kit.</p>
+      <p className="blk-text">Time to leave the simulator. Here’s everything you need.</p>
       {build.safety && build.safety.length > 0 && (
         <aside className="blk-callout build-safety" data-tone="warn" role="note">
           <p className="blk-callout-title">Before you plug anything in</p>
@@ -93,23 +118,36 @@ export function BuildGuide({
           </span>
         </legend>
         <ul>
-          {build.parts.map((p) => (
-            <li key={p}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={have.includes(p)}
-                  onChange={(e) => setHave((h) => (e.target.checked ? [...h, p] : h.filter((x) => x !== p)))}
-                />
-                <span className="build-check" aria-hidden="true">
-                  <Icon name="check" size={14} />
-                </span>
-                <span>
-                  <RichText text={p} />
-                </span>
-              </label>
-            </li>
-          ))}
+          {build.parts.map((p) => {
+            const info = partForKitLine(p)
+            return (
+              <li key={p}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={have.includes(p)}
+                    onChange={(e) => setHave((h) => (e.target.checked ? [...h, p] : h.filter((x) => x !== p)))}
+                  />
+                  <span className="build-check" aria-hidden="true">
+                    <Icon name="check" size={14} />
+                  </span>
+                  <span>
+                    <RichText text={p} />
+                    {info?.availability.source === 'buy' && (
+                      <span className="chip part-badge build-buy" data-tone="buy">
+                        Not in the kit · ~{info.availability.price.replace(/^~/, '')}
+                      </span>
+                    )}
+                  </span>
+                </label>
+                {info && (
+                  <a className="build-part-link" href={href('parts', info.id)} aria-label={`About the ${info.name}`}>
+                    <Icon name="chip" size={18} />
+                  </a>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </fieldset>
       {layout && !staged && (

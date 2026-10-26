@@ -1,10 +1,12 @@
-import { useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import type { Block } from '../content/types'
 import { Icon } from '../ui/primitives'
 import { RichText } from '../ui/RichText'
+import { highlight } from './highlight'
 
 type Walkthrough = Extract<Block, { type: 'walkthrough' }>
 type Predict = Extract<Block, { type: 'predict' }>
+type Code = Extract<Block, { type: 'code' }>
 
 const CALLOUT_TITLES = { tip: 'Tip', warn: 'Careful', info: 'Good to know' } as const
 
@@ -64,6 +66,8 @@ export function BlockView({ block, onHighlight }: { block: Block; onHighlight: (
           </table>
         </div>
       )
+    case 'code':
+      return <CodeView block={block} />
     case 'walkthrough':
       return <WalkthroughView block={block} onHighlight={onHighlight} />
     case 'predict':
@@ -235,5 +239,134 @@ function PredictView({ block }: { block: Predict }) {
         </div>
       )}
     </section>
+  )
+}
+
+const LANGUAGE_NAMES: Record<Code['language'], string> = { cpp: 'Arduino C++', python: 'Python', text: 'Text' }
+
+/** Put text on the clipboard: the async API where allowed, else a hidden textarea and execCommand. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    const area = document.createElement('textarea')
+    area.value = text
+    area.setAttribute('readonly', '')
+    area.style.position = 'fixed'
+    area.style.opacity = '0'
+    document.body.append(area)
+    area.select()
+    try {
+      return document.execCommand('copy')
+    } catch {
+      return false
+    } finally {
+      area.remove()
+    }
+  }
+}
+
+/**
+ * A code panel: highlighted source with line numbers (both out of text selection), "Copy code", and numbered
+ * notes; hovering or focusing a note lights its line. The code scrolls sideways inside its own frame.
+ */
+function CodeView({ block }: { block: Code }) {
+  const lines = highlight(block.code, block.language)
+  const notes = [...(block.notes ?? [])].sort((a, b) => a.line - b.line)
+  const [hot, setHot] = useState<number | null>(null)
+  const [copied, setCopied] = useState<'yes' | 'failed' | null>(null)
+  const label = LANGUAGE_NAMES[block.language]
+  const notesId = useId()
+
+  useEffect(() => {
+    if (!copied) return
+    const t = window.setTimeout(() => setCopied(null), 2000)
+    return () => window.clearTimeout(t)
+  }, [copied])
+
+  return (
+    <figure className="blk-code">
+      <div className="blk-code-bar">
+        <span className="blk-code-lang mono">{label}</span>
+        <button
+          type="button"
+          className="btn btn-ghost blk-code-copy"
+          data-copied={copied === 'yes' || undefined}
+          onClick={async () => setCopied((await copyText(block.code)) ? 'yes' : 'failed')}
+        >
+          <Icon name={copied === 'yes' ? 'check' : 'copy'} size={16} />
+          {copied === 'yes' ? 'Copied' : 'Copy code'}
+        </button>
+        <span className="sr-only" role="status">
+          {copied === 'yes' ? 'Code copied to the clipboard' : copied === 'failed' ? 'Copying failed: select the code and copy it' : ''}
+        </span>
+      </div>
+      <div
+        className="blk-code-scroll"
+        role="region"
+        aria-label={`${label} code`}
+        aria-describedby={notes.length ? notesId : undefined}
+        tabIndex={0}
+      >
+        <pre>
+          <code>
+            {lines.map((tokens, i) => {
+              const n = i + 1
+              const marks = notes.flatMap((note, k) => (note.line === n ? [k + 1] : []))
+              return (
+                <span key={i} className="blk-code-line" data-hot={hot === n || undefined}>
+                  <span className="blk-code-ln" aria-hidden="true">
+                    {n}
+                  </span>
+                  <span className="blk-code-src">
+                    {tokens.map((t, j) =>
+                      t.kind === 'plain' ? t.text : (
+                        <span key={j} className={`tok-${t.kind}`}>
+                          {t.text}
+                        </span>
+                      ),
+                    )}
+                  </span>
+                  {marks.map((k) => (
+                    <span key={k} className="blk-code-mark mono" aria-hidden="true">
+                      {k}
+                    </span>
+                  ))}
+                  {'\n'}
+                </span>
+              )
+            })}
+          </code>
+        </pre>
+      </div>
+      {block.caption && (
+        <figcaption>
+          <RichText text={block.caption} />
+        </figcaption>
+      )}
+      {notes.length > 0 && (
+        <ol className="blk-code-notes" id={notesId} aria-label="Notes on the code">
+          {notes.map((note, k) => (
+            <li
+              key={k}
+              tabIndex={0}
+              data-hot={hot === note.line || undefined}
+              onMouseEnter={() => setHot(note.line)}
+              onMouseLeave={() => setHot(null)}
+              onFocus={() => setHot(note.line)}
+              onBlur={() => setHot(null)}
+            >
+              <span className="blk-code-note-num mono" aria-hidden="true">
+                {k + 1}
+              </span>
+              <span>
+                <span className="blk-code-note-line mono">Line {note.line}</span> <RichText text={note.text} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </figure>
   )
 }

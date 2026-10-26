@@ -127,6 +127,12 @@
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
 }
 
+/* Needs buying (not in the starter kit). */
+.chip[data-tone='buy'] {
+  border-color: color-mix(in srgb, var(--sig-voltage) 50%, transparent);
+  color: var(--sig-voltage);
+}
+
 .chip[data-tone='brand'] {
   color: var(--brand-strong);
   border-color: color-mix(in srgb, var(--brand) 45%, transparent);
